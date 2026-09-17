@@ -80,12 +80,16 @@ def register_company(
 			# Deliberately NOT "System Manager": that role bypasses block_modules
 			# (Frappe treats it as admin-equivalent for the trial-blocking check
 			# in desk.py), which would make the 1-month trial cutoff a no-op.
+			# Deliberately no "Projects Manager": the company dashboard should not
+			# expose Projets (or Organisation/Club Sportif, which carry no
+			# ERPNext business role at all and are Sitiame-internal/admin-only).
 			"roles": [
 				{"role": "Accounts Manager"},
 				{"role": "Sales Manager"},
 				{"role": "Purchase Manager"},
 				{"role": "Stock Manager"},
-				{"role": "Projects Manager"},
+				{"role": "Manufacturing Manager"},
+				{"role": "Quality Manager"},
 			],
 		}
 	)
