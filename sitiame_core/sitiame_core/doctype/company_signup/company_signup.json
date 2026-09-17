@@ -1,0 +1,90 @@
+{
+ "doctype": "DocType",
+ "name": "Company Signup",
+ "module": "Sitiame Core",
+ "custom": 0,
+ "autoname": "field:email",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "contact_name",
+  "email",
+  "phone",
+  "column_break_1",
+  "company",
+  "company_sigle",
+  "sector",
+  "rccm",
+  "address",
+  "city"
+ ],
+ "fields": [
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Nom du responsable",
+   "reqd": 1
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Telephone"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "company_sigle",
+   "fieldtype": "Data",
+   "label": "Sigle"
+  },
+  {
+   "fieldname": "sector",
+   "fieldtype": "Select",
+   "label": "Secteur d'activite",
+   "options": "\nTechnologies & IT\nCommerce & Retail\nServices\nIndustrie\nSante\nEducation\nAutres"
+  },
+  {
+   "fieldname": "rccm",
+   "fieldtype": "Data",
+   "label": "Numero RCCM / SIRET"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "label": "Adresse complete"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "Ville"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

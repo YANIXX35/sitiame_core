@@ -1,0 +1,165 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Inscription entreprise | Sitiame Capital{% endblock %}
+
+{% block page_content %}
+<style>
+	.signup-wrap { max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+	.signup-wrap h1 { font-size: 1.6rem; margin-bottom: .25rem; color: #05157c; }
+	.signup-wrap .subtitle { color: #666; margin-bottom: 1.5rem; }
+	.signup-section { font-weight: 600; margin: 1.5rem 0 .75rem; color: #05157c; border-bottom: 2px solid #d4af37; padding-bottom: .25rem; }
+	.signup-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+	.signup-field { flex: 1 1 260px; }
+	.signup-field label { display: block; font-size: .85rem; margin-bottom: .25rem; color: #333; }
+	.signup-field input, .signup-field select {
+		width: 100%; padding: .55rem .7rem; border: 1px solid #ccc; border-radius: 6px; font-size: .95rem;
+	}
+	#signup-submit {
+		background: #05157c; color: #fff; border: none; padding: .7rem 1.5rem; border-radius: 6px;
+		font-size: 1rem; cursor: pointer; margin-top: .5rem;
+	}
+	#signup-submit:disabled { opacity: .6; cursor: not-allowed; }
+	#signup-error { color: #b30000; margin-top: .75rem; display: none; }
+	#signup-success { color: #0a6e0a; margin-top: .75rem; display: none; }
+</style>
+
+<div class="signup-wrap">
+	<h1>Inscrire votre entreprise</h1>
+	<p class="subtitle">Créez votre compte Sitiame Capital sur ERPNext.</p>
+
+	<form id="signup-form">
+		<div class="signup-section">Votre compte</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="contact_name">Nom du responsable *</label>
+				<input type="text" id="contact_name" name="contact_name" required>
+			</div>
+			<div class="signup-field">
+				<label for="email">Email professionnel *</label>
+				<input type="email" id="email" name="email" required>
+			</div>
+		</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="phone">Téléphone</label>
+				<input type="tel" id="phone" name="phone">
+			</div>
+			<div class="signup-field">
+				<label for="password">Mot de passe * (8 caractères minimum)</label>
+				<input type="password" id="password" name="password" minlength="8" required>
+			</div>
+		</div>
+
+		<div class="signup-section">Votre entreprise</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="company_name">Nom de l'entreprise *</label>
+				<input type="text" id="company_name" name="company_name" required>
+			</div>
+			<div class="signup-field">
+				<label for="company_sigle">Sigle usuel</label>
+				<input type="text" id="company_sigle" name="company_sigle">
+			</div>
+		</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="company_tax_id">N° d'identification fiscale (NIF)</label>
+				<input type="text" id="company_tax_id" name="company_tax_id">
+			</div>
+			<div class="signup-field">
+				<label for="sector">Secteur d'activité</label>
+				<select id="sector" name="sector">
+					<option value="">Secteur d'activité</option>
+					<option value="Technologies & IT">Technologies &amp; IT</option>
+					<option value="Commerce & Retail">Commerce &amp; Retail</option>
+					<option value="Services">Services</option>
+					<option value="Industrie">Industrie</option>
+					<option value="Sante">Santé</option>
+					<option value="Education">Éducation</option>
+					<option value="Autres">Autres</option>
+				</select>
+			</div>
+		</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="rccm">Numéro RCCM / SIRET</label>
+				<input type="text" id="rccm" name="rccm">
+			</div>
+			<div class="signup-field">
+				<label for="city">Ville</label>
+				<input type="text" id="city" name="city">
+			</div>
+		</div>
+		<div class="signup-row">
+			<div class="signup-field">
+				<label for="address">Adresse complète</label>
+				<input type="text" id="address" name="address">
+			</div>
+		</div>
+
+		<button type="submit" id="signup-submit">Créer mon compte</button>
+		<div id="signup-error"></div>
+		<div id="signup-success">Compte créé, connexion en cours...</div>
+	</form>
+</div>
+
+<script>
+document.getElementById("signup-form").addEventListener("submit", function (e) {
+	e.preventDefault();
+
+	var errorBox = document.getElementById("signup-error");
+	var successBox = document.getElementById("signup-success");
+	var submitBtn = document.getElementById("signup-submit");
+	errorBox.style.display = "none";
+	successBox.style.display = "none";
+	submitBtn.disabled = true;
+	submitBtn.textContent = "Création en cours...";
+
+	var payload = {
+		contact_name: document.getElementById("contact_name").value,
+		email: document.getElementById("email").value,
+		phone: document.getElementById("phone").value,
+		password: document.getElementById("password").value,
+		company_name: document.getElementById("company_name").value,
+		company_sigle: document.getElementById("company_sigle").value,
+		company_tax_id: document.getElementById("company_tax_id").value,
+		sector: document.getElementById("sector").value,
+		rccm: document.getElementById("rccm").value,
+		address: document.getElementById("address").value,
+		city: document.getElementById("city").value,
+	};
+
+	fetch("/api/method/sitiame_core.api.register_company", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	})
+		.then(function (res) {
+			return res.json().then(function (data) {
+				return { ok: res.ok, data: data };
+			});
+		})
+		.then(function (result) {
+			if (result.ok && result.data.message && result.data.message.success) {
+				successBox.style.display = "block";
+				window.location.href = result.data.message.redirect || "/app";
+			} else {
+				var msg =
+					(result.data.exception && result.data.exception.split(":").pop()) ||
+					(result.data._server_messages && result.data._server_messages) ||
+					"Une erreur est survenue, veuillez réessayer.";
+				errorBox.textContent = msg;
+				errorBox.style.display = "block";
+				submitBtn.disabled = false;
+				submitBtn.textContent = "Créer mon compte";
+			}
+		})
+		.catch(function () {
+			errorBox.textContent = "Impossible de contacter le serveur, veuillez réessayer.";
+			errorBox.style.display = "block";
+			submitBtn.disabled = false;
+			submitBtn.textContent = "Créer mon compte";
+		});
+});
+</script>
+{% endblock %}
