@@ -16,7 +16,10 @@
   "sector",
   "rccm",
   "address",
-  "city"
+  "city",
+  "section_break_trial",
+  "trial_ends_on",
+  "trial_blocked"
  ],
  "fields": [
   {
@@ -73,6 +76,22 @@
    "fieldname": "city",
    "fieldtype": "Data",
    "label": "Ville"
+  },
+  {
+   "fieldname": "section_break_trial",
+   "fieldtype": "Section Break",
+   "label": "Essai gratuit"
+  },
+  {
+   "fieldname": "trial_ends_on",
+   "fieldtype": "Date",
+   "label": "Fin de l'essai gratuit"
+  },
+  {
+   "fieldname": "trial_blocked",
+   "fieldtype": "Check",
+   "label": "Modules Facturation/Comptabilite/Tresorerie bloques",
+   "default": "0"
   }
  ],
  "permissions": [

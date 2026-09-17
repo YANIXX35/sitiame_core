@@ -101,6 +101,7 @@ def register_company(
 			"company_sigle": company_sigle,
 			"sector": sector,
 			"rccm": rccm,
+			"trial_ends_on": frappe.utils.add_days(frappe.utils.today(), 30),
 			"address": address,
 			"city": city,
 		}
