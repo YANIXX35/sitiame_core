@@ -77,7 +77,16 @@ def register_company(
 			"send_welcome_email": 0,
 			"new_password": password,
 			"phone": phone,
-			"roles": [{"role": "System Manager"}],
+			# Deliberately NOT "System Manager": that role bypasses block_modules
+			# (Frappe treats it as admin-equivalent for the trial-blocking check
+			# in desk.py), which would make the 1-month trial cutoff a no-op.
+			"roles": [
+				{"role": "Accounts Manager"},
+				{"role": "Sales Manager"},
+				{"role": "Purchase Manager"},
+				{"role": "Stock Manager"},
+				{"role": "Projects Manager"},
+			],
 		}
 	)
 	user.insert(ignore_permissions=True)
