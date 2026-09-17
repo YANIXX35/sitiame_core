@@ -8,7 +8,6 @@ app_license = "MIT"
 required_apps = ["erpnext"]
 
 web_include_js = "/assets/sitiame_core/js/login_signup_link.js"
-app_include_js = "/assets/sitiame_core/js/hide_blocked_modules.js"
 
 scheduler_events = {
 	"daily": [
