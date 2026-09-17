@@ -2,11 +2,15 @@
 // company registration form provided by this app.
 (function () {
 	function addSignupLink() {
-		if (window.location.pathname.indexOf("/login") === -1) return;
+		if (window.location.pathname.indexOf("/company-signup") !== -1) return;
 		if (document.getElementById("sitiame-signup-link")) return;
 
-		var forgotLink = document.querySelector('a[href*="forgot"], .page-card-actions a');
-		var container = document.querySelector(".page-card, .for-login, form");
+		// Don't rely on the URL path: the login form can render at "/",
+		// "/login", or after a "?redirect-to=" bounce, all with the same DOM.
+		var passwordField = document.querySelector('input[type="password"]');
+		if (!passwordField) return;
+
+		var container = document.querySelector(".page-card, .for-login") || passwordField.closest("form");
 		if (!container) return;
 
 		var p = document.createElement("p");
