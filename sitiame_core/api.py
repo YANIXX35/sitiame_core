@@ -191,21 +191,25 @@ def _best_guess_date(text: str) -> str | None:
 @frappe.whitelist()
 def ocr_extract_invoice(file_url):
 	"""Send an already-uploaded file (PDF/image) to OCR.space and return
-	the raw text plus a best-effort amount/date guess."""
-	site_url = frappe.utils.get_url()
-	full_url = file_url if file_url.startswith("http") else site_url + file_url
+	the raw text plus a best-effort amount/date guess.
+
+	Uploaded files are private by default, so OCR.space can't fetch them
+	back over the "url" param (it isn't authenticated against this site) --
+	the file bytes are read locally and posted directly instead.
+	"""
+	filename, content = frappe.utils.file_manager.get_file(file_url)
 
 	response = requests.post(
 		OCR_SPACE_ENDPOINT,
 		data={
 			"apikey": OCR_SPACE_API_KEY,
-			"url": full_url,
 			"language": "fre",
 			"OCREngine": 2,
 			"isTable": "true",
 			"scale": "true",
 			"detectOrientation": "true",
 		},
+		files={"file": (filename, content)},
 		timeout=60,
 	)
 	result = response.json()
