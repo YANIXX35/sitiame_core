@@ -1,11 +1,14 @@
-// Adds an "Importer une facture" button on the Sales Invoice form.
+// Adds an "Importer une facture" button on every "new document" form,
+// across all doctypes/modules (Sales Invoice, Purchase Invoice, Payment
+// Entry, Journal Entry, etc).
 // v1 scope: scans the uploaded file via OCR.space, shows the raw
-// extracted text, and best-effort fills posting_date + adds one line
-// item for the detected total amount -- the user reviews/completes the
-// rest by hand (client, real item breakdown, etc).
-frappe.ui.form.on("Sales Invoice", {
+// extracted text, and best-effort fills posting_date/date + adds one
+// "items" line for the detected total amount when the doctype has that
+// field -- the user reviews/completes the rest by hand.
+frappe.ui.form.on("*", {
 	refresh(frm) {
 		if (!frm.is_new()) return;
+		if (frm.custom_buttons && frm.custom_buttons[__("Importer une facture")]) return;
 
 		frm.add_custom_button(__("Importer une facture"), function () {
 			var uploader = new frappe.ui.FileUploader({
@@ -21,10 +24,18 @@ frappe.ui.form.on("Sales Invoice", {
 							frappe.dom.unfreeze();
 							var data = r.message || {};
 
-							if (data.date) {
-								frm.set_value("posting_date", data.date);
+							// Only touch fields that actually exist on this doctype.
+							var dateField = ["posting_date", "date", "transaction_date"].find(function (f) {
+								return frm.fields_dict[f];
+							});
+							if (data.date && dateField) {
+								frm.set_value(dateField, data.date);
 							}
-							if (data.amount) {
+
+							var itemsField = ["items", "accounts"].find(function (f) {
+								return frm.fields_dict[f] && frm.fields_dict[f].df.fieldtype === "Table";
+							});
+							if (data.amount && itemsField === "items") {
 								frm.add_child("items", {
 									item_name: __("Montant importe (a verifier)"),
 									description: __("Ligne ajoutee automatiquement depuis le document importe -- a completer/corriger."),
