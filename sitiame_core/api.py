@@ -22,8 +22,12 @@ def _make_abbr(company_name, company_sigle=None):
 
 
 def _default_country():
-	country = frappe.db.get_value("Country", {"name": ["like", "%Ivoire%"]}, "name")
-	return country or "Cote d'Ivoire"
+	# Frappe's standard seed data names this record "Ivory Coast" (English),
+	# not "Côte d'Ivoire" -- confirmed by reading the actual tabCountry table.
+	for candidate in ["Ivory Coast", "Cote d'Ivoire", "Côte d'Ivoire"]:
+		if frappe.db.exists("Country", candidate):
+			return candidate
+	return frappe.db.get_value("Country", {"name": ["like", "%Ivo%"]}, "name")
 
 
 @frappe.whitelist(allow_guest=True)
