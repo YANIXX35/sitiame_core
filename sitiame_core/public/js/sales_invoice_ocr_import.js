@@ -32,16 +32,46 @@ frappe.ui.form.on("*", {
 								frm.set_value(dateField, data.date);
 							}
 
+							// Try to match the extracted name against an existing
+							// party (customer for sales docs, supplier for purchase
+							// docs) -- only fills it in when there's a clear match,
+							// otherwise the field is left for manual entry.
+							var partyField = ["customer", "supplier"].find(function (f) {
+								return frm.fields_dict[f] && !frm.doc[f];
+							});
+							if (data.client_name && partyField) {
+								var partyDoctype = partyField === "customer" ? "Customer" : "Supplier";
+								var nameField = partyField === "customer" ? "customer_name" : "supplier_name";
+								frappe.db
+									.get_list(partyDoctype, {
+										filters: [[nameField, "like", "%" + data.client_name + "%"]],
+										fields: ["name"],
+										limit: 2,
+									})
+									.then(function (matches) {
+										if (matches && matches.length === 1) {
+											frm.set_value(partyField, matches[0].name);
+										}
+									});
+							}
+
 							var itemsField = ["items", "accounts"].find(function (f) {
 								return frm.fields_dict[f] && frm.fields_dict[f].df.fieldtype === "Table";
 							});
 							if (data.amount && itemsField === "items") {
-								frm.add_child("items", {
-									item_name: __("Montant importe (a verifier)"),
-									description: __("Ligne ajoutee automatiquement depuis le document importe -- a completer/corriger."),
-									qty: 1,
-									rate: data.amount,
+								var blankRow = (frm.doc.items || []).find(function (row) {
+									return !row.item_name && !row.rate && !row.qty;
 								});
+								var row = blankRow || frm.add_child("items");
+								frappe.model.set_value(row.doctype, row.name, "item_name", __("Montant importe (a verifier)"));
+								frappe.model.set_value(
+									row.doctype,
+									row.name,
+									"description",
+									__("Ligne ajoutee automatiquement depuis le document importe -- a completer/corriger.")
+								);
+								frappe.model.set_value(row.doctype, row.name, "qty", 1);
+								frappe.model.set_value(row.doctype, row.name, "rate", data.amount);
 								frm.refresh_field("items");
 							}
 

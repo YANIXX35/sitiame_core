@@ -144,6 +144,7 @@ _AMOUNT_PATTERN = re.compile(
 	r"(?:TOTAL|MONTANT|NET\s*A\s*PAYER)[^\d]{0,20}([\d][\d\s.,]{2,})", re.IGNORECASE
 )
 _DATE_PATTERN = re.compile(r"\b(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})\b")
+_CLIENT_PATTERN = re.compile(r"(?:Client|Fournisseur)\s*[:\-]\s*(.+)", re.IGNORECASE)
 
 
 def _parse_amount(raw: str) -> float | None:
@@ -188,6 +189,14 @@ def _best_guess_date(text: str) -> str | None:
 		return None
 
 
+def _best_guess_client(text: str) -> str | None:
+	match = _CLIENT_PATTERN.search(text)
+	if not match:
+		return None
+	name = match.group(1).strip()
+	return name or None
+
+
 @frappe.whitelist()
 def ocr_extract_invoice(file_url):
 	"""Send an already-uploaded file (PDF/image) to OCR.space and return
@@ -224,4 +233,5 @@ def ocr_extract_invoice(file_url):
 		"text": text,
 		"amount": _best_guess_amount(text),
 		"date": _best_guess_date(text),
+		"client_name": _best_guess_client(text),
 	}
