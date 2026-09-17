@@ -129,9 +129,14 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		city: document.getElementById("city").value,
 	};
 
+	var headers = { "Content-Type": "application/json" };
+	if (window.frappe && frappe.csrf_token && frappe.csrf_token !== "None") {
+		headers["X-Frappe-CSRF-Token"] = frappe.csrf_token;
+	}
+
 	fetch("/api/method/sitiame_core.api.register_company", {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: headers,
 		body: JSON.stringify(payload),
 	})
 		.then(function (res) {
