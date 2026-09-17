@@ -35,6 +35,19 @@ def block_expired_trials():
 
 
 @frappe.whitelist()
+def get_my_blocked_workspaces():
+	"""Names of the Workspace records that belong to a module blocked for
+	the current user -- block_modules restricts sidebar navigation and
+	deeper permission checks, but does NOT hide the home-page icon grid
+	on its own, so the desk-side JS uses this to hide those icons too."""
+	user = frappe.get_cached_doc("User", frappe.session.user)
+	blocked_modules = [d.module for d in user.get("block_modules", [])]
+	if not blocked_modules:
+		return []
+	return frappe.get_all("Workspace", filters={"module": ["in", blocked_modules]}, pluck="name")
+
+
+@frappe.whitelist()
 def force_block_for_testing(company_signup_name):
 	"""System Manager only: manually trigger the block for one record, to
 	test the mechanism without waiting for a real 30-day trial to elapse."""
