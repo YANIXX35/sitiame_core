@@ -8,7 +8,10 @@ app_license = "MIT"
 required_apps = ["erpnext"]
 
 web_include_js = "/assets/sitiame_core/js/login_signup_link.js"
-app_include_js = "/assets/sitiame_core/js/language_switcher.js"
+app_include_js = [
+	"/assets/sitiame_core/js/language_switcher.js",
+	"/assets/sitiame_core/js/sales_invoice_ocr_import.js",
+]
 
 scheduler_events = {
 	"daily": [

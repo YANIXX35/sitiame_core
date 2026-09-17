@@ -3,8 +3,16 @@
 
 import re
 
+import requests
+
 import frappe
 from frappe import _
+
+# Same provider/account PME360 already uses for its own OCR pipeline
+# (app/Services/OcrService.php) -- reused here instead of standing up a
+# second OCR integration.
+OCR_SPACE_API_KEY = "K87899142C88957"
+OCR_SPACE_ENDPOINT = "https://api.ocr.space/parse/image"
 
 
 def _make_abbr(company_name, company_sigle=None):
@@ -125,3 +133,91 @@ def register_company(
 	frappe.local.login_manager.login_as(email)
 
 	return {"success": True, "redirect": "/app"}
+
+
+# Basic invoice-scan extraction (v1): pulls raw text via OCR.space plus a
+# best-effort total amount and date, for the user to complete manually.
+# Deliberately not a port of PME360's full field-by-field extraction
+# pipeline (app/Services/OcrService.php) -- that's a much larger, separate
+# piece of work if/when needed.
+_AMOUNT_PATTERN = re.compile(
+	r"(?:TOTAL|MONTANT|NET\s*A\s*PAYER)[^\d]{0,20}([\d][\d\s.,]{2,})", re.IGNORECASE
+)
+_DATE_PATTERN = re.compile(r"\b(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})\b")
+
+
+def _parse_amount(raw: str) -> float | None:
+	digits = re.sub(r"[^\d,\.]", "", raw)
+	digits = digits.replace(" ", "")
+	# normalise "1.234.567,89" or "1 234 567" style groupings to a float
+	if "," in digits and "." in digits:
+		digits = digits.replace(".", "").replace(",", ".")
+	elif "," in digits:
+		digits = digits.replace(",", ".")
+	try:
+		return float(digits)
+	except ValueError:
+		return None
+
+
+def _best_guess_amount(text: str) -> float | None:
+	matches = _AMOUNT_PATTERN.findall(text)
+	amounts = [a for a in (_parse_amount(m) for m in matches) if a]
+	return max(amounts) if amounts else None
+
+
+def _best_guess_date(text: str) -> str | None:
+	match = _DATE_PATTERN.search(text)
+	if not match:
+		return None
+	raw = match.group(1)
+	for sep in ("/", "-", "."):
+		if sep in raw:
+			parts = raw.split(sep)
+			break
+	else:
+		return None
+	if len(parts) != 3:
+		return None
+	day, month, year = parts
+	if len(year) == 2:
+		year = "20" + year
+	try:
+		return frappe.utils.formatdate(f"{year}-{int(month):02d}-{int(day):02d}", "yyyy-mm-dd")
+	except Exception:
+		return None
+
+
+@frappe.whitelist()
+def ocr_extract_invoice(file_url):
+	"""Send an already-uploaded file (PDF/image) to OCR.space and return
+	the raw text plus a best-effort amount/date guess."""
+	site_url = frappe.utils.get_url()
+	full_url = file_url if file_url.startswith("http") else site_url + file_url
+
+	response = requests.post(
+		OCR_SPACE_ENDPOINT,
+		data={
+			"apikey": OCR_SPACE_API_KEY,
+			"url": full_url,
+			"language": "fre",
+			"OCREngine": 2,
+			"isTable": "true",
+			"scale": "true",
+			"detectOrientation": "true",
+		},
+		timeout=60,
+	)
+	result = response.json()
+
+	if result.get("IsErroredOnProcessing"):
+		frappe.throw(_("Echec de la lecture du document : {0}").format(result.get("ErrorMessage")))
+
+	parsed = result.get("ParsedResults") or []
+	text = "\n".join(p.get("ParsedText", "") for p in parsed).strip()
+
+	return {
+		"text": text,
+		"amount": _best_guess_amount(text),
+		"date": _best_guess_date(text),
+	}
