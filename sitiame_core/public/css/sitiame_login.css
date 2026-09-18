@@ -11,12 +11,12 @@ body[data-path="login"] .page-card-head {
 }
 
 body[data-path="login"] .page-card-head img.app-logo {
-	height: 90px;
-	width: auto;
-	max-width: 260px;
-	object-fit: contain;
+	display: block;
+	width: 260px;
+	height: auto;
+	max-width: 80vw;
 	margin: 0 auto 20px;
-	padding: 14px;
+	padding: 16px 20px;
 	border: 1px solid #e2e8f0;
 	border-radius: 16px;
 	background: #fff;
