@@ -1,7 +1,16 @@
 /* Minimal login page tweak: frame, enlarge and center the app logo.
-   Deliberately scoped to just the logo -- an earlier full layout redesign
-   (hero panel) was reverted because it broke the page, so this stays
-   purely cosmetic on the existing markup. */
+   Deliberately scoped to just the login page (body[data-path="login"]).
+
+   Root cause of the "invisible logo" bug: Frappe's own
+   /assets/frappe/dist/css/login.bundle.*.css loads AFTER this file and
+   contains ".page-card-head img.app-logo{max-height:32px;width:auto}".
+   Our selector already wins on specificity for width/height, but we never
+   declared max-height ourselves, so Frappe's max-height:32px kept applying
+   uncontested -- squashing the (very wide, 1080x600) logo into an
+   unreadable 32px-tall sliver with no object-fit to prevent the
+   distortion. Fix: explicitly override max-height here too, and add
+   object-fit so the image can never be squashed even if a future Frappe
+   update changes that value again. */
 
 body[data-path="login"] .page-card-head {
 	display: flex;
@@ -12,9 +21,11 @@ body[data-path="login"] .page-card-head {
 
 body[data-path="login"] .page-card-head img.app-logo {
 	display: block;
-	width: 260px;
+	width: 220px;
 	height: auto;
 	max-width: 80vw;
+	max-height: none;
+	object-fit: contain;
 	margin: 0 auto 20px;
 	padding: 16px 20px;
 	border: 1px solid #e2e8f0;
