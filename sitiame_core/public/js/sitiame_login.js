@@ -13,6 +13,9 @@
 			'<img class="sitiame-hero-bg" src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=1000&fit=crop" alt="">' +
 			'<div class="sitiame-hero-overlay"></div>' +
 			'<div class="sitiame-hero-content">' +
+			'<a class="sitiame-hero-back" href="/">' +
+			'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>' +
+			"</a>" +
 			'<div class="sitiame-hero-logo"><img src="/assets/sitiame_core/images/sitiame-capital-logo.png" alt="Logo Sitiame Capital"></div>' +
 			"<h2>Sitiame Capital</h2>" +
 			'<p class="sitiame-hero-tagline">Accedez a votre espace professionnel securise. Une plateforme moderne et performante pour gerer vos activites.</p>' +

@@ -69,6 +69,24 @@ body[data-path="login"] .page-breadcrumbs {
 	padding: 48px;
 }
 
+#sitiame-login-hero .sitiame-hero-back {
+	display: flex;
+	height: 40px;
+	width: 40px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.2);
+	backdrop-filter: blur(4px);
+	color: #fff;
+	text-decoration: none;
+	margin-bottom: 20px;
+}
+
+#sitiame-login-hero .sitiame-hero-back:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
 #sitiame-login-hero .sitiame-hero-logo {
 	display: flex;
 	height: 64px;
@@ -151,19 +169,23 @@ body[data-path="login"] .page-card-head {
 	margin: 0 0 8px;
 }
 
+/* Plain, unboxed logo above the form -- matches PME360's own login (the
+   big framed version is only useful when there is no hero panel to carry
+   the branding, i.e. on narrow screens below the 992px breakpoint). */
 body[data-path="login"] .page-card-head img.app-logo {
 	display: block;
-	width: 220px;
+	width: 200px;
 	height: auto;
-	max-width: 80vw;
+	max-width: 70vw;
 	max-height: none;
 	object-fit: contain;
-	margin: 0 auto 20px;
-	padding: 16px 20px;
-	border: 1px solid #e2e8f0;
-	border-radius: 16px;
-	background: #fff;
-	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+	margin: 0 auto 24px;
+}
+
+@media (min-width: 992px) {
+	body[data-path="login"] .page-card-head img.app-logo {
+		width: 170px;
+	}
 }
 
 body[data-path="login"] .page-card-head-text .sitiame-eyebrow {
