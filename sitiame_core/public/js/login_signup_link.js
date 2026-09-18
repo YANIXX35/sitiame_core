@@ -31,8 +31,14 @@
 
 		var p = document.createElement("p");
 		p.id = "sitiame-signup-link";
+		// Match the login card's own width/centering (max-width:420px,
+		// margin:auto) so this line lines up with the form above it
+		// instead of centering on the full (wider) page wrapper.
 		p.style.textAlign = "center";
 		p.style.marginTop = "1rem";
+		p.style.maxWidth = "420px";
+		p.style.marginLeft = "auto";
+		p.style.marginRight = "auto";
 		p.innerHTML = 'Pas encore de compte ? <a href="/company-signup">Inscrire votre entreprise</a>';
 		container.parentNode.insertBefore(p, container.nextSibling);
 	}
