@@ -421,3 +421,15 @@ def clear_erp_logs():
 
 	frappe.db.commit()
 	return {"cleared_errors": len(old_seen)}
+
+
+@frappe.whitelist()
+def get_financial_ranking(date_from=None, date_to=None):
+	"""ERPNext port of PME360's classementPlateforme(): ranks every ERPNext
+	Company as financable/solvable_seulement/non_retenu/insuffisant from
+	its own GL Entry data. See financial_ratio_service.py."""
+	frappe.only_for("System Manager")
+
+	from sitiame_core.financial_ratio_service import classement_erpnext
+
+	return classement_erpnext(date_from or None, date_to or None)
