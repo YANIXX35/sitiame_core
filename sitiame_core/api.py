@@ -693,3 +693,64 @@ def close_month(company, year_month, notes=None):
 
 	frappe.db.commit()
 	return {"name": doc.name, "closed_at": doc.closed_at}
+
+
+# ERPNext port of PME360's "Assistant IA Admin" (Google Gemini). See
+# gemini_assistant.py for the chat engine itself; context here is built
+# from ERPNext data this app already exposes (backups, errors, financial
+# ranking, payments) rather than PME360's own Ops Center/SLA data.
+_ASSISTANT_ALLOWED_ROLES = ["System Manager", "Accounts Manager"]
+
+
+def _build_assistant_context():
+	open_errors = frappe.db.count("Error Log", {"seen": 0})
+	failed_logins = frappe.db.count("Activity Log", {"operation": "Login", "status": "Failed"})
+
+	try:
+		from sitiame_core.financial_ratio_service import classement_erpnext
+
+		ranking = classement_erpnext()
+		compteurs = ranking.get("compteurs", {})
+	except Exception:
+		compteurs = {}
+
+	unpaid_count = frappe.db.count("Sales Invoice", {"docstatus": 1, "status": ["in", ["Unpaid", "Overdue"]]})
+	unpaid_count += frappe.db.count("Purchase Invoice", {"docstatus": 1, "status": ["in", ["Unpaid", "Overdue"]]})
+
+	backups_dir = get_backups_path()
+	backups_count = 0
+	if os.path.isdir(backups_dir):
+		backups_count = len([f for f in os.listdir(backups_dir) if f.endswith((".sql.gz", ".sql"))])
+
+	companies = frappe.db.count("Company")
+
+	return (
+		"Tu es l'assistant IA administrateur d'une instance ERPNext pour Sitiame Capital "
+		"(plateforme de gestion pour PME en Afrique de l'Ouest). Reponds en francais, de facon "
+		"concise et actionnable, en te basant sur le contexte fourni. Ne donne jamais de conseil "
+		"financier reglementaire formel -- tu es un outil d'aide a la decision interne.\n\n"
+		"Contexte actuel de la plateforme ERPNext :\n"
+		f"- {companies} societe(s) enregistree(s)\n"
+		f"- {open_errors} erreur(s) systeme non vue(s) (Error Log)\n"
+		f"- {failed_logins} tentative(s) de connexion echouee(s) au total\n"
+		f"- {unpaid_count} facture(s) (vente + achat) impayee(s) ou en retard\n"
+		f"- {backups_count} sauvegarde(s) de base de donnees disponible(s)\n"
+		f"- Classement financier : {compteurs}\n"
+	)
+
+
+@frappe.whitelist()
+def chat_with_assistant(message, history=None):
+	frappe.only_for(_ASSISTANT_ALLOWED_ROLES)
+
+	from sitiame_core.gemini_assistant import chat
+
+	history = frappe.parse_json(history) if isinstance(history, str) else (history or [])
+
+	messages = [{"role": "system", "content": _build_assistant_context()}]
+	for turn in history[-10:]:
+		if turn.get("role") in ("user", "assistant") and turn.get("content"):
+			messages.append({"role": turn["role"], "content": turn["content"]})
+	messages.append({"role": "user", "content": message})
+
+	return chat(messages)

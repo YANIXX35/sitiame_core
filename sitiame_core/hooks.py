@@ -13,6 +13,7 @@ app_include_js = [
 	"/assets/sitiame_core/js/language_switcher.js",
 	"/assets/sitiame_core/js/sales_invoice_ocr_import.js",
 	"/assets/sitiame_core/js/scoring360_settings_test.js",
+	"/assets/sitiame_core/js/ai_assistant.js",
 ]
 
 scheduler_events = {
