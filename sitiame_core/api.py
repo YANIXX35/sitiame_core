@@ -433,3 +433,14 @@ def get_financial_ranking(date_from=None, date_to=None):
 	from sitiame_core.financial_ratio_service import classement_erpnext
 
 	return classement_erpnext(date_from or None, date_to or None)
+
+
+@frappe.whitelist()
+def get_scoring360_score(company, date_from=None, date_to=None):
+	"""ERPNext port of PME360's Scoring360Service::scoreUser(), driven by
+	the "Scoring 360 Settings" single doctype. See scoring360_service.py."""
+	frappe.only_for("System Manager")
+
+	from sitiame_core.scoring360_service import score_company
+
+	return score_company(company, date_from or None, date_to or None)

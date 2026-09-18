@@ -1,0 +1,615 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "coefficients_section",
+  "coeff_strong",
+  "coeff_medium_cb",
+  "coeff_medium",
+  "coeff_weak_cb",
+  "coeff_weak",
+  "bank_section",
+  "bank_dscr_col",
+  "bank_dscr_strong",
+  "bank_dscr_medium",
+  "bank_dscr_weight",
+  "bank_interest_coverage_col",
+  "bank_interest_coverage_strong",
+  "bank_interest_coverage_medium",
+  "bank_interest_coverage_weight",
+  "bank_current_ratio_col",
+  "bank_current_ratio_strong",
+  "bank_current_ratio_medium",
+  "bank_current_ratio_weight",
+  "bank_debt_asset_col",
+  "bank_debt_asset_strong",
+  "bank_debt_asset_medium",
+  "bank_debt_asset_weight",
+  "bank_bfr_days_col",
+  "bank_bfr_days_strong",
+  "bank_bfr_days_medium",
+  "bank_bfr_days_weight",
+  "bank_decision_col",
+  "bank_decision_strong_min",
+  "bank_decision_medium_min",
+  "investor_section",
+  "investor_revenue_growth_col",
+  "investor_revenue_growth_strong",
+  "investor_revenue_growth_medium",
+  "investor_revenue_growth_weight",
+  "investor_ebitda_margin_col",
+  "investor_ebitda_margin_strong",
+  "investor_ebitda_margin_medium",
+  "investor_ebitda_margin_weight",
+  "investor_roe_col",
+  "investor_roe_strong",
+  "investor_roe_medium",
+  "investor_roe_weight",
+  "investor_fcf_margin_col",
+  "investor_fcf_margin_strong",
+  "investor_fcf_margin_medium",
+  "investor_fcf_margin_weight",
+  "investor_asset_turnover_col",
+  "investor_asset_turnover_strong",
+  "investor_asset_turnover_medium",
+  "investor_asset_turnover_weight",
+  "investor_decision_col",
+  "investor_decision_strong_min",
+  "investor_decision_medium_min",
+  "internal_section",
+  "internal_net_margin_col",
+  "internal_net_margin_strong",
+  "internal_net_margin_medium",
+  "internal_net_margin_weight",
+  "internal_quick_ratio_col",
+  "internal_quick_ratio_strong",
+  "internal_quick_ratio_medium",
+  "internal_quick_ratio_weight",
+  "internal_receivable_days_col",
+  "internal_receivable_days_strong",
+  "internal_receivable_days_medium",
+  "internal_receivable_days_weight",
+  "internal_inventory_days_col",
+  "internal_inventory_days_strong",
+  "internal_inventory_days_medium",
+  "internal_inventory_days_weight",
+  "internal_ebitda_growth_col",
+  "internal_ebitda_growth_strong",
+  "internal_ebitda_growth_medium",
+  "internal_ebitda_growth_weight",
+  "internal_decision_col",
+  "internal_decision_strong_min",
+  "internal_decision_medium_min",
+  "composite_section",
+  "composite_weight_bank",
+  "composite_weight_investor_col",
+  "composite_weight_investor",
+  "composite_weight_internal_col",
+  "composite_weight_internal",
+  "composite_decision_col",
+  "composite_decision_strong_min",
+  "composite_decision_medium_min"
+ ],
+ "fields": [
+  {
+   "fieldname": "coefficients_section",
+   "fieldtype": "Section Break",
+   "label": "Coefficients"
+  },
+  {
+   "fieldname": "coeff_strong",
+   "fieldtype": "Float",
+   "label": "Coefficient - Fort",
+   "default": "1.0"
+  },
+  {
+   "fieldname": "coeff_medium_cb",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "coeff_medium",
+   "fieldtype": "Float",
+   "label": "Coefficient - Moyen",
+   "default": "0.6"
+  },
+  {
+   "fieldname": "coeff_weak_cb",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "coeff_weak",
+   "fieldtype": "Float",
+   "label": "Coefficient - Faible",
+   "default": "0.2"
+  },
+  {
+   "fieldname": "bank_section",
+   "fieldtype": "Section Break",
+   "label": "Bloc Banque"
+  },
+  {
+   "fieldname": "bank_dscr_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bank_dscr_strong",
+   "fieldtype": "Float",
+   "label": "DSCR - Seuil fort",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "bank_dscr_medium",
+   "fieldtype": "Float",
+   "label": "DSCR - Seuil moyen",
+   "default": "1.1"
+  },
+  {
+   "fieldname": "bank_dscr_weight",
+   "fieldtype": "Float",
+   "label": "DSCR - Poids (%)",
+   "default": "30.0"
+  },
+  {
+   "fieldname": "bank_interest_coverage_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bank_interest_coverage_strong",
+   "fieldtype": "Float",
+   "label": "Couverture des interets - Seuil fort",
+   "default": "3.0"
+  },
+  {
+   "fieldname": "bank_interest_coverage_medium",
+   "fieldtype": "Float",
+   "label": "Couverture des interets - Seuil moyen",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "bank_interest_coverage_weight",
+   "fieldtype": "Float",
+   "label": "Couverture des interets - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "bank_current_ratio_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bank_current_ratio_strong",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite generale - Seuil fort",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "bank_current_ratio_medium",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite generale - Seuil moyen",
+   "default": "1.0"
+  },
+  {
+   "fieldname": "bank_current_ratio_weight",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite generale - Poids (%)",
+   "default": "15.0"
+  },
+  {
+   "fieldname": "bank_debt_asset_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bank_debt_asset_strong",
+   "fieldtype": "Float",
+   "label": "Dette / Actif - Seuil fort",
+   "default": "0.5"
+  },
+  {
+   "fieldname": "bank_debt_asset_medium",
+   "fieldtype": "Float",
+   "label": "Dette / Actif - Seuil moyen",
+   "default": "0.7"
+  },
+  {
+   "fieldname": "bank_debt_asset_weight",
+   "fieldtype": "Float",
+   "label": "Dette / Actif - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "bank_bfr_days_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "bank_bfr_days_strong",
+   "fieldtype": "Float",
+   "label": "BFR (jours) - Seuil fort",
+   "default": "90.0"
+  },
+  {
+   "fieldname": "bank_bfr_days_medium",
+   "fieldtype": "Float",
+   "label": "BFR (jours) - Seuil moyen",
+   "default": "120.0"
+  },
+  {
+   "fieldname": "bank_bfr_days_weight",
+   "fieldtype": "Float",
+   "label": "BFR (jours) - Poids (%)",
+   "default": "15.0"
+  },
+  {
+   "fieldname": "bank_decision_col",
+   "fieldtype": "Column Break",
+   "label": "Decision"
+  },
+  {
+   "fieldname": "bank_decision_strong_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Fort (score >=)",
+   "default": "80.0"
+  },
+  {
+   "fieldname": "bank_decision_medium_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Moyen (score >=)",
+   "default": "60.0"
+  },
+  {
+   "fieldname": "investor_section",
+   "fieldtype": "Section Break",
+   "label": "Bloc Investisseur"
+  },
+  {
+   "fieldname": "investor_revenue_growth_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "investor_revenue_growth_strong",
+   "fieldtype": "Float",
+   "label": "Croissance du CA - Seuil fort",
+   "default": "0.15"
+  },
+  {
+   "fieldname": "investor_revenue_growth_medium",
+   "fieldtype": "Float",
+   "label": "Croissance du CA - Seuil moyen",
+   "default": "0.05"
+  },
+  {
+   "fieldname": "investor_revenue_growth_weight",
+   "fieldtype": "Float",
+   "label": "Croissance du CA - Poids (%)",
+   "default": "25.0"
+  },
+  {
+   "fieldname": "investor_ebitda_margin_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "investor_ebitda_margin_strong",
+   "fieldtype": "Float",
+   "label": "Marge EBITDA - Seuil fort",
+   "default": "0.2"
+  },
+  {
+   "fieldname": "investor_ebitda_margin_medium",
+   "fieldtype": "Float",
+   "label": "Marge EBITDA - Seuil moyen",
+   "default": "0.1"
+  },
+  {
+   "fieldname": "investor_ebitda_margin_weight",
+   "fieldtype": "Float",
+   "label": "Marge EBITDA - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "investor_roe_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "investor_roe_strong",
+   "fieldtype": "Float",
+   "label": "ROE - Seuil fort",
+   "default": "0.15"
+  },
+  {
+   "fieldname": "investor_roe_medium",
+   "fieldtype": "Float",
+   "label": "ROE - Seuil moyen",
+   "default": "0.08"
+  },
+  {
+   "fieldname": "investor_roe_weight",
+   "fieldtype": "Float",
+   "label": "ROE - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "investor_fcf_margin_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "investor_fcf_margin_strong",
+   "fieldtype": "Float",
+   "label": "Marge FCF - Seuil fort",
+   "default": "0.08"
+  },
+  {
+   "fieldname": "investor_fcf_margin_medium",
+   "fieldtype": "Float",
+   "label": "Marge FCF - Seuil moyen",
+   "default": "0.02"
+  },
+  {
+   "fieldname": "investor_fcf_margin_weight",
+   "fieldtype": "Float",
+   "label": "Marge FCF - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "investor_asset_turnover_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "investor_asset_turnover_strong",
+   "fieldtype": "Float",
+   "label": "Rotation de l'actif - Seuil fort",
+   "default": "1.2"
+  },
+  {
+   "fieldname": "investor_asset_turnover_medium",
+   "fieldtype": "Float",
+   "label": "Rotation de l'actif - Seuil moyen",
+   "default": "0.8"
+  },
+  {
+   "fieldname": "investor_asset_turnover_weight",
+   "fieldtype": "Float",
+   "label": "Rotation de l'actif - Poids (%)",
+   "default": "15.0"
+  },
+  {
+   "fieldname": "investor_decision_col",
+   "fieldtype": "Column Break",
+   "label": "Decision"
+  },
+  {
+   "fieldname": "investor_decision_strong_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Fort (score >=)",
+   "default": "80.0"
+  },
+  {
+   "fieldname": "investor_decision_medium_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Moyen (score >=)",
+   "default": "60.0"
+  },
+  {
+   "fieldname": "internal_section",
+   "fieldtype": "Section Break",
+   "label": "Bloc Interne"
+  },
+  {
+   "fieldname": "internal_net_margin_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "internal_net_margin_strong",
+   "fieldtype": "Float",
+   "label": "Marge nette - Seuil fort",
+   "default": "0.1"
+  },
+  {
+   "fieldname": "internal_net_margin_medium",
+   "fieldtype": "Float",
+   "label": "Marge nette - Seuil moyen",
+   "default": "0.05"
+  },
+  {
+   "fieldname": "internal_net_margin_weight",
+   "fieldtype": "Float",
+   "label": "Marge nette - Poids (%)",
+   "default": "25.0"
+  },
+  {
+   "fieldname": "internal_quick_ratio_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "internal_quick_ratio_strong",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite immediate - Seuil fort",
+   "default": "1.2"
+  },
+  {
+   "fieldname": "internal_quick_ratio_medium",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite immediate - Seuil moyen",
+   "default": "0.9"
+  },
+  {
+   "fieldname": "internal_quick_ratio_weight",
+   "fieldtype": "Float",
+   "label": "Ratio de liquidite immediate - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "internal_receivable_days_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "internal_receivable_days_strong",
+   "fieldtype": "Float",
+   "label": "Delai creances (jours) - Seuil fort",
+   "default": "45.0"
+  },
+  {
+   "fieldname": "internal_receivable_days_medium",
+   "fieldtype": "Float",
+   "label": "Delai creances (jours) - Seuil moyen",
+   "default": "60.0"
+  },
+  {
+   "fieldname": "internal_receivable_days_weight",
+   "fieldtype": "Float",
+   "label": "Delai creances (jours) - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "internal_inventory_days_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "internal_inventory_days_strong",
+   "fieldtype": "Float",
+   "label": "Delai stocks (jours) - Seuil fort",
+   "default": "70.0"
+  },
+  {
+   "fieldname": "internal_inventory_days_medium",
+   "fieldtype": "Float",
+   "label": "Delai stocks (jours) - Seuil moyen",
+   "default": "90.0"
+  },
+  {
+   "fieldname": "internal_inventory_days_weight",
+   "fieldtype": "Float",
+   "label": "Delai stocks (jours) - Poids (%)",
+   "default": "15.0"
+  },
+  {
+   "fieldname": "internal_ebitda_growth_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "internal_ebitda_growth_strong",
+   "fieldtype": "Float",
+   "label": "Croissance EBITDA - Seuil fort",
+   "default": "0.15"
+  },
+  {
+   "fieldname": "internal_ebitda_growth_medium",
+   "fieldtype": "Float",
+   "label": "Croissance EBITDA - Seuil moyen",
+   "default": "0.05"
+  },
+  {
+   "fieldname": "internal_ebitda_growth_weight",
+   "fieldtype": "Float",
+   "label": "Croissance EBITDA - Poids (%)",
+   "default": "20.0"
+  },
+  {
+   "fieldname": "internal_decision_col",
+   "fieldtype": "Column Break",
+   "label": "Decision"
+  },
+  {
+   "fieldname": "internal_decision_strong_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Fort (score >=)",
+   "default": "80.0"
+  },
+  {
+   "fieldname": "internal_decision_medium_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Moyen (score >=)",
+   "default": "60.0"
+  },
+  {
+   "fieldname": "composite_section",
+   "fieldtype": "Section Break",
+   "label": "Composite"
+  },
+  {
+   "fieldname": "composite_weight_bank",
+   "fieldtype": "Float",
+   "label": "Poids Banque (%)",
+   "default": "40.0"
+  },
+  {
+   "fieldname": "composite_weight_investor_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "composite_weight_investor",
+   "fieldtype": "Float",
+   "label": "Poids Investisseur (%)",
+   "default": "35.0"
+  },
+  {
+   "fieldname": "composite_weight_internal_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "composite_weight_internal",
+   "fieldtype": "Float",
+   "label": "Poids Interne (%)",
+   "default": "25.0"
+  },
+  {
+   "fieldname": "composite_decision_col",
+   "fieldtype": "Column Break",
+   "label": "Decision composite"
+  },
+  {
+   "fieldname": "composite_decision_strong_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Fort (score >=)",
+   "default": "80.0"
+  },
+  {
+   "fieldname": "composite_decision_medium_min",
+   "fieldtype": "Float",
+   "label": "Seuil decision - Moyen (score >=)",
+   "default": "60.0"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sitiame Core",
+ "name": "Scoring 360 Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "print": 0,
+   "read": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

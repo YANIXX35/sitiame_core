@@ -11,6 +11,7 @@ web_include_js = "/assets/sitiame_core/js/login_signup_link.js"
 app_include_js = [
 	"/assets/sitiame_core/js/language_switcher.js",
 	"/assets/sitiame_core/js/sales_invoice_ocr_import.js",
+	"/assets/sitiame_core/js/scoring360_settings_test.js",
 ]
 
 scheduler_events = {
