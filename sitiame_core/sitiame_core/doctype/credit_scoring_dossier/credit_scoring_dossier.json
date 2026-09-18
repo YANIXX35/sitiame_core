@@ -1,0 +1,500 @@
+{
+ "actions": [],
+ "creation": "2026-09-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "dossier_section",
+  "company",
+  "reference",
+  "col_break_1",
+  "sector",
+  "analyst",
+  "col_break_2",
+  "amount",
+  "duration_months",
+  "col_break_3",
+  "eval_date",
+  "purpose",
+  "criteria_section",
+  "capacite_remboursement_col",
+  "capacite_remboursement_weight",
+  "capacite_remboursement_note",
+  "capacite_remboursement_proof",
+  "structure_financiere_col",
+  "structure_financiere_weight",
+  "structure_financiere_note",
+  "structure_financiere_proof",
+  "rentabilite_col",
+  "rentabilite_weight",
+  "rentabilite_note",
+  "rentabilite_proof",
+  "historique_paiement_col",
+  "historique_paiement_weight",
+  "historique_paiement_note",
+  "historique_paiement_proof",
+  "marche_clientele_col",
+  "marche_clientele_weight",
+  "marche_clientele_note",
+  "marche_clientele_proof",
+  "direction_organisation_col",
+  "direction_organisation_weight",
+  "direction_organisation_note",
+  "direction_organisation_proof",
+  "qualite_informations_col",
+  "qualite_informations_weight",
+  "qualite_informations_note",
+  "qualite_informations_proof",
+  "projet_financement_col",
+  "projet_financement_weight",
+  "projet_financement_note",
+  "projet_financement_proof",
+  "liquidite_generale_col",
+  "liquidite_generale_weight",
+  "liquidite_generale_note",
+  "liquidite_generale_proof",
+  "garanties_recouvrement_col",
+  "garanties_recouvrement_weight",
+  "garanties_recouvrement_note",
+  "garanties_recouvrement_proof",
+  "review_section",
+  "identity_verified",
+  "col_break_review_1",
+  "documents_verified",
+  "col_break_review_2",
+  "stress_tested",
+  "reserve",
+  "opinion",
+  "col_break_review_3",
+  "decision",
+  "validator",
+  "result_section",
+  "score",
+  "grade",
+  "col_break_result",
+  "criteria_evaluated_count",
+  "ready"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Serie",
+   "default": "CSD-.YYYY.-",
+   "options": "CSD-.YYYY.-",
+   "hidden": 1
+  },
+  {
+   "fieldname": "dossier_section",
+   "fieldtype": "Section Break",
+   "label": "Le dossier"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Societe",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference du dossier",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "sector",
+   "fieldtype": "Data",
+   "label": "Secteur d'activite"
+  },
+  {
+   "fieldname": "analyst",
+   "fieldtype": "Data",
+   "label": "Analyste"
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Montant demande (FCFA)"
+  },
+  {
+   "fieldname": "duration_months",
+   "fieldtype": "Int",
+   "label": "Duree (mois)"
+  },
+  {
+   "fieldname": "col_break_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "eval_date",
+   "fieldtype": "Date",
+   "label": "Date de l'evaluation"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Data",
+   "label": "Objet du credit"
+  },
+  {
+   "fieldname": "criteria_section",
+   "fieldtype": "Section Break",
+   "label": "Les criteres de scoring (note de 0 a 5)"
+  },
+  {
+   "fieldname": "capacite_remboursement_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "capacite_remboursement_weight",
+   "fieldtype": "Int",
+   "label": "Capacite de remboursement - Poids",
+   "default": "25"
+  },
+  {
+   "fieldname": "capacite_remboursement_note",
+   "fieldtype": "Select",
+   "label": "Capacite de remboursement - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "capacite_remboursement_proof",
+   "fieldtype": "Small Text",
+   "label": "Capacite de remboursement - Observation / piece"
+  },
+  {
+   "fieldname": "structure_financiere_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "structure_financiere_weight",
+   "fieldtype": "Int",
+   "label": "Structure financiere - Poids",
+   "default": "15"
+  },
+  {
+   "fieldname": "structure_financiere_note",
+   "fieldtype": "Select",
+   "label": "Structure financiere - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "structure_financiere_proof",
+   "fieldtype": "Small Text",
+   "label": "Structure financiere - Observation / piece"
+  },
+  {
+   "fieldname": "rentabilite_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "rentabilite_weight",
+   "fieldtype": "Int",
+   "label": "Rentabilite - Poids",
+   "default": "10"
+  },
+  {
+   "fieldname": "rentabilite_note",
+   "fieldtype": "Select",
+   "label": "Rentabilite - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "rentabilite_proof",
+   "fieldtype": "Small Text",
+   "label": "Rentabilite - Observation / piece"
+  },
+  {
+   "fieldname": "historique_paiement_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "historique_paiement_weight",
+   "fieldtype": "Int",
+   "label": "Historique de paiement - Poids",
+   "default": "10"
+  },
+  {
+   "fieldname": "historique_paiement_note",
+   "fieldtype": "Select",
+   "label": "Historique de paiement - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "historique_paiement_proof",
+   "fieldtype": "Small Text",
+   "label": "Historique de paiement - Observation / piece"
+  },
+  {
+   "fieldname": "marche_clientele_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "marche_clientele_weight",
+   "fieldtype": "Int",
+   "label": "Marche et clientele - Poids",
+   "default": "10"
+  },
+  {
+   "fieldname": "marche_clientele_note",
+   "fieldtype": "Select",
+   "label": "Marche et clientele - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "marche_clientele_proof",
+   "fieldtype": "Small Text",
+   "label": "Marche et clientele - Observation / piece"
+  },
+  {
+   "fieldname": "direction_organisation_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "direction_organisation_weight",
+   "fieldtype": "Int",
+   "label": "Direction et organisation - Poids",
+   "default": "10"
+  },
+  {
+   "fieldname": "direction_organisation_note",
+   "fieldtype": "Select",
+   "label": "Direction et organisation - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "direction_organisation_proof",
+   "fieldtype": "Small Text",
+   "label": "Direction et organisation - Observation / piece"
+  },
+  {
+   "fieldname": "qualite_informations_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "qualite_informations_weight",
+   "fieldtype": "Int",
+   "label": "Qualite des informations - Poids",
+   "default": "5"
+  },
+  {
+   "fieldname": "qualite_informations_note",
+   "fieldtype": "Select",
+   "label": "Qualite des informations - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "qualite_informations_proof",
+   "fieldtype": "Small Text",
+   "label": "Qualite des informations - Observation / piece"
+  },
+  {
+   "fieldname": "projet_financement_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "projet_financement_weight",
+   "fieldtype": "Int",
+   "label": "Projet et plan de financement - Poids",
+   "default": "5"
+  },
+  {
+   "fieldname": "projet_financement_note",
+   "fieldtype": "Select",
+   "label": "Projet et plan de financement - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "projet_financement_proof",
+   "fieldtype": "Small Text",
+   "label": "Projet et plan de financement - Observation / piece"
+  },
+  {
+   "fieldname": "liquidite_generale_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "liquidite_generale_weight",
+   "fieldtype": "Int",
+   "label": "Liquidite generale - Poids",
+   "default": "5"
+  },
+  {
+   "fieldname": "liquidite_generale_note",
+   "fieldtype": "Select",
+   "label": "Liquidite generale - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "liquidite_generale_proof",
+   "fieldtype": "Small Text",
+   "label": "Liquidite generale - Observation / piece"
+  },
+  {
+   "fieldname": "garanties_recouvrement_col",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "garanties_recouvrement_weight",
+   "fieldtype": "Int",
+   "label": "Garanties et recouvrement - Poids",
+   "default": "5"
+  },
+  {
+   "fieldname": "garanties_recouvrement_note",
+   "fieldtype": "Select",
+   "label": "Garanties et recouvrement - Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "garanties_recouvrement_proof",
+   "fieldtype": "Small Text",
+   "label": "Garanties et recouvrement - Observation / piece"
+  },
+  {
+   "fieldname": "review_section",
+   "fieldtype": "Section Break",
+   "label": "Revue et avis de l'analyste"
+  },
+  {
+   "fieldname": "identity_verified",
+   "fieldtype": "Check",
+   "label": "Identite et existence verifiees"
+  },
+  {
+   "fieldname": "col_break_review_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "documents_verified",
+   "fieldtype": "Check",
+   "label": "Pieces financieres rapprochees et verifiees"
+  },
+  {
+   "fieldname": "col_break_review_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "stress_tested",
+   "fieldtype": "Check",
+   "label": "Capacite de remboursement testee en scenario degrade"
+  },
+  {
+   "fieldname": "reserve",
+   "fieldtype": "Select",
+   "label": "Reserve majeure",
+   "default": "A examiner",
+   "options": "A examiner\nAucune identifiee apres examen\nReserve majeure a resoudre"
+  },
+  {
+   "fieldname": "opinion",
+   "fieldtype": "Small Text",
+   "label": "Avis et actions a engager"
+  },
+  {
+   "fieldname": "col_break_review_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "decision",
+   "fieldtype": "Select",
+   "label": "Decision du validateur",
+   "default": "En attente",
+   "options": "En attente\nAjournement\nAccord sous conditions\nRefus"
+  },
+  {
+   "fieldname": "validator",
+   "fieldtype": "Data",
+   "label": "Validateur et date"
+  },
+  {
+   "fieldname": "result_section",
+   "fieldtype": "Section Break",
+   "label": "Resultat"
+  },
+  {
+   "fieldname": "score",
+   "fieldtype": "Float",
+   "label": "Score / 100",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "grade",
+   "fieldtype": "Select",
+   "label": "Classe",
+   "options": "\nA\nB\nC\nD",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break_result",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "criteria_evaluated_count",
+   "fieldtype": "Int",
+   "label": "Criteres evalues",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ready",
+   "fieldtype": "Check",
+   "label": "Dossier complet (10 criteres notes, poids = 100)",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sitiame Core",
+ "name": "Credit Scoring Dossier",
+ "naming_rule": "By \"Naming Series\" field",
+ "autoname": "naming_series:",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
