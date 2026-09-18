@@ -612,3 +612,84 @@ def list_caisse_banque(bucket=None, document_type=None, date_from=None, date_to=
 		totals[r["bucket"]] += flt(amount)
 
 	return {"rows": rows, "totals": totals}
+
+
+# ERPNext port of PME360's "Cloture mensuelle" (app/Http/Controllers/
+# AccountingController.php::monthlyClosing/storeMonthClosure): a checklist
+# + soft marker, not an enforced lock -- same scope as PME360's own
+# version (its "cloture" doesn't block further postings either, it's a
+# business bookmark saying the month was reviewed). ERPNext's own
+# "Period Closing Voucher" is a real, consequential accounting entry and
+# is deliberately NOT auto-triggered here.
+@frappe.whitelist()
+def get_month_closing_status(company, year_month):
+	import re as _re
+
+	if not _re.match(r"^\d{4}-\d{2}$", year_month or ""):
+		frappe.throw(_("Mois invalide (format attendu : AAAA-MM)."))
+
+	start = f"{year_month}-01"
+	end = frappe.utils.get_last_day(start)
+
+	entries_count = frappe.db.sql(
+		"""select count(distinct concat(voucher_type, '||', voucher_no))
+		from `tabGL Entry`
+		where company=%(company)s and is_cancelled=0
+			and posting_date between %(start)s and %(end)s""",
+		{"company": company, "start": start, "end": end},
+	)[0][0]
+
+	payments_count = frappe.db.count(
+		"Payment Entry",
+		{"company": company, "docstatus": 1, "posting_date": ["between", [start, end]]},
+	)
+
+	closure = None
+	name = f"{company}-{year_month}"
+	if frappe.db.exists("ERP Month Closure", name):
+		doc = frappe.get_doc("ERP Month Closure", name)
+		closure = {
+			"closed_at": doc.closed_at,
+			"closed_by": doc.closed_by,
+			"notes": doc.notes,
+		}
+
+	return {
+		"year_month": year_month,
+		"start": start,
+		"end": end,
+		"entries_count": entries_count,
+		"payments_count": payments_count,
+		"check_journal": entries_count > 0,
+		"check_payments": payments_count > 0,
+		"closure": closure,
+	}
+
+
+@frappe.whitelist()
+def close_month(company, year_month, notes=None):
+	import re as _re
+
+	if not _re.match(r"^\d{4}-\d{2}$", year_month or ""):
+		frappe.throw(_("Mois invalide (format attendu : AAAA-MM)."))
+
+	name = f"{company}-{year_month}"
+	if frappe.db.exists("ERP Month Closure", name):
+		doc = frappe.get_doc("ERP Month Closure", name)
+		doc.notes = notes
+		doc.closed_at = frappe.utils.now()
+		doc.closed_by = frappe.session.user
+		doc.save()
+	else:
+		doc = frappe.get_doc(
+			{
+				"doctype": "ERP Month Closure",
+				"company": company,
+				"year_month": year_month,
+				"notes": notes,
+			}
+		)
+		doc.insert()
+
+	frappe.db.commit()
+	return {"name": doc.name, "closed_at": doc.closed_at}

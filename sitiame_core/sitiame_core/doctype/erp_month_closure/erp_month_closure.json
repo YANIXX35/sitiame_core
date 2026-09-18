@@ -1,0 +1,89 @@
+{
+	"actions": [],
+	"allow_rename": 0,
+	"autoname": "format:{company}-{year_month}",
+	"creation": "2026-09-18 00:00:00.000000",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"company",
+		"year_month",
+		"column_break_1",
+		"closed_at",
+		"closed_by",
+		"notes"
+	],
+	"fields": [
+		{
+			"fieldname": "company",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"label": "Societe",
+			"options": "Company",
+			"reqd": 1
+		},
+		{
+			"fieldname": "year_month",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "Mois (AAAA-MM)",
+			"reqd": 1
+		},
+		{
+			"fieldname": "column_break_1",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "closed_at",
+			"fieldtype": "Datetime",
+			"in_list_view": 1,
+			"label": "Cloture le",
+			"read_only": 1
+		},
+		{
+			"fieldname": "closed_by",
+			"fieldtype": "Link",
+			"label": "Cloture par",
+			"options": "User",
+			"read_only": 1
+		},
+		{
+			"fieldname": "notes",
+			"fieldtype": "Small Text",
+			"label": "Notes"
+		}
+	],
+	"index_web_pages_for_search": 0,
+	"links": [],
+	"modified": "2026-09-18 00:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Sitiame Core",
+	"name": "ERP Month Closure",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 0,
+			"print": 0,
+			"read": 1,
+			"role": "Accounts Manager",
+			"share": 0,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 0,
+			"print": 0,
+			"read": 1,
+			"role": "System Manager",
+			"share": 0,
+			"write": 1
+		}
+	],
+	"sort_field": "modified",
+	"sort_order": "DESC",
+	"states": [],
+	"track_changes": 1
+}
