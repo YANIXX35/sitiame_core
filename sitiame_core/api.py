@@ -494,3 +494,51 @@ def list_erp_payments(company=None, party=None, status=None, mode_of_payment=Non
 			"paid_total": paid_total,
 		},
 	}
+
+
+@frappe.whitelist()
+def list_erp_kyc_documents(company=None):
+	"""KYC/KYB documents for each ERPNext Company, shown on the "Documents
+	KYC ERPNext" page (Organisation sidebar). PME360 already pushes each
+	client's approved KYC documents here (SyncKycDocumentsToErpNext job,
+	app/Jobs/SyncKycDocumentsToErpNext.php), attaching them as private
+	Files on the matching Company record -- this just surfaces what that
+	sync produces, grouped by company, instead of opening each Company one
+	by one to check its Attachments panel."""
+	frappe.only_for("System Manager")
+
+	filters = {"attached_to_doctype": "Company"}
+	if company:
+		filters["attached_to_name"] = company
+
+	files = frappe.get_all(
+		"File",
+		filters=filters,
+		fields=["name", "file_name", "file_url", "attached_to_name", "is_private", "file_size", "creation"],
+		order_by="attached_to_name asc, creation desc",
+	)
+
+	companies = {c.name: c.company_name for c in frappe.get_all("Company", fields=["name", "company_name"])}
+
+	groups = {}
+	for f in files:
+		key = f.attached_to_name
+		groups.setdefault(
+			key,
+			{"company": key, "company_name": companies.get(key, key), "documents": []},
+		)
+		groups[key]["documents"].append(
+			{
+				"name": f.name,
+				"file_name": f.file_name,
+				"file_url": f.file_url,
+				"size_kb": round((f.file_size or 0) / 1024, 1),
+				"created_at": frappe.utils.format_datetime(f.creation, "dd-MM-yyyy HH:mm"),
+			}
+		)
+
+	return {
+		"groups": sorted(groups.values(), key=lambda g: g["company_name"]),
+		"total_documents": len(files),
+		"total_companies_with_documents": len(groups),
+	}
