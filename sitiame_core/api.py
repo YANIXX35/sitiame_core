@@ -542,3 +542,73 @@ def list_erp_kyc_documents(company=None):
 		"total_documents": len(files),
 		"total_companies_with_documents": len(groups),
 	}
+
+
+# Status-mapping mirrors PME360's Caisse Banque page (unpaid/partial/paid),
+# built from ERPNext's own "status" field on Sales/Purchase Invoice instead
+# of a parallel AccountingEntry.payment_status column.
+_INVOICE_STATUS_BUCKET = {
+	"Unpaid": "unpaid",
+	"Overdue": "unpaid",
+	"Partly Paid": "partial",
+	"Paid": "paid",
+}
+
+
+@frappe.whitelist()
+def list_caisse_banque(bucket=None, document_type=None, date_from=None, date_to=None):
+	"""ERPNext equivalent of PME360's Caisse Banque page: unpaid/partial/
+	paid Sales & Purchase Invoices in one list, with totals per bucket.
+	Respects the caller's normal doc permissions (frappe.get_list), so a
+	company account only ever sees its own Company's invoices."""
+
+	rows = []
+
+	def _load(doctype, party_field, party_name_field):
+		filters = {"docstatus": 1}
+		if date_from and date_to:
+			filters["posting_date"] = ["between", [date_from, date_to]]
+		elif date_from:
+			filters["posting_date"] = [">=", date_from]
+		elif date_to:
+			filters["posting_date"] = ["<=", date_to]
+
+		for r in frappe.get_list(
+			doctype,
+			filters=filters,
+			fields=["name", "posting_date", "company", party_field, party_name_field, "grand_total", "outstanding_amount", "status"],
+			order_by="posting_date desc",
+			limit_page_length=0,
+		):
+			b = _INVOICE_STATUS_BUCKET.get(r.status)
+			if b is None:
+				continue
+			if bucket and b != bucket:
+				continue
+			rows.append(
+				{
+					"document_type": doctype,
+					"name": r.name,
+					"posting_date": r.posting_date,
+					"company": r.company,
+					"party_name": r.get(party_name_field) or r.get(party_field),
+					"amount": r.grand_total,
+					"outstanding": r.outstanding_amount,
+					"bucket": b,
+					"status": r.status,
+				}
+			)
+
+	if not document_type or document_type == "Sales Invoice":
+		_load("Sales Invoice", "customer", "customer_name")
+	if not document_type or document_type == "Purchase Invoice":
+		_load("Purchase Invoice", "supplier", "supplier_name")
+
+	rows.sort(key=lambda r: r["posting_date"] or "", reverse=True)
+
+	totals = {"unpaid": 0.0, "partial": 0.0, "paid": 0.0}
+	for r in rows:
+		amount = r["outstanding"] if r["bucket"] in ("unpaid", "partial") else r["amount"]
+		totals[r["bucket"]] += flt(amount)
+
+	return {"rows": rows, "totals": totals}
