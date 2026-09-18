@@ -3,13 +3,16 @@
 
 import os
 import re
+import shutil
+import sys
+import time
 from datetime import datetime
 
 import requests
 
 import frappe
 from frappe import _
-from frappe.utils import get_backups_path
+from frappe.utils import get_backups_path, get_bench_path
 
 # Same provider/account PME360 already uses for its own OCR pipeline
 # (app/Services/OcrService.php) -- reused here instead of standing up a
@@ -313,3 +316,108 @@ def download_erp_backup(filename):
 		frappe.local.response.filename = os.path.basename(path)
 		frappe.local.response.filecontent = f.read()
 		frappe.local.response.type = "download"
+
+
+# ERPNext health/incident dashboard, shown on the "Signalements ERPNext"
+# page (Organisation sidebar, System Manager only) -- mirrors PME360's own
+# /admin/signalements page, but built on Frappe's own native equivalents
+# instead of a parallel bug-tracking table: "Error Log" (every unhandled
+# server exception is already captured there automatically) and
+# "Activity Log" (already records every Login/Logout with a status).
+_APP_LOG_PATH = os.path.join(get_bench_path(), "logs", "frappe.log")
+
+
+def _tail_file(path, max_lines=150):
+	if not os.path.isfile(path):
+		return _("Aucun fichier de log trouve.")
+
+	with open(path, "r", errors="replace") as f:
+		lines = f.readlines()
+
+	if not lines:
+		return _("Le fichier de log est vide (aucun incident recent).")
+
+	return "".join(lines[-max_lines:])
+
+
+@frappe.whitelist()
+def get_erp_health_dashboard():
+	frappe.only_for("System Manager")
+
+	recent_errors = frappe.get_all(
+		"Error Log",
+		fields=["name", "method", "creation", "seen"],
+		order_by="creation desc",
+		limit=15,
+	)
+
+	db_error = None
+	table_count = 0
+	started = time.time()
+	try:
+		table_count = len(frappe.db.sql("SHOW TABLES"))
+		db_connected = True
+	except Exception as e:
+		db_connected = False
+		db_error = str(e)
+	ping_ms = round((time.time() - started) * 1000, 2)
+
+	disk_total, _used, disk_free = shutil.disk_usage(get_bench_path())
+
+	recent_logins = frappe.get_all(
+		"Activity Log",
+		filters={"operation": ["in", ["Login", "Logout"]]},
+		fields=["user", "operation", "status", "creation"],
+		order_by="creation desc",
+		limit=20,
+	)
+
+	return {
+		"errors": {
+			"open": frappe.db.count("Error Log", {"seen": 0}),
+			"total": frappe.db.count("Error Log"),
+			"recent": recent_errors,
+		},
+		"db": {
+			"connected": db_connected,
+			"table_count": table_count,
+			"ping_ms": ping_ms,
+			"error": db_error,
+		},
+		"server": {
+			"python_version": sys.version.split()[0],
+			"disk_free_gb": round(disk_free / 1024**3, 2),
+			"disk_total_gb": round(disk_total / 1024**3, 2),
+		},
+		"logins": {
+			"recent": recent_logins,
+			"total_success": frappe.db.count("Activity Log", {"operation": "Login", "status": "Success"}),
+			"total_failed": frappe.db.count("Activity Log", {"operation": "Login", "status": "Failed"}),
+		},
+		"log_tail": _tail_file(_APP_LOG_PATH),
+	}
+
+
+@frappe.whitelist()
+def mark_error_log_seen(name):
+	frappe.only_for("System Manager")
+	frappe.db.set_value("Error Log", name, "seen", 1)
+	frappe.db.commit()
+
+
+@frappe.whitelist()
+def clear_erp_logs():
+	"""Mirrors PME360's 'Vider les logs' action: empties the app log file
+	and removes already-reviewed Error Log entries older than 7 days."""
+	frappe.only_for("System Manager")
+
+	if os.path.isfile(_APP_LOG_PATH):
+		open(_APP_LOG_PATH, "w").close()
+
+	week_ago = frappe.utils.add_days(frappe.utils.now(), -7)
+	old_seen = frappe.get_all("Error Log", filters={"seen": 1, "creation": ["<", week_ago]}, pluck="name")
+	for name in old_seen:
+		frappe.delete_doc("Error Log", name, ignore_permissions=True, force=True)
+
+	frappe.db.commit()
+	return {"cleared_errors": len(old_seen)}
