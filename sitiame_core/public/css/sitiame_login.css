@@ -1,22 +1,154 @@
-/* Minimal login page tweak: frame, enlarge and center the app logo.
-   Deliberately scoped to just the login page (body[data-path="login"]).
+/* Restyles the native Frappe login page (#page-login) to match PME360's
+   own login screen (resources/views/login.blade.php): a photo panel on the
+   left, the form on the right, orange/amber accent.
 
-   Root cause of the "invisible logo" bug: Frappe's own
-   /assets/frappe/dist/css/login.bundle.*.css loads AFTER this file and
-   contains ".page-card-head img.app-logo{max-height:32px;width:auto}".
-   Our selector already wins on specificity for width/height, but we never
-   declared max-height ourselves, so Frappe's max-height:32px kept applying
-   uncontested -- squashing the (very wide, 1080x600) logo into an
-   unreadable 32px-tall sliver with no object-fit to prevent the
-   distortion. Fix: explicitly override max-height here too, and add
-   object-fit so the image can never be squashed even if a future Frappe
-   update changes that value again. */
+   IMPORTANT cascade note (found the hard way while fixing the logo, see
+   git history): Frappe's own /assets/frappe/dist/css/login.bundle.*.css
+   loads AFTER this file and sets, among others:
+     body{display:flex;flex-direction:column;gap:14px}
+     .page-content-wrapper{padding-top:0;min-height:100svh}
+   Any property we don't explicitly re-declare here keeps Frappe's value
+   regardless of our selector's specificity -- CSS only overrides
+   per-property, not per-rule. So every property Frappe sets on body /
+   .page-content-wrapper / .page-card / .app-logo that would conflict with
+   this layout is re-declared explicitly below (with !important on the two
+   that fight a same-specificity Frappe rule loaded later: body and
+   .page-content-wrapper), instead of assuming higher selector specificity
+   alone is enough. */
+
+body[data-path="login"] {
+	display: block !important;
+	margin: 0;
+	background: #fff;
+}
+
+body[data-path="login"] .page-content-wrapper {
+	display: flex !important;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh !important;
+	padding: 24px;
+	margin: 0;
+}
+
+body[data-path="login"] .page-breadcrumbs {
+	display: none;
+}
+
+#sitiame-login-hero {
+	display: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 40%;
+	overflow: hidden;
+	flex-direction: column;
+	justify-content: space-between;
+	color: #fff;
+	z-index: 1;
+}
+
+#sitiame-login-hero img.sitiame-hero-bg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+#sitiame-login-hero .sitiame-hero-overlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+}
+
+#sitiame-login-hero .sitiame-hero-content {
+	position: relative;
+	z-index: 1;
+	padding: 48px;
+}
+
+#sitiame-login-hero .sitiame-hero-logo {
+	display: flex;
+	height: 64px;
+	width: 64px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.2);
+	backdrop-filter: blur(4px);
+	padding: 8px;
+	margin-bottom: 16px;
+}
+
+#sitiame-login-hero .sitiame-hero-logo img {
+	max-height: 100%;
+	max-width: 100%;
+}
+
+#sitiame-login-hero h2 {
+	font-size: 34px;
+	font-weight: 700;
+	margin: 0 0 12px;
+	color: #fff;
+}
+
+#sitiame-login-hero p.sitiame-hero-tagline {
+	font-size: 17px;
+	line-height: 1.6;
+	color: rgba(255, 255, 255, 0.9);
+	margin: 0;
+}
+
+#sitiame-login-hero .sitiame-hero-features {
+	position: relative;
+	z-index: 1;
+	padding: 48px;
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.8);
+}
+
+#sitiame-login-hero .sitiame-hero-features div {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+#sitiame-login-hero .sitiame-hero-features svg {
+	flex: none;
+	margin-top: 2px;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+@media (min-width: 992px) {
+	#sitiame-login-hero {
+		display: flex;
+	}
+	body[data-path="login"] .page-content-wrapper {
+		margin-left: 40% !important;
+		width: 60%;
+	}
+}
+
+/* Card + form restyle */
+body[data-path="login"] .page-card {
+	border: none;
+	box-shadow: none;
+	max-width: 420px;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+}
 
 body[data-path="login"] .page-card-head {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	text-align: center;
+	padding: 0;
+	margin: 0 0 8px;
 }
 
 body[data-path="login"] .page-card-head img.app-logo {
@@ -32,4 +164,62 @@ body[data-path="login"] .page-card-head img.app-logo {
 	border-radius: 16px;
 	background: #fff;
 	box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+body[data-path="login"] .page-card-head-text .sitiame-eyebrow {
+	display: block;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.3em;
+	text-transform: uppercase;
+	color: #ea580c;
+	margin-bottom: 10px;
+}
+
+body[data-path="login"] .page-card-head h4 {
+	font-size: 32px;
+	font-weight: 700;
+	color: #0f172a;
+}
+
+body[data-path="login"] .page-card-subtitle {
+	display: none;
+}
+
+body[data-path="login"] .form-control {
+	border-radius: 12px;
+	border: 1px solid #e2e8f0;
+	padding: 12px 14px 12px 40px;
+}
+
+body[data-path="login"] .form-control:focus {
+	border-color: #f97316;
+	box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+}
+
+body[data-path="login"] .field-icon {
+	top: 40px;
+}
+
+body[data-path="login"] .btn-login {
+	background: linear-gradient(to right, #f97316, #d97706);
+	border: none;
+	color: #fff;
+	font-weight: 700;
+	border-radius: 12px;
+	padding: 13px;
+	box-shadow: 0 4px 10px rgba(217, 119, 6, 0.25);
+}
+
+body[data-path="login"] .btn-login:hover {
+	filter: brightness(0.95);
+}
+
+body[data-path="login"] .forgot-password-message a {
+	color: #ea580c;
+	font-weight: 600;
+}
+
+body[data-path="login"] .btn-login-with-email-link {
+	border-radius: 12px;
 }
