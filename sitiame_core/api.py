@@ -1,12 +1,15 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
+import os
 import re
+from datetime import datetime
 
 import requests
 
 import frappe
 from frappe import _
+from frappe.utils import get_backups_path
 
 # Same provider/account PME360 already uses for its own OCR pipeline
 # (app/Services/OcrService.php) -- reused here instead of standing up a
@@ -235,3 +238,78 @@ def ocr_extract_invoice(file_url):
 		"date": _best_guess_date(text),
 		"client_name": _best_guess_client(text),
 	}
+
+
+# ERPNext database backups, listed/managed from the "Sauvegardes ERPNext"
+# page (Users workspace, System Manager only) -- mirrors PME360's own
+# /admin/backups feature so the ERP site has the same safety net.
+_BACKUP_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.(sql\.gz|sql|tar)$")
+
+
+def _safe_backup_path(filename):
+	filename = os.path.basename(filename or "")
+	if not _BACKUP_FILENAME_RE.match(filename):
+		frappe.throw(_("Nom de fichier invalide."))
+
+	path = os.path.join(get_backups_path(), filename)
+	if not os.path.isfile(path):
+		frappe.throw(_("Sauvegarde introuvable."), frappe.DoesNotExistError)
+
+	return path
+
+
+@frappe.whitelist()
+def list_erp_backups():
+	frappe.only_for("System Manager")
+
+	backups_dir = get_backups_path()
+	if not os.path.isdir(backups_dir):
+		return []
+
+	rows = []
+	for fname in os.listdir(backups_dir):
+		if not fname.endswith((".sql.gz", ".sql")):
+			continue
+		full_path = os.path.join(backups_dir, fname)
+		stat = os.stat(full_path)
+		rows.append(
+			{
+				"filename": fname,
+				"size_mb": round(stat.st_size / 1024 / 1024, 2),
+				"modified": stat.st_mtime,
+				"created_at": frappe.utils.format_datetime(datetime.fromtimestamp(stat.st_mtime), "dd-MM-yyyy HH:mm"),
+			}
+		)
+
+	rows.sort(key=lambda r: r["modified"], reverse=True)
+	for row in rows:
+		del row["modified"]
+
+	return rows
+
+
+@frappe.whitelist()
+def run_erp_backup_now():
+	frappe.only_for("System Manager")
+
+	from frappe.utils.backups import new_backup
+
+	backup = new_backup(ignore_files=True)
+	return {"filename": os.path.basename(backup.backup_path_db)}
+
+
+@frappe.whitelist()
+def delete_erp_backup(filename):
+	frappe.only_for("System Manager")
+	os.remove(_safe_backup_path(filename))
+
+
+@frappe.whitelist(methods=["GET"])
+def download_erp_backup(filename):
+	frappe.only_for("System Manager")
+
+	path = _safe_backup_path(filename)
+	with open(path, "rb") as f:
+		frappe.local.response.filename = os.path.basename(path)
+		frappe.local.response.filecontent = f.read()
+		frappe.local.response.type = "download"

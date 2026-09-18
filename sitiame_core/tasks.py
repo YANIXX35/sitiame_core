@@ -1,7 +1,15 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
+import os
+
 import frappe
+from frappe.utils import get_backups_path
+
+# How many 4-hourly ERPNext database backups to keep on disk -- 60 backups
+# at a 4h cadence is 10 days of history, same retention window PME360's own
+# DatabaseBackupService uses for its (separate) database.
+BACKUP_KEEP_COUNT = 60
 
 # Facture (Sales Invoice), Comptabilite (Journal Entry, GL) and Tresorerie
 # (Payment Entry, Bank) access in ERPNext is granted through these roles.
@@ -57,3 +65,35 @@ def _revoke_trial_roles(user_email):
 	user = frappe.get_doc("User", user_email)
 	user.roles = [row for row in user.roles if row.role not in TRIAL_ROLES]
 	user.save(ignore_permissions=True)
+
+
+def run_scheduled_backup():
+	"""Cron job (every 4h, see hooks.py): create a fresh ERPNext database
+	backup and prune old ones, same mechanism as the manual "Lancer une
+	sauvegarde maintenant" button on the Sauvegardes ERPNext page."""
+	try:
+		from frappe.utils.backups import new_backup
+
+		new_backup(ignore_files=True)
+		_prune_old_backups()
+	except Exception:
+		frappe.log_error(
+			title="sitiame_core.tasks.run_scheduled_backup",
+			message=frappe.get_traceback(),
+		)
+
+
+def _prune_old_backups():
+	backups_dir = get_backups_path()
+	if not os.path.isdir(backups_dir):
+		return
+
+	files = [
+		os.path.join(backups_dir, fname)
+		for fname in os.listdir(backups_dir)
+		if fname.endswith((".sql.gz", ".sql"))
+	]
+	files.sort(key=os.path.getmtime, reverse=True)
+
+	for path in files[BACKUP_KEEP_COUNT:]:
+		os.remove(path)

@@ -16,5 +16,8 @@ app_include_js = [
 scheduler_events = {
 	"daily": [
 		"sitiame_core.tasks.block_expired_trials",
-	]
+	],
+	"cron": {
+		"0 */4 * * *": ["sitiame_core.tasks.run_scheduled_backup"],
+	},
 }
