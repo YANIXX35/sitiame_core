@@ -12,7 +12,7 @@ import requests
 
 import frappe
 from frappe import _
-from frappe.utils import get_backups_path, get_bench_path
+from frappe.utils import flt, get_backups_path, get_bench_path
 
 # Same provider/account PME360 already uses for its own OCR pipeline
 # (app/Services/OcrService.php) -- reused here instead of standing up a
@@ -444,3 +444,53 @@ def get_scoring360_score(company, date_from=None, date_to=None):
 	from sitiame_core.scoring360_service import score_company
 
 	return score_company(company, date_from or None, date_to or None)
+
+
+@frappe.whitelist()
+def list_erp_payments(company=None, party=None, status=None, mode_of_payment=None, date_from=None, date_to=None):
+	"""Real ERPNext payments (Payment Entry), shown on the "Paiements ERPNext"
+	page (Organisation sidebar). Unlike PME360's /admin/payments (which
+	tracks PME360's own Premium-subscription mobile-money transactions --
+	no ERPNext equivalent exists), this reflects each Company's actual
+	customer/supplier payments."""
+	frappe.only_for("System Manager")
+
+	filters = {"docstatus": ["!=", 2]}
+	if company:
+		filters["company"] = company
+	if party:
+		filters["party"] = ["like", f"%{party}%"]
+	if status:
+		filters["status"] = status
+	if mode_of_payment:
+		filters["mode_of_payment"] = mode_of_payment
+	if date_from and date_to:
+		filters["posting_date"] = ["between", [date_from, date_to]]
+	elif date_from:
+		filters["posting_date"] = [">=", date_from]
+	elif date_to:
+		filters["posting_date"] = ["<=", date_to]
+
+	rows = frappe.get_all(
+		"Payment Entry",
+		filters=filters,
+		fields=[
+			"name", "posting_date", "company", "payment_type", "party_type", "party",
+			"party_name", "paid_amount", "received_amount", "paid_from_account_currency",
+			"mode_of_payment", "reference_no", "reference_date", "status",
+		],
+		order_by="posting_date desc, creation desc",
+		limit=200,
+	)
+
+	received_total = sum(flt(r.received_amount) for r in rows if r.payment_type == "Receive")
+	paid_total = sum(flt(r.paid_amount) for r in rows if r.payment_type == "Pay")
+
+	return {
+		"rows": rows,
+		"summary": {
+			"count": len(rows),
+			"received_total": received_total,
+			"paid_total": paid_total,
+		},
+	}
