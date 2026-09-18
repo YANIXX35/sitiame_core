@@ -17,46 +17,66 @@
   "col_break_3",
   "eval_date",
   "purpose",
-  "criteria_section",
-  "capacite_remboursement_col",
+  "criteria_intro_section",
+  "capacite_remboursement_section",
   "capacite_remboursement_weight",
+  "capacite_remboursement_note_col",
   "capacite_remboursement_note",
+  "capacite_remboursement_proof_section",
   "capacite_remboursement_proof",
-  "structure_financiere_col",
+  "structure_financiere_section",
   "structure_financiere_weight",
+  "structure_financiere_note_col",
   "structure_financiere_note",
+  "structure_financiere_proof_section",
   "structure_financiere_proof",
-  "rentabilite_col",
+  "rentabilite_section",
   "rentabilite_weight",
+  "rentabilite_note_col",
   "rentabilite_note",
+  "rentabilite_proof_section",
   "rentabilite_proof",
-  "historique_paiement_col",
+  "historique_paiement_section",
   "historique_paiement_weight",
+  "historique_paiement_note_col",
   "historique_paiement_note",
+  "historique_paiement_proof_section",
   "historique_paiement_proof",
-  "marche_clientele_col",
+  "marche_clientele_section",
   "marche_clientele_weight",
+  "marche_clientele_note_col",
   "marche_clientele_note",
+  "marche_clientele_proof_section",
   "marche_clientele_proof",
-  "direction_organisation_col",
+  "direction_organisation_section",
   "direction_organisation_weight",
+  "direction_organisation_note_col",
   "direction_organisation_note",
+  "direction_organisation_proof_section",
   "direction_organisation_proof",
-  "qualite_informations_col",
+  "qualite_informations_section",
   "qualite_informations_weight",
+  "qualite_informations_note_col",
   "qualite_informations_note",
+  "qualite_informations_proof_section",
   "qualite_informations_proof",
-  "projet_financement_col",
+  "projet_financement_section",
   "projet_financement_weight",
+  "projet_financement_note_col",
   "projet_financement_note",
+  "projet_financement_proof_section",
   "projet_financement_proof",
-  "liquidite_generale_col",
+  "liquidite_generale_section",
   "liquidite_generale_weight",
+  "liquidite_generale_note_col",
   "liquidite_generale_note",
+  "liquidite_generale_proof_section",
   "liquidite_generale_proof",
-  "garanties_recouvrement_col",
+  "garanties_recouvrement_section",
   "garanties_recouvrement_weight",
+  "garanties_recouvrement_note_col",
   "garanties_recouvrement_note",
+  "garanties_recouvrement_proof_section",
   "garanties_recouvrement_proof",
   "review_section",
   "identity_verified",
@@ -150,229 +170,339 @@
    "label": "Objet du credit"
   },
   {
-   "fieldname": "criteria_section",
+   "fieldname": "criteria_intro_section",
    "fieldtype": "Section Break",
    "label": "Les criteres de scoring (note de 0 a 5)"
   },
   {
-   "fieldname": "capacite_remboursement_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "capacite_remboursement_section",
+   "fieldtype": "Section Break",
+   "label": "01 - Capacite de remboursement",
+   "collapsible": 0
   },
   {
    "fieldname": "capacite_remboursement_weight",
    "fieldtype": "Int",
-   "label": "Capacite de remboursement - Poids",
+   "label": "Poids",
    "default": "25"
+  },
+  {
+   "fieldname": "capacite_remboursement_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "capacite_remboursement_note",
    "fieldtype": "Select",
-   "label": "Capacite de remboursement - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "capacite_remboursement_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "capacite_remboursement_proof",
    "fieldtype": "Small Text",
-   "label": "Capacite de remboursement - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "structure_financiere_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "structure_financiere_section",
+   "fieldtype": "Section Break",
+   "label": "02 - Structure financiere",
+   "collapsible": 0
   },
   {
    "fieldname": "structure_financiere_weight",
    "fieldtype": "Int",
-   "label": "Structure financiere - Poids",
+   "label": "Poids",
    "default": "15"
+  },
+  {
+   "fieldname": "structure_financiere_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "structure_financiere_note",
    "fieldtype": "Select",
-   "label": "Structure financiere - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "structure_financiere_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "structure_financiere_proof",
    "fieldtype": "Small Text",
-   "label": "Structure financiere - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "rentabilite_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "rentabilite_section",
+   "fieldtype": "Section Break",
+   "label": "03 - Rentabilite",
+   "collapsible": 0
   },
   {
    "fieldname": "rentabilite_weight",
    "fieldtype": "Int",
-   "label": "Rentabilite - Poids",
+   "label": "Poids",
    "default": "10"
+  },
+  {
+   "fieldname": "rentabilite_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "rentabilite_note",
    "fieldtype": "Select",
-   "label": "Rentabilite - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "rentabilite_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "rentabilite_proof",
    "fieldtype": "Small Text",
-   "label": "Rentabilite - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "historique_paiement_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "historique_paiement_section",
+   "fieldtype": "Section Break",
+   "label": "04 - Historique de paiement",
+   "collapsible": 0
   },
   {
    "fieldname": "historique_paiement_weight",
    "fieldtype": "Int",
-   "label": "Historique de paiement - Poids",
+   "label": "Poids",
    "default": "10"
+  },
+  {
+   "fieldname": "historique_paiement_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "historique_paiement_note",
    "fieldtype": "Select",
-   "label": "Historique de paiement - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "historique_paiement_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "historique_paiement_proof",
    "fieldtype": "Small Text",
-   "label": "Historique de paiement - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "marche_clientele_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "marche_clientele_section",
+   "fieldtype": "Section Break",
+   "label": "05 - Marche et clientele",
+   "collapsible": 0
   },
   {
    "fieldname": "marche_clientele_weight",
    "fieldtype": "Int",
-   "label": "Marche et clientele - Poids",
+   "label": "Poids",
    "default": "10"
+  },
+  {
+   "fieldname": "marche_clientele_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "marche_clientele_note",
    "fieldtype": "Select",
-   "label": "Marche et clientele - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "marche_clientele_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "marche_clientele_proof",
    "fieldtype": "Small Text",
-   "label": "Marche et clientele - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "direction_organisation_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "direction_organisation_section",
+   "fieldtype": "Section Break",
+   "label": "06 - Direction et organisation",
+   "collapsible": 0
   },
   {
    "fieldname": "direction_organisation_weight",
    "fieldtype": "Int",
-   "label": "Direction et organisation - Poids",
+   "label": "Poids",
    "default": "10"
+  },
+  {
+   "fieldname": "direction_organisation_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "direction_organisation_note",
    "fieldtype": "Select",
-   "label": "Direction et organisation - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "direction_organisation_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "direction_organisation_proof",
    "fieldtype": "Small Text",
-   "label": "Direction et organisation - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "qualite_informations_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "qualite_informations_section",
+   "fieldtype": "Section Break",
+   "label": "07 - Qualite des informations",
+   "collapsible": 0
   },
   {
    "fieldname": "qualite_informations_weight",
    "fieldtype": "Int",
-   "label": "Qualite des informations - Poids",
+   "label": "Poids",
    "default": "5"
+  },
+  {
+   "fieldname": "qualite_informations_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "qualite_informations_note",
    "fieldtype": "Select",
-   "label": "Qualite des informations - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "qualite_informations_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "qualite_informations_proof",
    "fieldtype": "Small Text",
-   "label": "Qualite des informations - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "projet_financement_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "projet_financement_section",
+   "fieldtype": "Section Break",
+   "label": "08 - Projet et plan de financement",
+   "collapsible": 0
   },
   {
    "fieldname": "projet_financement_weight",
    "fieldtype": "Int",
-   "label": "Projet et plan de financement - Poids",
+   "label": "Poids",
    "default": "5"
+  },
+  {
+   "fieldname": "projet_financement_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "projet_financement_note",
    "fieldtype": "Select",
-   "label": "Projet et plan de financement - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "projet_financement_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "projet_financement_proof",
    "fieldtype": "Small Text",
-   "label": "Projet et plan de financement - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
-   "fieldname": "liquidite_generale_col",
-   "fieldtype": "Column Break",
-   "label": ""
+   "fieldname": "liquidite_generale_section",
+   "fieldtype": "Section Break",
+   "label": "09 - Liquidite generale",
+   "collapsible": 0
   },
   {
    "fieldname": "liquidite_generale_weight",
    "fieldtype": "Int",
-   "label": "Liquidite generale - Poids",
+   "label": "Poids",
    "default": "5"
   },
   {
-   "fieldname": "liquidite_generale_note",
-   "fieldtype": "Select",
-   "label": "Liquidite generale - Note",
-   "options": "\n0\n1\n2\n3\n4\n5"
-  },
-  {
-   "fieldname": "liquidite_generale_proof",
-   "fieldtype": "Small Text",
-   "label": "Liquidite generale - Observation / piece"
-  },
-  {
-   "fieldname": "garanties_recouvrement_col",
+   "fieldname": "liquidite_generale_note_col",
    "fieldtype": "Column Break",
    "label": ""
   },
   {
+   "fieldname": "liquidite_generale_note",
+   "fieldtype": "Select",
+   "label": "Note",
+   "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "liquidite_generale_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "liquidite_generale_proof",
+   "fieldtype": "Small Text",
+   "label": "Observation et piece justificative"
+  },
+  {
+   "fieldname": "garanties_recouvrement_section",
+   "fieldtype": "Section Break",
+   "label": "10 - Garanties et recouvrement",
+   "collapsible": 0
+  },
+  {
    "fieldname": "garanties_recouvrement_weight",
    "fieldtype": "Int",
-   "label": "Garanties et recouvrement - Poids",
+   "label": "Poids",
    "default": "5"
+  },
+  {
+   "fieldname": "garanties_recouvrement_note_col",
+   "fieldtype": "Column Break",
+   "label": ""
   },
   {
    "fieldname": "garanties_recouvrement_note",
    "fieldtype": "Select",
-   "label": "Garanties et recouvrement - Note",
+   "label": "Note",
    "options": "\n0\n1\n2\n3\n4\n5"
+  },
+  {
+   "fieldname": "garanties_recouvrement_proof_section",
+   "fieldtype": "Section Break",
+   "label": ""
   },
   {
    "fieldname": "garanties_recouvrement_proof",
    "fieldtype": "Small Text",
-   "label": "Garanties et recouvrement - Observation / piece"
+   "label": "Observation et piece justificative"
   },
   {
    "fieldname": "review_section",
