@@ -754,3 +754,18 @@ def chat_with_assistant(message, history=None):
 	messages.append({"role": "user", "content": message})
 
 	return chat(messages)
+
+
+# PIN gate for the Club Sportif workspace (company accounts only -- see
+# hide_club_sportif.js for the accompanying UI). This is a soft deterrent,
+# not a real access boundary: Club Sportif's own links (Customer/
+# Subscription/Event) stay reachable via direct URL for anyone who already
+# has the underlying role-based permission, same as before. The PIN is
+# only ever compared server-side (never shipped to the client) so it can't
+# be read from page source, but that's the limit of what this buys.
+@frappe.whitelist()
+def verify_club_sportif_pin(pin):
+	configured = frappe.conf.get("club_sportif_pin")
+	if not configured:
+		return {"ok": False}
+	return {"ok": str(pin).strip() == str(configured).strip()}

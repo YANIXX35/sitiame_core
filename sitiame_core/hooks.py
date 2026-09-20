@@ -17,7 +17,7 @@ app_include_js = [
 	"/assets/sitiame_core/js/sales_invoice_ocr_import.js",
 	"/assets/sitiame_core/js/scoring360_settings_test.js",
 	"/assets/sitiame_core/js/ai_assistant.js",
-	"/assets/sitiame_core/js/hide_club_sportif.js",
+	"/assets/sitiame_core/js/pin_gate_club_sportif.js",
 ]
 
 scheduler_events = {
