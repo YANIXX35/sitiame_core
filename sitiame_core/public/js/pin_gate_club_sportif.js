@@ -8,7 +8,6 @@
 // read from page source, but a technical user could still reach the
 // underlying doctypes directly (e.g. /app/customer).
 (function () {
-	var LOCK_ROUTE_FRAGMENT = "club-sportif";
 	var SESSION_KEY = "sitiame-pin-unlocked-club-sportif";
 
 	function isAdmin() {
@@ -20,13 +19,31 @@
 		return sessionStorage.getItem(SESSION_KEY) === "1";
 	}
 
+	// The URL alone isn't enough: clicking "Membres" inside the Club
+	// Sportif workspace navigates straight to /app/customer, which never
+	// contains "club-sportif" in the path -- yet Frappe keeps the "Club
+	// Sportif" label showing in the left sidebar the whole time (see
+	// screenshot that exposed this). So detect the active workspace by
+	// that persistent sidebar label instead of the route.
+	function clubSportifSidebarActive() {
+		var candidates = document.querySelectorAll("a, span, div, li");
+		for (var i = 0; i < candidates.length; i++) {
+			var el = candidates[i];
+			if (el.children.length > 2) continue;
+			if ((el.textContent || "").trim() !== "Club Sportif") continue;
+			var rect = el.getBoundingClientRect();
+			if (rect.left < 260 && rect.top < 200) return true;
+		}
+		return false;
+	}
+
 	function showPinModal() {
 		if (document.getElementById("sitiame-pin-overlay")) return;
 
 		var overlay = document.createElement("div");
 		overlay.id = "sitiame-pin-overlay";
 		overlay.style.cssText =
-			"position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.7);display:flex;align-items:center;justify-content:center;";
+			"position:fixed;inset:0;z-index:99999;background:#0f172a;display:flex;align-items:center;justify-content:center;";
 		overlay.innerHTML =
 			"<div style='background:#fff;border-radius:14px;padding:28px;width:300px;max-width:90vw;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);'>" +
 			"<div style='font-size:15px;font-weight:700;margin-bottom:6px;'>" + __("Acces protege") + "</div>" +
@@ -70,8 +87,8 @@
 
 	function guard() {
 		if (isAdmin()) return;
-		if (window.location.pathname.indexOf(LOCK_ROUTE_FRAGMENT) === -1) return;
 		if (isUnlocked()) return;
+		if (!clubSportifSidebarActive()) return;
 
 		showPinModal();
 	}
@@ -79,6 +96,8 @@
 	$(document).on("app_ready", guard);
 	$(document).on("page-change", function () {
 		setTimeout(guard, 100);
+		setTimeout(guard, 400);
+		setTimeout(guard, 900);
 	});
 	document.addEventListener("DOMContentLoaded", function () {
 		setTimeout(guard, 300);
