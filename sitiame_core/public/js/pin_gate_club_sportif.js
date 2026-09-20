@@ -8,15 +8,15 @@
 // read from page source, but a technical user could still reach the
 // underlying doctypes directly (e.g. /app/customer).
 (function () {
-	var SESSION_KEY = "sitiame-pin-unlocked-club-sportif";
+	// Deliberately in-memory only (not sessionStorage): the unlock must
+	// NOT survive a page reload or leaving Club Sportif and coming back --
+	// it only holds while navigating between Club Sportif's own pages
+	// (Membres/Cotisations/Evenements) without leaving that context.
+	var unlocked = false;
 
 	function isAdmin() {
 		var roles = (frappe.boot && frappe.boot.user && frappe.boot.user.roles) || [];
 		return roles.indexOf("System Manager") !== -1 || roles.indexOf("Workspace Manager") !== -1;
-	}
-
-	function isUnlocked() {
-		return sessionStorage.getItem(SESSION_KEY) === "1";
 	}
 
 	// The URL alone isn't enough: clicking "Membres" inside the Club
@@ -65,7 +65,7 @@
 			if (!pin) return;
 			frappe.call({ method: "sitiame_core.api.verify_club_sportif_pin", args: { pin: pin } }).then(function (r) {
 				if (r.message && r.message.ok) {
-					sessionStorage.setItem(SESSION_KEY, "1");
+					unlocked = true;
 					overlay.remove();
 				} else {
 					error.textContent = __("Code incorrect.");
@@ -87,9 +87,14 @@
 
 	function guard() {
 		if (isAdmin()) return;
-		if (isUnlocked()) return;
-		if (!clubSportifSidebarActive()) return;
 
+		if (!clubSportifSidebarActive()) {
+			// Left Club Sportif: forget the unlock so coming back re-prompts.
+			unlocked = false;
+			return;
+		}
+
+		if (unlocked) return;
 		showPinModal();
 	}
 
