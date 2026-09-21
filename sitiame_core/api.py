@@ -280,6 +280,14 @@ _INVOICE_NUMBER_PATTERNS = [
 		r"\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})",
 		re.IGNORECASE,
 	),
+	# A standalone "N° <value>" / "No <value>" line, for layouts where
+	# "FACTURE" is its own heading line and the number follows on the next
+	# line without repeating the word "Facture" (common OCR output). The
+	# caller additionally requires the captured value to contain a digit
+	# (see _looks_like_reference below), so this can't mis-fire on an
+	# unrelated "N° Contribuable" / "N° RCCM" line that has no separator
+	# right after "N°".
+	re.compile(r"^\s*N[°ºo]\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})\s*$", re.IGNORECASE | re.MULTILINE),
 ]
 _INVOICE_DATE_PATTERNS = [
 	re.compile(
@@ -298,6 +306,9 @@ _CUSTOMER_PATTERNS = [re.compile(r"Client\s*[:\-]\s*(.+)", re.IGNORECASE)]
 _TAX_ID_PATTERNS = [
 	re.compile(r"\bNIF\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
 	re.compile(r"N[°ºo]?\s*Contribuable\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
+	# NCC (Numero de Compte Contribuable) is the standard Ivorian tax id
+	# label, at least as common on real invoices as "NIF".
+	re.compile(r"\bNCC\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
 ]
 _SUBTOTAL_PATTERNS = [
 	re.compile(r"(?:TOTAL|MONTANT)\s*H\.?T\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
@@ -396,19 +407,27 @@ def _extract_invoice_fields(text: str) -> tuple[dict, dict]:
 	fields: dict = {}
 	confidence: dict = {}
 
-	def add(key, patterns, normalizer=None, conf=0.9):
+	def add(key, patterns, normalizer=None, conf=0.9, validator=None):
 		for pattern in patterns:
 			match = pattern.search(text)
 			if not match:
 				continue
 			raw = match.group(1).strip().strip(".,;")
+			if validator and not validator(raw):
+				continue
 			value = normalizer(raw) if normalizer else raw
 			if value not in (None, ""):
 				fields[key] = value
 				confidence[key] = conf
 				return
 
-	add("invoice_number", _INVOICE_NUMBER_PATTERNS)
+	# A real invoice reference always contains at least one digit -- this
+	# keeps the standalone "N° <value>" pattern above from mis-firing on
+	# an unrelated "N° Contribuable"/"N° RCCM" line whose value is a word.
+	def _looks_like_reference(raw):
+		return any(ch.isdigit() for ch in raw)
+
+	add("invoice_number", _INVOICE_NUMBER_PATTERNS, validator=_looks_like_reference)
 	add("invoice_date", _INVOICE_DATE_PATTERNS, _parse_date_token)
 	add("due_date", _DUE_DATE_PATTERNS, _parse_date_token)
 	add("supplier_name", _SUPPLIER_PATTERNS)
