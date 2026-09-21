@@ -290,9 +290,13 @@ _INVOICE_NUMBER_PATTERNS = [
 	re.compile(r"^\s*N[°ºo]\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})\s*$", re.IGNORECASE | re.MULTILINE),
 ]
 _INVOICE_DATE_PATTERNS = [
+	# "Date de facture", "Date d'emission", "Date de reception", "Date de
+	# livraison", ... -- any "Date (de|d') <word>" label, as long as that
+	# word isn't "echeance" (that's due_date's own pattern below), plus the
+	# bare "Date :" form.
 	re.compile(
-		r"(?:Date\s*(?:de\s*)?facture|Date\s*d[’']?[ée]mission|^\s*Date)\s*[:\-]?\s*" + _DATE_VALUE,
-		re.IGNORECASE | re.MULTILINE,
+		r"Date\s*(?:d[e’']\s*(?!\s*[ée]ch[ée]ance)[A-Za-zÀ-ÿ]+\s*)?[:\-]\s*" + _DATE_VALUE,
+		re.IGNORECASE,
 	),
 ]
 _DUE_DATE_PATTERNS = [
@@ -470,6 +474,63 @@ def _extract_invoice_fields(text: str) -> tuple[dict, dict]:
 	return fields, confidence
 
 
+_SUMMARY_LINE_RE = re.compile(
+	r"^\s*(nombre\s*total|total|sous[- ]total|montant\s*h\.?t\.?|tva|montant\s*t\.?t\.?c\.?)\b",
+	re.IGNORECASE,
+)
+
+
+def _extract_line_items(text: str) -> list:
+	"""Parse the item table (Designation/Reference/Qte/Unite, or
+	Designation/Qte/Prix unitaire/Montant) into one dict per row.
+
+	OCR.space's isTable mode keeps columns aligned with runs of spaces, so
+	rows are split on 2+ consecutive spaces rather than a single space
+	(item/reference names routinely contain single spaces). Only
+	item_name and qty are ever handed to the caller to fill in -- unit,
+	item code and rate would need to match an existing master record
+	(UOM/Item) to be safe to set on a Link field, which this function has
+	no way to verify, so it doesn't guess those.
+	"""
+	lines = (text or "").splitlines()
+	header_idx = None
+	header_cells: list = []
+	for i, line in enumerate(lines):
+		if re.match(r"^\s*d[ée]signation\b", line, re.IGNORECASE):
+			header_idx = i
+			header_cells = [c.strip().lower() for c in re.split(r"\s{2,}", line.strip()) if c.strip()]
+			break
+	if header_idx is None:
+		return []
+
+	def col_index(*keywords):
+		for idx, cell in enumerate(header_cells):
+			if any(kw in cell for kw in keywords):
+				return idx
+		return None
+
+	qty_idx = col_index("qte", "qté", "quantite", "quantité")
+
+	items = []
+	for line in lines[header_idx + 1 :]:
+		stripped = line.strip()
+		if not stripped:
+			break
+		if _SUMMARY_LINE_RE.match(stripped):
+			break
+		cells = [c.strip() for c in re.split(r"\s{2,}", stripped) if c.strip()]
+		if len(cells) < 2:
+			break
+		entry = {"item_name": cells[0]}
+		if qty_idx is not None and qty_idx < len(cells):
+			qty_value = _parse_amount(cells[qty_idx])
+			if qty_value is not None:
+				entry["qty"] = qty_value
+		items.append(entry)
+
+	return items
+
+
 def _detect_document_type(text: str, fields: dict) -> str:
 	lowered = (text or "").lower()
 	if "facture" not in lowered and "invoice" not in lowered:
@@ -531,9 +592,11 @@ def ocr_extract_invoice(file_url):
 
 	fields, confidence = _extract_invoice_fields(text)
 	document_type = _detect_document_type(text, fields)
+	line_items = _extract_line_items(text)
 
 	frappe.logger("sitiame_core.ocr").info(
-		f"[OCR] document_type={document_type} fields={fields} confidence={confidence}"
+		f"[OCR] document_type={document_type} fields={fields} confidence={confidence} "
+		f"line_items={line_items}"
 	)
 
 	return {
@@ -544,6 +607,7 @@ def ocr_extract_invoice(file_url):
 		"document_type": document_type,
 		"fields": fields,
 		"confidence": confidence,
+		"line_items": line_items,
 	}
 
 

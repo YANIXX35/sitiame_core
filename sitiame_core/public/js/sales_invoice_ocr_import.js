@@ -50,6 +50,7 @@ frappe.ui.form.on("*", {
 function handle_ocr_result(frm, data) {
 	var fields = data.fields || {};
 	var confidence = data.confidence || {};
+	var lineItems = data.line_items || [];
 	var filled = [];
 
 	// eslint-disable-next-line no-console
@@ -105,6 +106,39 @@ function handle_ocr_result(frm, data) {
 		filled.push("items[0].rate ← " + rateValue);
 	}
 
+	// Fills one real row per parsed table line (Designation/Reference/Qte/
+	// Unite or similar -- see api.py::_extract_line_items). Only item_name
+	// and qty are set: item_code/uom are Link fields that must match an
+	// existing Item/UOM master record, which this has no way to verify, so
+	// it never guesses those -- the user picks the right item per row.
+	function add_line_items(lineItems) {
+		if (!lineItems || !lineItems.length) return;
+		var itemsField = frm.fields_dict["items"];
+		if (!itemsField || itemsField.df.fieldtype !== "Table") return;
+
+		lineItems.forEach(function (entry, idx) {
+			var blankRow =
+				idx === 0
+					? (frm.doc.items || []).find(function (row) {
+							return !row.item_name && !row.rate && !row.qty;
+					  })
+					: null;
+			var row = blankRow || frm.add_child("items");
+			frappe.model.set_value(row.doctype, row.name, "item_name", entry.item_name);
+			frappe.model.set_value(
+				row.doctype,
+				row.name,
+				"description",
+				__("Ligne ajoutee automatiquement depuis le document importe -- a completer/corriger (code article a choisir).")
+			);
+			if (entry.qty) frappe.model.set_value(row.doctype, row.name, "qty", entry.qty);
+		});
+		frm.refresh_field("items");
+		filled.push("items (" + lineItems.length + " ligne(s)) ← " + lineItems.map(function (e) { return e.item_name; }).join(", "));
+		// eslint-disable-next-line no-console
+		console.log("[OCR] Mapping: line_items ->", lineItems);
+	}
+
 	if (data.document_type && data.document_type !== "invoice") {
 		// Not recognised as an invoice (e.g. devis/avoir/bon de commande):
 		// don't guess-fill invoice-shaped fields onto an unrelated document.
@@ -150,6 +184,28 @@ function handle_ocr_result(frm, data) {
 		set_direct("due_date", fields.due_date);
 		match_and_set_party("customer", "Customer", "customer_name", fields.customer_name);
 		add_amount_item_row(fields.subtotal, __("Montant importe (a verifier)"));
+	} else if (frm.doctype === "Purchase Receipt") {
+		// Mapping (verified against the real DocFields, 21/09/2026):
+		//   invoice_number -> supplier_delivery_note (Data, editable --
+		//                     "Bon de Livraison du Fournisseur")
+		//   invoice_date   -> posting_date            (Date, editable)
+		//   supplier_name  -> supplier                (Link, resolved by name)
+		//   line_items     -> items (real rows: item_name + qty)
+		// No monetary total field exists in a useful editable form here
+		// (rate/net_total/grand_total are all computed) -- nothing is
+		// force-written for those, same reasoning as Purchase Invoice.
+		set_direct("supplier_delivery_note", fields.invoice_number);
+		set_direct("posting_date", fields.invoice_date);
+		match_and_set_party("supplier", "Supplier", "supplier_name", fields.supplier_name);
+		add_line_items(lineItems);
+	} else if (frm.doctype === "Delivery Note") {
+		// Symmetric to Purchase Receipt, but for goods going OUT to a
+		// customer -- no "supplier delivery note"-equivalent reference
+		// field exists here (the delivery note's own number is the
+		// document's naming series, same reasoning as Sales Invoice).
+		set_direct("posting_date", fields.invoice_date);
+		match_and_set_party("customer", "Customer", "customer_name", fields.customer_name);
+		add_line_items(lineItems);
 	} else if (frm.doctype === "Payment Entry") {
 		// Mapping (verified against the real DocFields, 21/09/2026):
 		//   invoice_number -> reference_no    (Data, editable)
