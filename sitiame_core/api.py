@@ -85,6 +85,56 @@ def _default_country():
 	return frappe.db.get_value("Country", {"name": ["like", "%Ivo%"]}, "name")
 
 
+# Audit finding F-13: signups were getting ERPNext's generic "Standard" chart
+# (95 unnumbered accounts) instead of SYSCOHADA -- broken for any accounting
+# feature. F-11/F-12: default accounts and TVA templates weren't wired to
+# the right accounts either. This mirrors the manual fix applied to SITIAME.
+SYSCOHADA_CHART_OF_ACCOUNTS = "Syscohada - Plan Comptable avec code"
+
+# account_number -> Company field to point at it once the chart exists.
+_SYSCOHADA_DEFAULT_ACCOUNTS = {
+	"4111": "default_receivable_account",
+	"4011": "default_payable_account",
+	"5211": "default_bank_account",
+	"5711": "default_cash_account",
+}
+
+# account_number -> account_type to enforce (the SYSCOHADA template ships
+# these untyped, which breaks TVA reporting and the Cash/Bank dashboards).
+_SYSCOHADA_ACCOUNT_TYPES = {
+	"4431": "Tax",
+	"4432": "Tax",
+	"4452": "Tax",
+	"4454": "Tax",
+	"5711": "Cash",
+}
+
+
+def _apply_syscohada_defaults(company_name):
+	accounts_by_number = {
+		row.account_number: row.name
+		for row in frappe.get_all(
+			"Account",
+			filters={"company": company_name, "account_number": ["in", list(_SYSCOHADA_ACCOUNT_TYPES.keys() | _SYSCOHADA_DEFAULT_ACCOUNTS.keys())]},
+			fields=["name", "account_number"],
+		)
+	}
+
+	for number, account_type in _SYSCOHADA_ACCOUNT_TYPES.items():
+		account_name = accounts_by_number.get(number)
+		if account_name:
+			frappe.db.set_value("Account", account_name, "account_type", account_type)
+
+	company_updates = {}
+	for number, fieldname in _SYSCOHADA_DEFAULT_ACCOUNTS.items():
+		account_name = accounts_by_number.get(number)
+		if account_name:
+			company_updates[fieldname] = account_name
+
+	if company_updates:
+		frappe.db.set_value("Company", company_name, company_updates)
+
+
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=5, seconds=3600)
 def register_company(
@@ -136,9 +186,12 @@ def register_company(
 			"default_currency": "XOF",
 			"country": _default_country(),
 			"tax_id": company_tax_id,
+			"chart_of_accounts": SYSCOHADA_CHART_OF_ACCOUNTS,
+			"create_chart_of_accounts_based_on": "Standard Template",
 		}
 	)
 	company.insert(ignore_permissions=True)
+	_apply_syscohada_defaults(company.name)
 
 	user = frappe.get_doc(
 		{
