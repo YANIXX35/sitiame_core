@@ -397,14 +397,37 @@ def _best_guess_client(text: str) -> str | None:
 	return name or None
 
 
+def _guess_supplier_from_letterhead(text: str) -> str | None:
+	"""Last-resort supplier guess: many real invoices never write the word
+	"Fournisseur" at all -- the issuer's name is only in the letterhead
+	(the first line(s) of the document). Only used when the explicit
+	"Fournisseur :" label isn't found, and always tagged with a low
+	confidence score so the caller can flag it for review rather than
+	treat it the same as a labelled match.
+	"""
+	for line in (text or "").splitlines():
+		line = line.strip()
+		if not line:
+			continue
+		# Skip the document-type heading itself ("FACTURE", "INVOICE", ...),
+		# that's not a company name.
+		if re.match(r"^(facture|invoice|devis|avoir|bon de commande)\b", line, re.IGNORECASE):
+			continue
+		return line[:120]
+	return None
+
+
 def _extract_invoice_fields(text: str) -> tuple[dict, dict]:
 	"""Structured, label-based extraction on top of the raw OCR text.
 
 	Returns (fields, confidence) -- a field is present in `fields` ONLY
-	when a recognised label was actually matched in the text. There is no
-	fallback/default/inference: an absent label means the key is simply
-	not in the dict, and the caller must leave the corresponding form
-	field untouched.
+	when a recognised label was actually matched in the text (with one
+	explicit, clearly-flagged exception: supplier_name falls back to the
+	document's letterhead at confidence 0.5 when no "Fournisseur :" label
+	exists at all -- see _guess_supplier_from_letterhead). Nothing else is
+	inferred or defaulted: an absent label means the key is simply not in
+	the dict, and the caller must leave the corresponding form field
+	untouched.
 	"""
 	fields: dict = {}
 	confidence: dict = {}
@@ -433,6 +456,11 @@ def _extract_invoice_fields(text: str) -> tuple[dict, dict]:
 	add("invoice_date", _INVOICE_DATE_PATTERNS, _parse_date_token)
 	add("due_date", _DUE_DATE_PATTERNS, _parse_date_token)
 	add("supplier_name", _SUPPLIER_PATTERNS)
+	if "supplier_name" not in fields:
+		guess = _guess_supplier_from_letterhead(text)
+		if guess:
+			fields["supplier_name"] = guess
+			confidence["supplier_name"] = 0.5
 	add("customer_name", _CUSTOMER_PATTERNS)
 	add("tax_id", _TAX_ID_PATTERNS)
 	add("subtotal", _SUBTOTAL_PATTERNS, _parse_amount)
