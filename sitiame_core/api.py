@@ -13,6 +13,7 @@ import requests
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, get_backups_path, get_bench_path
 
 # Signup anti-bot: short-lived math challenge, answer cached server-side
@@ -22,7 +23,7 @@ _SIGNUP_CAPTCHA_TTL = 600  # 10 minutes
 
 
 @frappe.whitelist(allow_guest=True)
-@frappe.rate_limit(limit=20, seconds=3600)
+@rate_limit(limit=20, seconds=3600)
 def get_signup_captcha():
 	a = random.randint(2, 9)
 	b = random.randint(2, 9)
@@ -85,7 +86,7 @@ def _default_country():
 
 
 @frappe.whitelist(allow_guest=True)
-@frappe.rate_limit(limit=5, seconds=3600)
+@rate_limit(limit=5, seconds=3600)
 def register_company(
 	contact_name,
 	email,
