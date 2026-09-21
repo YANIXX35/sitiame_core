@@ -21,6 +21,10 @@
 	#signup-submit:disabled { opacity: .6; cursor: not-allowed; }
 	#signup-error { color: #b30000; margin-top: .75rem; display: none; }
 	#signup-success { color: #0a6e0a; margin-top: .75rem; display: none; }
+	.signup-honeypot { position: absolute; left: -9999px; top: -9999px; opacity: 0; height: 0; width: 0; overflow: hidden; }
+	.signup-consent { display: flex; align-items: flex-start; gap: .5rem; margin-top: 1rem; font-size: .85rem; color: #333; }
+	.signup-consent input { margin-top: .2rem; }
+	#captcha-question { font-weight: 600; }
 </style>
 
 <div class="signup-wrap">
@@ -97,6 +101,23 @@
 			</div>
 		</div>
 
+		<div class="signup-field" style="max-width: 260px;">
+			<label for="captcha_answer"><span id="captcha-question">Chargement...</span></label>
+			<input type="number" id="captcha_answer" name="captcha_answer" required>
+		</div>
+
+		<!-- Honeypot: hidden from real visitors via CSS, left blank by them.
+		     Bots that auto-fill every field trip it and get a generic rejection. -->
+		<div class="signup-honeypot" aria-hidden="true">
+			<label for="website">Ne pas remplir</label>
+			<input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+		</div>
+
+		<label class="signup-consent">
+			<input type="checkbox" id="terms_accepted" name="terms_accepted" required>
+			<span>J'accepte que Sitiame Capital traite les informations transmises ci-dessus pour la création et la gestion de mon compte entreprise.</span>
+		</label>
+
 		<button type="submit" id="signup-submit">Créer mon compte</button>
 		<div id="signup-error"></div>
 		<div id="signup-success">Compte créé, connexion en cours...</div>
@@ -133,6 +154,23 @@ function extractErrorMessage(data) {
 	return "Une erreur est survenue, veuillez réessayer.";
 }
 
+var currentCaptchaToken = null;
+
+function loadCaptcha() {
+	fetch("/api/method/sitiame_core.api.get_signup_captcha")
+		.then(function (res) { return res.json(); })
+		.then(function (result) {
+			var data = result.message || {};
+			currentCaptchaToken = data.token || null;
+			document.getElementById("captcha-question").textContent = data.question || "Verification anti-robot";
+			document.getElementById("captcha_answer").value = "";
+		})
+		.catch(function () {
+			document.getElementById("captcha-question").textContent = "Verification indisponible, rechargez la page.";
+		});
+}
+loadCaptcha();
+
 document.getElementById("signup-form").addEventListener("submit", function (e) {
 	e.preventDefault();
 
@@ -156,6 +194,10 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		rccm: document.getElementById("rccm").value,
 		address: document.getElementById("address").value,
 		city: document.getElementById("city").value,
+		captcha_token: currentCaptchaToken,
+		captcha_answer: document.getElementById("captcha_answer").value,
+		terms_accepted: document.getElementById("terms_accepted").checked ? 1 : 0,
+		website: document.getElementById("website").value,
 	};
 
 	var headers = { "Content-Type": "application/json" };
@@ -183,6 +225,7 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 				errorBox.style.display = "block";
 				submitBtn.disabled = false;
 				submitBtn.textContent = "Créer mon compte";
+				loadCaptcha();
 			}
 		})
 		.catch(function () {
@@ -190,6 +233,7 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 			errorBox.style.display = "block";
 			submitBtn.disabled = false;
 			submitBtn.textContent = "Créer mon compte";
+			loadCaptcha();
 		});
 });
 </script>

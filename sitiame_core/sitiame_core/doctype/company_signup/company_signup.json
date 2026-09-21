@@ -19,7 +19,11 @@
   "city",
   "section_break_trial",
   "trial_ends_on",
-  "trial_blocked"
+  "trial_blocked",
+  "section_break_consent",
+  "terms_accepted",
+  "terms_accepted_at",
+  "signup_ip"
  ],
  "fields": [
   {
@@ -92,6 +96,28 @@
    "fieldtype": "Check",
    "label": "Modules Facturation/Comptabilite/Tresorerie bloques",
    "default": "0"
+  },
+  {
+   "fieldname": "section_break_consent",
+   "fieldtype": "Section Break",
+   "label": "Consentement"
+  },
+  {
+   "fieldname": "terms_accepted",
+   "fieldtype": "Check",
+   "label": "CGU et politique de confidentialite acceptees",
+   "default": "0"
+  },
+  {
+   "fieldname": "terms_accepted_at",
+   "fieldtype": "Datetime",
+   "label": "Date d'acceptation"
+  },
+  {
+   "fieldname": "signup_ip",
+   "fieldtype": "Data",
+   "label": "Adresse IP a l'inscription",
+   "read_only": 1
   }
  ],
  "permissions": [

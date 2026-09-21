@@ -2,6 +2,7 @@
 # License: MIT
 
 import os
+import random
 import re
 import shutil
 import sys
@@ -13,6 +14,45 @@ import requests
 import frappe
 from frappe import _
 from frappe.utils import flt, get_backups_path, get_bench_path
+
+# Signup anti-bot: short-lived math challenge, answer cached server-side
+# keyed by a one-time token. No external captcha service/API key needed.
+_SIGNUP_CAPTCHA_CACHE_PREFIX = "sitiame_core:signup_captcha:"
+_SIGNUP_CAPTCHA_TTL = 600  # 10 minutes
+
+
+@frappe.whitelist(allow_guest=True)
+@frappe.rate_limit(limit=20, seconds=3600)
+def get_signup_captcha():
+	a = random.randint(2, 9)
+	b = random.randint(2, 9)
+	token = frappe.generate_hash(length=20)
+	frappe.cache().set_value(
+		_SIGNUP_CAPTCHA_CACHE_PREFIX + token, a + b, expires_in_sec=_SIGNUP_CAPTCHA_TTL
+	)
+	return {"token": token, "question": f"Combien font {a} + {b} ?"}
+
+
+def _verify_signup_captcha(token, answer):
+	token = (token or "").strip()
+	if not token:
+		frappe.throw(_("Verification anti-robot manquante."))
+
+	cache_key = _SIGNUP_CAPTCHA_CACHE_PREFIX + token
+	expected = frappe.cache().get_value(cache_key)
+	# One-time use: consume immediately regardless of outcome.
+	frappe.cache().delete_value(cache_key)
+
+	if expected is None:
+		frappe.throw(_("Verification anti-robot expiree, veuillez reessayer."))
+
+	try:
+		answer = int(str(answer).strip())
+	except (TypeError, ValueError):
+		answer = None
+
+	if answer != expected:
+		frappe.throw(_("Reponse incorrecte a la verification anti-robot."))
 
 # Same provider/account PME360 already uses for its own OCR pipeline
 # (app/Services/OcrService.php) -- reused here instead of standing up a
@@ -45,6 +85,7 @@ def _default_country():
 
 
 @frappe.whitelist(allow_guest=True)
+@frappe.rate_limit(limit=5, seconds=3600)
 def register_company(
 	contact_name,
 	email,
@@ -57,7 +98,22 @@ def register_company(
 	rccm=None,
 	address=None,
 	city=None,
+	captcha_token=None,
+	captcha_answer=None,
+	terms_accepted=None,
+	# Honeypot: a field real visitors never see or fill (hidden via CSS on
+	# the form). Any non-empty value here is a near-certain bot submission.
+	website=None,
 ):
+	if (website or "").strip():
+		# Don't tip off the bot -- fail generically instead of a specific message.
+		frappe.throw(_("Impossible de creer le compte."))
+
+	_verify_signup_captcha(captcha_token, captcha_answer)
+
+	if not frappe.utils.cint(terms_accepted):
+		frappe.throw(_("Vous devez accepter les conditions d'utilisation et la politique de confidentialite."))
+
 	email = (email or "").strip().lower()
 	contact_name = (contact_name or "").strip()
 	company_name = (company_name or "").strip()
@@ -131,6 +187,9 @@ def register_company(
 			"trial_ends_on": frappe.utils.add_days(frappe.utils.today(), 30),
 			"address": address,
 			"city": city,
+			"terms_accepted": 1,
+			"terms_accepted_at": frappe.utils.now_datetime(),
+			"signup_ip": frappe.local.request_ip,
 		}
 	).insert(ignore_permissions=True)
 
