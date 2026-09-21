@@ -314,7 +314,9 @@ _SUBTOTAL_PATTERNS = [
 	re.compile(r"(?:TOTAL|MONTANT)\s*H\.?T\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
 ]
 _TAX_AMOUNT_PATTERNS = [
-	re.compile(r"T\.?V\.?A\.?(?:\s*\d{1,2}\s*%)?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+	# The rate suffix is optional and may appear bare ("TVA 18% :") or
+	# parenthesised ("TVA (18%) :") -- both seen on real invoices.
+	re.compile(r"T\.?V\.?A\.?(?:\s*\(?\d{1,2}\s*%\)?)?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
 ]
 _GRAND_TOTAL_PATTERNS = [
 	re.compile(r"(?:TOTAL|MONTANT)\s*T\.?T\.?C\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
