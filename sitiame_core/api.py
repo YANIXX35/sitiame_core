@@ -254,29 +254,114 @@ def register_company(
 	return {"success": True, "redirect": "/app"}
 
 
-# Basic invoice-scan extraction (v1): pulls raw text via OCR.space plus a
-# best-effort total amount and date, for the user to complete manually.
-# Deliberately not a port of PME360's full field-by-field extraction
-# pipeline (app/Services/OcrService.php) -- that's a much larger, separate
-# piece of work if/when needed.
+# Invoice-scan extraction: pulls raw text via OCR.space, then runs a
+# label-based structured extraction pass on top of it (see
+# _extract_invoice_fields below) so the caller gets named, normalised
+# fields instead of just raw text. Deliberately not a port of PME360's
+# full field-by-field extraction pipeline (app/Services/OcrService.php)
+# -- this is a regex/label matcher, not an ML document parser.
+#
+# Hard rule enforced throughout this section: a field is only ever set
+# when a matching label is actually found in the OCR text. Nothing here
+# infers, calculates, or defaults a business value that wasn't printed
+# on the document.
 _AMOUNT_PATTERN = re.compile(
 	r"(?:TOTAL|MONTANT|NET\s*A\s*PAYER)[^\d]{0,20}([\d][\d\s.,]{2,})", re.IGNORECASE
 )
-_DATE_PATTERN = re.compile(r"\b(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})\b")
+_DATE_PATTERN = re.compile(r"\b(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})\b")
 _CLIENT_PATTERN = re.compile(r"(?:Client|Fournisseur)\s*[:\-]\s*(.+)", re.IGNORECASE)
+
+_AMOUNT_VALUE = r"([\d][\d\s.,]{2,})"
+_DATE_VALUE = r"(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})"
+
+_INVOICE_NUMBER_PATTERNS = [
+	re.compile(
+		r"(?:Facture\s*N[°ºo]?|N[°ºo]?\s*(?:de\s*)?[Ff]acture|Num[eé]ro\s*(?:de\s*)?facture)"
+		r"\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})",
+		re.IGNORECASE,
+	),
+]
+_INVOICE_DATE_PATTERNS = [
+	re.compile(
+		r"(?:Date\s*(?:de\s*)?facture|Date\s*d[’']?[ée]mission|^\s*Date)\s*[:\-]?\s*" + _DATE_VALUE,
+		re.IGNORECASE | re.MULTILINE,
+	),
+]
+_DUE_DATE_PATTERNS = [
+	re.compile(
+		r"(?:[ÉE]ch[ée]ance|Date\s*d[’']?[ée]ch[ée]ance)\s*[:\-]?\s*" + _DATE_VALUE,
+		re.IGNORECASE,
+	),
+]
+_SUPPLIER_PATTERNS = [re.compile(r"Fournisseur\s*[:\-]\s*(.+)", re.IGNORECASE)]
+_CUSTOMER_PATTERNS = [re.compile(r"Client\s*[:\-]\s*(.+)", re.IGNORECASE)]
+_TAX_ID_PATTERNS = [
+	re.compile(r"\bNIF\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
+	re.compile(r"N[°ºo]?\s*Contribuable\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
+]
+_SUBTOTAL_PATTERNS = [
+	re.compile(r"(?:TOTAL|MONTANT)\s*H\.?T\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+]
+_TAX_AMOUNT_PATTERNS = [
+	re.compile(r"T\.?V\.?A\.?(?:\s*\d{1,2}\s*%)?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+]
+_GRAND_TOTAL_PATTERNS = [
+	re.compile(r"(?:TOTAL|MONTANT)\s*T\.?T\.?C\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+	re.compile(r"NET\s*A\s*PAYER\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+]
 
 
 def _parse_amount(raw: str) -> float | None:
-	digits = re.sub(r"[^\d,\.]", "", raw)
-	digits = digits.replace(" ", "")
-	# normalise "1.234.567,89" or "1 234 567" style groupings to a float
-	if "," in digits and "." in digits:
-		digits = digits.replace(".", "").replace(",", ".")
-	elif "," in digits:
-		digits = digits.replace(",", ".")
+	cleaned = re.sub(r"[^\d,.]", "", raw or "")
+	if not cleaned:
+		return None
+
+	if "," in cleaned and "." in cleaned:
+		# Both separators present: whichever comes LAST is the decimal
+		# point, the other is a thousands grouping -- e.g. "1.234.567,89"
+		# (French/European) vs "1,234,567.89" (English).
+		if cleaned.rfind(",") > cleaned.rfind("."):
+			cleaned = cleaned.replace(".", "").replace(",", ".")
+		else:
+			cleaned = cleaned.replace(",", "")
+	elif "," in cleaned or "." in cleaned:
+		sep = "," if "," in cleaned else "."
+		parts = cleaned.split(sep)
+		# A single separator with exactly 3 digits after it is a thousands
+		# grouping, not a decimal point -- FCFA amounts don't carry centimes
+		# in practice, so "500.000" means 500000, not 500. A 1-2 digit tail
+		# ("12.50") is a real decimal and is kept as one.
+		if len(parts) == 2 and len(parts[1]) == 3 and len(parts[0]) >= 1:
+			cleaned = cleaned.replace(sep, "")
+		else:
+			cleaned = cleaned.replace(sep, ".")
+
 	try:
-		return float(digits)
+		return float(cleaned)
 	except ValueError:
+		return None
+
+
+def _parse_date_token(raw: str) -> str | None:
+	raw = (raw or "").strip()
+	iso_match = re.match(r"^(\d{4})-(\d{1,2})-(\d{1,2})$", raw)
+	if iso_match:
+		year, month, day = iso_match.groups()
+	else:
+		for sep in ("/", "-", "."):
+			if sep in raw:
+				parts = raw.split(sep)
+				break
+		else:
+			return None
+		if len(parts) != 3:
+			return None
+		day, month, year = parts
+		if len(year) == 2:
+			year = "20" + year
+	try:
+		return frappe.utils.formatdate(f"{year}-{int(month):02d}-{int(day):02d}", "yyyy-mm-dd")
+	except Exception:
 		return None
 
 
@@ -288,24 +373,7 @@ def _best_guess_amount(text: str) -> float | None:
 
 def _best_guess_date(text: str) -> str | None:
 	match = _DATE_PATTERN.search(text)
-	if not match:
-		return None
-	raw = match.group(1)
-	for sep in ("/", "-", "."):
-		if sep in raw:
-			parts = raw.split(sep)
-			break
-	else:
-		return None
-	if len(parts) != 3:
-		return None
-	day, month, year = parts
-	if len(year) == 2:
-		year = "20" + year
-	try:
-		return frappe.utils.formatdate(f"{year}-{int(month):02d}-{int(day):02d}", "yyyy-mm-dd")
-	except Exception:
-		return None
+	return _parse_date_token(match.group(1)) if match else None
 
 
 def _best_guess_client(text: str) -> str | None:
@@ -316,14 +384,78 @@ def _best_guess_client(text: str) -> str | None:
 	return name or None
 
 
+def _extract_invoice_fields(text: str) -> tuple[dict, dict]:
+	"""Structured, label-based extraction on top of the raw OCR text.
+
+	Returns (fields, confidence) -- a field is present in `fields` ONLY
+	when a recognised label was actually matched in the text. There is no
+	fallback/default/inference: an absent label means the key is simply
+	not in the dict, and the caller must leave the corresponding form
+	field untouched.
+	"""
+	fields: dict = {}
+	confidence: dict = {}
+
+	def add(key, patterns, normalizer=None, conf=0.9):
+		for pattern in patterns:
+			match = pattern.search(text)
+			if not match:
+				continue
+			raw = match.group(1).strip().strip(".,;")
+			value = normalizer(raw) if normalizer else raw
+			if value not in (None, ""):
+				fields[key] = value
+				confidence[key] = conf
+				return
+
+	add("invoice_number", _INVOICE_NUMBER_PATTERNS)
+	add("invoice_date", _INVOICE_DATE_PATTERNS, _parse_date_token)
+	add("due_date", _DUE_DATE_PATTERNS, _parse_date_token)
+	add("supplier_name", _SUPPLIER_PATTERNS)
+	add("customer_name", _CUSTOMER_PATTERNS)
+	add("tax_id", _TAX_ID_PATTERNS)
+	add("subtotal", _SUBTOTAL_PATTERNS, _parse_amount)
+	add("tax_amount", _TAX_AMOUNT_PATTERNS, _parse_amount)
+	add("grand_total", _GRAND_TOTAL_PATTERNS, _parse_amount)
+
+	return fields, confidence
+
+
+def _detect_document_type(text: str, fields: dict) -> str:
+	lowered = (text or "").lower()
+	if "facture" not in lowered and "invoice" not in lowered:
+		if "devis" in lowered or "quotation" in lowered:
+			return "quotation"
+		if "avoir" in lowered or "credit note" in lowered:
+			return "credit_note"
+		if "bon de commande" in lowered or "purchase order" in lowered:
+			return "purchase_order"
+	if "facture" in lowered or "invoice" in lowered or fields:
+		return "invoice"
+	return "unknown"
+
+
 @frappe.whitelist()
 def ocr_extract_invoice(file_url):
-	"""Send an already-uploaded file (PDF/image) to OCR.space and return
-	the raw text plus a best-effort amount/date guess.
+	"""Send an already-uploaded file (PDF/image) to OCR.space, then run the
+	structured extraction pass on the resulting text.
 
 	Uploaded files are private by default, so OCR.space can't fetch them
 	back over the "url" param (it isn't authenticated against this site) --
 	the file bytes are read locally and posted directly instead.
+
+	Response shape (fields/confidence/document_type are new; text/amount/
+	date/client_name are kept unchanged for backwards compatibility with
+	any doctype that only used the old best-effort behaviour):
+		{
+			"text": "...",
+			"amount": 590000.0,            # legacy best-guess, unchanged
+			"date": "2026-09-15",          # legacy best-guess, unchanged
+			"client_name": "ABC SARL",     # legacy best-guess, unchanged
+			"document_type": "invoice",
+			"fields": {"invoice_number": "FAC-2026-00125", ...},
+			"confidence": {"invoice_number": 0.9, ...},
+		}
 	"""
 	filename, content = frappe.utils.file_manager.get_file(file_url)
 
@@ -348,11 +480,21 @@ def ocr_extract_invoice(file_url):
 	parsed = result.get("ParsedResults") or []
 	text = "\n".join(p.get("ParsedText", "") for p in parsed).strip()
 
+	fields, confidence = _extract_invoice_fields(text)
+	document_type = _detect_document_type(text, fields)
+
+	frappe.logger("sitiame_core.ocr").info(
+		f"[OCR] document_type={document_type} fields={fields} confidence={confidence}"
+	)
+
 	return {
 		"text": text,
 		"amount": _best_guess_amount(text),
 		"date": _best_guess_date(text),
 		"client_name": _best_guess_client(text),
+		"document_type": document_type,
+		"fields": fields,
+		"confidence": confidence,
 	}
 
 
