@@ -150,6 +150,57 @@ function handle_ocr_result(frm, data) {
 		set_direct("due_date", fields.due_date);
 		match_and_set_party("customer", "Customer", "customer_name", fields.customer_name);
 		add_amount_item_row(fields.subtotal, __("Montant importe (a verifier)"));
+	} else if (frm.doctype === "Payment Entry") {
+		// Mapping (verified against the real DocFields, 21/09/2026):
+		//   invoice_number -> reference_no    (Data, editable)
+		//   invoice_date   -> reference_date  (Date, editable)
+		//   grand_total    -> paid_amount OR received_amount, depending on
+		//                     payment_type ("Pay" vs "Receive") -- Payment
+		//                     Entry has no single "amount" field.
+		//   supplier_name/customer_name -> party (Dynamic Link: party_type
+		//                     must be set first, there is no plain
+		//                     "customer"/"supplier" field on this doctype).
+		set_direct("reference_no", fields.invoice_number);
+		set_direct("reference_date", fields.invoice_date);
+
+		if (fields.grand_total) {
+			var amountField = frm.doc.payment_type === "Receive" ? "received_amount" : "paid_amount";
+			set_direct(amountField, fields.grand_total);
+		}
+
+		var extractedParty = fields.supplier_name || fields.customer_name;
+		var partyType = fields.supplier_name ? "Supplier" : "Customer";
+		if (extractedParty && frm.fields_dict["party"] && !frm.doc.party) {
+			var nameField = partyType === "Supplier" ? "supplier_name" : "customer_name";
+			frappe.db
+				.get_list(partyType, {
+					filters: [[nameField, "like", "%" + extractedParty + "%"]],
+					fields: ["name"],
+					limit: 2,
+				})
+				.then(function (matches) {
+					if (matches && matches.length === 1) {
+						frm.set_value("party_type", partyType);
+						frm.set_value("party", matches[0].name);
+						filled.push("party ← " + matches[0].name);
+						// eslint-disable-next-line no-console
+						console.log("[OCR] Mapping: party ->", matches[0].name);
+					}
+				});
+		}
+	} else if (frm.doctype === "Journal Entry") {
+		// Mapping (verified against the real DocFields, 21/09/2026): only
+		// the reference number/date and posting date are plain editable
+		// fields. The "accounts" table (Journal Entry Account) has no
+		// item_name/qty/rate -- it needs a real chart-of-accounts account
+		// plus a debit/credit judgement call, which this button will not
+		// guess at. Filling that row was silently broken before this
+		// rewrite too (it tried item_name/qty/rate, fields that don't
+		// exist on Journal Entry Account) -- left blank here on purpose
+		// rather than invented.
+		set_direct("cheque_no", fields.invoice_number);
+		set_direct("cheque_date", fields.invoice_date);
+		set_direct("posting_date", fields.invoice_date);
 	} else {
 		// Any other doctype (Payment Entry, Journal Entry, ...): keep the
 		// original generic best-effort behaviour, unchanged.
