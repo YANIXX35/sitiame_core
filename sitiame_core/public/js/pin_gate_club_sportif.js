@@ -21,20 +21,50 @@
 
 	// The URL alone isn't enough: clicking "Membres" inside the Club
 	// Sportif workspace navigates straight to /app/customer, which never
-	// contains "club-sportif" in the path -- yet Frappe keeps the "Club
-	// Sportif" label showing in the left sidebar the whole time (see
-	// screenshot that exposed this). So detect the active workspace by
-	// that persistent sidebar label instead of the route.
-	function clubSportifSidebarActive() {
-		var candidates = document.querySelectorAll("a, span, div, li");
-		for (var i = 0; i < candidates.length; i++) {
-			var el = candidates[i];
-			if (el.children.length > 2) continue;
-			if ((el.textContent || "").trim() !== "Club Sportif") continue;
-			var rect = el.getBoundingClientRect();
-			if (rect.left < 260 && rect.top < 200) return true;
+	// contains "club-sportif" in the path. An earlier version tried to
+	// work around this by scanning the DOM for a persistent "Club Sportif"
+	// sidebar label -- but that label is also present (lower down) in the
+	// normal desk sidebar on EVERY page for any user who can see more than
+	// one workspace, which made the PIN pop up on totally unrelated pages
+	// like /desk/invoicing. Track the actual workspace instead: remember
+	// the last *real* workspace route the user landed on (using Frappe's
+	// own workspace list + its own slug function, not a guess), and keep
+	// that as "current workspace" through any sub-navigation that isn't
+	// itself a workspace route (e.g. clicking into Customer/Subscription/
+	// Event from within Club Sportif).
+	var lastWorkspaceSlug = null;
+	var workspaceSlugs = null;
+
+	function buildWorkspaceSlugMap() {
+		var map = {};
+		var workspaces = (frappe.workspaces) || {};
+		Object.keys(workspaces).forEach(function (name) {
+			try {
+				map[frappe.router.slug(name)] = name;
+			} catch (e) {
+				/* ignore, this workspace just won't be recognised */
+			}
+		});
+		return map;
+	}
+
+	function updateWorkspaceContext() {
+		// Rebuild if we never got a map, or frappe.workspaces wasn't
+		// populated yet on the very first call (boot ordering).
+		if (!workspaceSlugs || Object.keys(workspaceSlugs).length === 0) {
+			workspaceSlugs = buildWorkspaceSlugMap();
 		}
-		return false;
+
+		var route = frappe.get_route();
+		var slug = route && route[0] && String(route[0]).toLowerCase();
+		if (slug && Object.prototype.hasOwnProperty.call(workspaceSlugs, slug)) {
+			lastWorkspaceSlug = slug;
+		}
+	}
+
+	function clubSportifContextActive() {
+		updateWorkspaceContext();
+		return lastWorkspaceSlug === "club-sportif";
 	}
 
 	function showPinModal() {
@@ -88,7 +118,7 @@
 	function guard() {
 		if (isAdmin()) return;
 
-		if (!clubSportifSidebarActive()) {
+		if (!clubSportifContextActive()) {
 			// Left Club Sportif: forget the unlock so coming back re-prompts.
 			unlocked = false;
 			return;
