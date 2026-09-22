@@ -1319,3 +1319,87 @@ def get_company_signup_info(company):
 		as_dict=True,
 	)
 	return signup or {}
+
+
+def _score_to_note(score, thresholds=(85, 70, 55, 40, 20)):
+	"""Converts a 0-100 continuous score into the dossier's 0-5 note scale."""
+	if score is None:
+		return None
+	for i, threshold in enumerate(thresholds):
+		if score >= threshold:
+			return 5 - i
+	return 0
+
+
+def _ratio_to_note(ratio, thresholds=(2.5, 1.5, 1.0, 0.6, 0.0)):
+	if ratio is None:
+		return None
+	for i, threshold in enumerate(thresholds):
+		if ratio >= threshold:
+			return 5 - i
+	return 0
+
+
+@frappe.whitelist()
+def get_scoring_suggestions(company):
+	"""Suggested notes (0-5) for the Credit Scoring Dossier, computed from
+	data already available in other ERPNext modules instead of asking the
+	analyst to judge them blind:
+
+	- Structure financière / Rentabilité / Liquidité générale: reuses the
+	  same Comptabilité-driven engine (financial_ratio_service.analyze)
+	  already powering "Classement financier".
+	- Qualité des informations / Identité vérifiée: counts real KYC
+	  documents attached to the Company (synced from PME360).
+
+	Returns None for any criterion it can't support with real data (e.g.
+	no accounting entries yet) -- the analyst still has full control, this
+	only pre-fills a starting point with an explanation attached.
+	"""
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	from sitiame_core.financial_ratio_service import analyze as analyze_financials
+
+	analysis = analyze_financials(company)
+	scores = analysis.get("scores") or {}
+	ratios = analysis.get("ratios") or {}
+	entries_count = analysis.get("entries_count") or 0
+
+	rentabilite_score = (scores.get("rentabilite") or {}).get("valeur")
+	solvabilite_score = (scores.get("solvabilite") or {}).get("valeur")
+	liquidite_ratio = ratios.get("liquidite_generale")
+
+	kyc_count = frappe.db.count(
+		"File", {"attached_to_doctype": "Company", "attached_to_name": company}
+	)
+
+	suggestions = {}
+
+	if entries_count == 0:
+		suggestions["capacite_remboursement"] = None
+		suggestions["structure_financiere"] = None
+		suggestions["rentabilite"] = None
+		suggestions["liquidite_generale"] = None
+		suggestions["_comptabilite_note"] = (
+			"Aucune écriture comptable trouvée pour cette société : les 4 critères financiers "
+			"ne peuvent pas être suggérés automatiquement."
+		)
+	else:
+		suggestions["capacite_remboursement"] = None  # needs Scoring 360's DSCR config, not ported here yet
+		suggestions["structure_financiere"] = _score_to_note(solvabilite_score)
+		suggestions["rentabilite"] = _score_to_note(rentabilite_score)
+		suggestions["liquidite_generale"] = _ratio_to_note(liquidite_ratio)
+		suggestions["_comptabilite_note"] = (
+			f"Calculé depuis {entries_count} écriture(s) comptable(s) : "
+			f"score solvabilité {solvabilite_score}/100, score rentabilité {rentabilite_score}/100, "
+			f"ratio de liquidité générale {liquidite_ratio}."
+		)
+
+	suggestions["qualite_informations"] = 4 if kyc_count >= 2 else (2 if kyc_count == 1 else 0)
+	suggestions["identity_verified"] = 1 if kyc_count >= 1 else 0
+	suggestions["_kyc_note"] = (
+		f"{kyc_count} document(s) KYC trouvé(s) pour cette société (synchronisés depuis PME360)."
+	)
+
+	return suggestions

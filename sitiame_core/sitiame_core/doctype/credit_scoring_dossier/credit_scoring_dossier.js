@@ -95,9 +95,63 @@ function credit_scoring_prefill_company_info(frm) {
 	});
 }
 
+// Suggère des notes de départ pour les critères déjà calculables depuis
+// d'autres modules (Comptabilité pour 02/03/09, Documents KYC pour 07 et
+// la case "Identité vérifiée"), au lieu de laisser l'analyste noter à
+// l'aveugle. Ne touche jamais une note déjà saisie : c'est une suggestion,
+// pas une décision automatique -- l'analyste garde la main.
+function credit_scoring_apply_suggestions(frm) {
+	if (!frm.doc.company) return;
+
+	frappe.call({
+		method: "sitiame_core.api.get_scoring_suggestions",
+		args: { company: frm.doc.company },
+	}).then(function (r) {
+		var s = r.message || {};
+		var noteFields = {
+			structure_financiere: "structure_financiere_note",
+			rentabilite: "rentabilite_note",
+			liquidite_generale: "liquidite_generale_note",
+			qualite_informations: "qualite_informations_note",
+		};
+		var proofFields = {
+			structure_financiere: "structure_financiere_proof",
+			rentabilite: "rentabilite_proof",
+			liquidite_generale: "liquidite_generale_proof",
+			qualite_informations: "qualite_informations_proof",
+		};
+
+		Object.keys(noteFields).forEach(function (key) {
+			var noteField = noteFields[key];
+			var proofField = proofFields[key];
+			if (s[key] !== null && s[key] !== undefined && !frm.doc[noteField]) {
+				frm.set_value(noteField, String(s[key]));
+				var explanation = key === "qualite_informations" ? s._kyc_note : s._comptabilite_note;
+				if (explanation && !frm.doc[proofField]) {
+					frm.set_value(proofField, __("Suggestion automatique : ") + explanation);
+				}
+			}
+		});
+
+		if (s.identity_verified && !frm.doc.identity_verified) {
+			frm.set_value("identity_verified", 1);
+		}
+
+		if (s._comptabilite_note || s._kyc_note) {
+			frappe.show_alert({
+				message: __("Suggestions de notation appliquées depuis la Comptabilité et les Documents KYC."),
+				indicator: "blue",
+			});
+		}
+	});
+}
+
 var handlers = {
 	refresh: credit_scoring_recompute,
-	company: credit_scoring_prefill_company_info,
+	company: function (frm) {
+		credit_scoring_prefill_company_info(frm);
+		credit_scoring_apply_suggestions(frm);
+	},
 };
 CREDIT_SCORING_CRITERIA.forEach(function (fname) {
 	handlers[fname + "_weight"] = credit_scoring_recompute;
