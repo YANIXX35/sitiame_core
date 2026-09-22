@@ -1340,6 +1340,91 @@ def _ratio_to_note(ratio, thresholds=(2.5, 1.5, 1.0, 0.6, 0.0)):
 	return 0
 
 
+def _compute_payment_history(company):
+	"""% of received Payment Entries that reached the linked Sales Invoice
+	on or before its due_date -- the real "historique de paiement" signal."""
+	rows = frappe.db.sql(
+		"""
+		select si.due_date as due_date, pe.posting_date as paid_date
+		from `tabPayment Entry` pe
+		inner join `tabPayment Entry Reference` per
+			on per.parent = pe.name and per.reference_doctype = 'Sales Invoice'
+		inner join `tabSales Invoice` si on si.name = per.reference_name
+		where pe.company = %(company)s and pe.docstatus = 1 and pe.payment_type = 'Receive'
+		""",
+		{"company": company},
+		as_dict=True,
+	)
+
+	if not rows:
+		return None, "Aucun paiement client rapproché à une facture n'a été trouvé."
+
+	on_time = sum(1 for r in rows if r.paid_date <= r.due_date)
+	total = len(rows)
+	pct_on_time = (on_time / total) * 100
+
+	if pct_on_time >= 95:
+		note = 5
+	elif pct_on_time >= 85:
+		note = 4
+	elif pct_on_time >= 70:
+		note = 3
+	elif pct_on_time >= 50:
+		note = 2
+	elif pct_on_time > 0:
+		note = 1
+	else:
+		note = 0
+
+	explanation = f"{on_time}/{total} paiement(s) client reçu(s) à temps ({pct_on_time:.0f}%)."
+	return note, explanation
+
+
+def _compute_customer_concentration(company):
+	"""Revenue concentration on the top customer + customer count -- proxy
+	for "marché et clientèle": many customers with no single one dominating
+	the revenue is a healthier market position than one or two large ones."""
+	rows = frappe.db.sql(
+		"""
+		select customer, sum(grand_total) as total
+		from `tabSales Invoice`
+		where company = %(company)s and docstatus = 1
+		group by customer
+		order by total desc
+		""",
+		{"company": company},
+		as_dict=True,
+	)
+
+	if not rows:
+		return None, "Aucune facture de vente soumise n'a été trouvée pour cette société."
+
+	total_revenue = sum(flt(r.total) for r in rows)
+	if total_revenue <= 0:
+		return None, "Le chiffre d'affaires facturé est nul."
+
+	customer_count = len(rows)
+	top_share = (flt(rows[0].total) / total_revenue) * 100
+
+	if top_share <= 20 and customer_count >= 5:
+		note = 5
+	elif top_share <= 35 and customer_count >= 3:
+		note = 4
+	elif top_share <= 50:
+		note = 3
+	elif top_share <= 70:
+		note = 2
+	elif top_share <= 90:
+		note = 1
+	else:
+		note = 0
+
+	explanation = (
+		f"{customer_count} client(s) facturé(s) ; le principal représente {top_share:.0f}% du chiffre d'affaires."
+	)
+	return note, explanation
+
+
 @frappe.whitelist()
 def get_scoring_suggestions(company):
 	"""Suggested notes (0-5) for the Credit Scoring Dossier, computed from
@@ -1349,17 +1434,26 @@ def get_scoring_suggestions(company):
 	- Structure financière / Rentabilité / Liquidité générale: reuses the
 	  same Comptabilité-driven engine (financial_ratio_service.analyze)
 	  already powering "Classement financier".
+	- Capacité de remboursement: reuses Scoring 360's "Bloc Banque" (DSCR-
+	  weighted) score.
+	- Historique de paiement: % of Payment Entries that reached their
+	  Sales Invoice on or before its due date.
+	- Marché et clientèle: revenue concentration on the top customer.
 	- Qualité des informations / Identité vérifiée: counts real KYC
 	  documents attached to the Company (synced from PME360).
 
 	Returns None for any criterion it can't support with real data (e.g.
-	no accounting entries yet) -- the analyst still has full control, this
-	only pre-fills a starting point with an explanation attached.
+	no accounting entries yet, or no sales invoices) -- the analyst still
+	has full control, this only pre-fills a starting point with an
+	explanation attached. Direction et organisation, Projet et
+	financement, and Garanties et recouvrement stay manual: no reliable
+	system signal exists for them.
 	"""
 	if "System Manager" not in frappe.get_roles():
 		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
 
 	from sitiame_core.financial_ratio_service import analyze as analyze_financials
+	from sitiame_core.scoring360_service import score_company
 
 	analysis = analyze_financials(company)
 	scores = analysis.get("scores") or {}
@@ -1382,19 +1476,30 @@ def get_scoring_suggestions(company):
 		suggestions["rentabilite"] = None
 		suggestions["liquidite_generale"] = None
 		suggestions["_comptabilite_note"] = (
-			"Aucune écriture comptable trouvée pour cette société : les 4 critères financiers "
+			"Aucune écriture comptable trouvée pour cette société : les critères financiers "
 			"ne peuvent pas être suggérés automatiquement."
 		)
 	else:
-		suggestions["capacite_remboursement"] = None  # needs Scoring 360's DSCR config, not ported here yet
+		bank_block = (score_company(company) or {}).get("blocks", {}).get("bank", {})
+		bank_score = bank_block.get("total")
+
+		suggestions["capacite_remboursement"] = _score_to_note(bank_score)
 		suggestions["structure_financiere"] = _score_to_note(solvabilite_score)
 		suggestions["rentabilite"] = _score_to_note(rentabilite_score)
 		suggestions["liquidite_generale"] = _ratio_to_note(liquidite_ratio)
 		suggestions["_comptabilite_note"] = (
 			f"Calculé depuis {entries_count} écriture(s) comptable(s) : "
-			f"score solvabilité {solvabilite_score}/100, score rentabilité {rentabilite_score}/100, "
-			f"ratio de liquidité générale {liquidite_ratio}."
+			f"score capacité remboursement (DSCR) {bank_score}/100, score solvabilité {solvabilite_score}/100, "
+			f"score rentabilité {rentabilite_score}/100, ratio de liquidité générale {liquidite_ratio}."
 		)
+
+	payment_note, payment_explanation = _compute_payment_history(company)
+	suggestions["historique_paiement"] = payment_note
+	suggestions["_historique_paiement_note"] = payment_explanation
+
+	market_note, market_explanation = _compute_customer_concentration(company)
+	suggestions["marche_clientele"] = market_note
+	suggestions["_marche_clientele_note"] = market_explanation
 
 	suggestions["qualite_informations"] = 4 if kyc_count >= 2 else (2 if kyc_count == 1 else 0)
 	suggestions["identity_verified"] = 1 if kyc_count >= 1 else 0

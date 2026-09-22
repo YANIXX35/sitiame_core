@@ -109,16 +109,31 @@ function credit_scoring_apply_suggestions(frm) {
 	}).then(function (r) {
 		var s = r.message || {};
 		var noteFields = {
+			capacite_remboursement: "capacite_remboursement_note",
 			structure_financiere: "structure_financiere_note",
 			rentabilite: "rentabilite_note",
 			liquidite_generale: "liquidite_generale_note",
+			historique_paiement: "historique_paiement_note",
+			marche_clientele: "marche_clientele_note",
 			qualite_informations: "qualite_informations_note",
 		};
 		var proofFields = {
+			capacite_remboursement: "capacite_remboursement_proof",
 			structure_financiere: "structure_financiere_proof",
 			rentabilite: "rentabilite_proof",
 			liquidite_generale: "liquidite_generale_proof",
+			historique_paiement: "historique_paiement_proof",
+			marche_clientele: "marche_clientele_proof",
 			qualite_informations: "qualite_informations_proof",
+		};
+		var explanationKeys = {
+			capacite_remboursement: "_comptabilite_note",
+			structure_financiere: "_comptabilite_note",
+			rentabilite: "_comptabilite_note",
+			liquidite_generale: "_comptabilite_note",
+			historique_paiement: "_historique_paiement_note",
+			marche_clientele: "_marche_clientele_note",
+			qualite_informations: "_kyc_note",
 		};
 
 		Object.keys(noteFields).forEach(function (key) {
@@ -126,7 +141,7 @@ function credit_scoring_apply_suggestions(frm) {
 			var proofField = proofFields[key];
 			if (s[key] !== null && s[key] !== undefined && !frm.doc[noteField]) {
 				frm.set_value(noteField, String(s[key]));
-				var explanation = key === "qualite_informations" ? s._kyc_note : s._comptabilite_note;
+				var explanation = s[explanationKeys[key]];
 				if (explanation && !frm.doc[proofField]) {
 					frm.set_value(proofField, __("Suggestion automatique : ") + explanation);
 				}
