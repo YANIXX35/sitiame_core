@@ -7,6 +7,11 @@ from frappe.model.document import Document
 
 
 class SubscriptionPayment(Document):
+	def after_insert(self):
+		from sitiame_core.subscription_api import generate_payment_link_on_insert
+
+		generate_payment_link_on_insert(self)
+
 	def validate(self):
 		if self.is_new() or not self.transaction_id:
 			return

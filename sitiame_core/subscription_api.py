@@ -11,12 +11,7 @@ from frappe import _
 from sitiame_core.cinetpay_client import get_payment_status, init_payment
 
 
-@frappe.whitelist()
-def generate_subscription_payment_link(docname):
-	if "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Reserve aux administrateurs."), frappe.PermissionError)
-
-	doc = frappe.get_doc("Subscription Payment", docname)
+def _generate_payment_link(doc):
 	if doc.transaction_id:
 		frappe.throw(_("Un lien de paiement a deja ete genere pour ce document."))
 
@@ -39,6 +34,32 @@ def generate_subscription_payment_link(docname):
 	frappe.db.commit()
 
 	return {"payment_url": result.get("payment_url")}
+
+
+@frappe.whitelist()
+def generate_subscription_payment_link(docname):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Reserve aux administrateurs."), frappe.PermissionError)
+
+	doc = frappe.get_doc("Subscription Payment", docname)
+	return _generate_payment_link(doc)
+
+
+def generate_payment_link_on_insert(doc):
+	"""Called from Subscription Payment.after_insert so the payment link is
+	ready as soon as the admin saves the document -- no separate manual
+	click needed. Never blocks the save: if CinetPay is unreachable, the
+	document still saves as "En attente" and the "Générer le lien de
+	paiement" button (still shown while transaction_id is empty) lets the
+	admin retry.
+	"""
+	try:
+		_generate_payment_link(doc)
+	except Exception:
+		frappe.log_error(
+			title="Subscription Payment: generation automatique du lien echouee",
+			message=frappe.get_traceback(),
+		)
 
 
 def _notify_pme360(subscription_payment):
