@@ -1231,3 +1231,45 @@ def set_user_hidden_sidebar_items(user, hidden_links):
 	frappe.db.set_value("User", user, "sitiame_hidden_sidebar_items", json.dumps(hidden_links))
 	frappe.db.commit()
 	return {"status": "ok", "hidden_count": len(hidden_links)}
+
+
+@frappe.whitelist()
+def list_desktop_icons_for_menu_admin():
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	rows = frappe.get_all(
+		"Desktop Icon",
+		filters=[["parent_icon", "in", ["", None]]],
+		fields=["label"],
+		order_by="idx asc",
+	)
+	# "Home" and "My Workspaces" are structural, always keep them visible.
+	return [r for r in rows if r["label"] not in ("Home", "My Workspaces")]
+
+
+@frappe.whitelist()
+def get_user_hidden_desktop_icons(user):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	raw = frappe.db.get_value("User", user, "sitiame_hidden_desktop_icons")
+	if not raw:
+		return []
+	try:
+		return json.loads(raw)
+	except ValueError:
+		return []
+
+
+@frappe.whitelist()
+def set_user_hidden_desktop_icons(user, hidden_labels):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	if isinstance(hidden_labels, str):
+		hidden_labels = json.loads(hidden_labels)
+
+	frappe.db.set_value("User", user, "sitiame_hidden_desktop_icons", json.dumps(hidden_labels))
+	frappe.db.commit()
+	return {"status": "ok", "hidden_count": len(hidden_labels)}
