@@ -794,12 +794,12 @@ def clear_erp_logs():
 
 @frappe.whitelist()
 def get_financial_ranking(date_from=None, date_to=None):
-	"""ERPNext port of PME360's classementPlateforme(): ranks every ERPNext
-	Company as financable/solvable_seulement/non_retenu/insuffisant from
-	its own GL Entry data. See financial_ratio_service.py."""
+	"""Ranks every ERPNext Company by its Scoring 360 Composite score/
+	decision (pret_a_deployer/solide_mais_a_cadrer/risque_a_traiter/
+	insuffisant). See scoring360_service.py::classement_erpnext."""
 	frappe.only_for("System Manager")
 
-	from sitiame_core.financial_ratio_service import classement_erpnext
+	from sitiame_core.scoring360_service import classement_erpnext
 
 	return classement_erpnext(date_from or None, date_to or None)
 
@@ -1076,7 +1076,7 @@ def _build_assistant_context():
 	failed_logins = frappe.db.count("Activity Log", {"operation": "Login", "status": "Failed"})
 
 	try:
-		from sitiame_core.financial_ratio_service import classement_erpnext
+		from sitiame_core.scoring360_service import classement_erpnext
 
 		ranking = classement_erpnext()
 		compteurs = ranking.get("compteurs", {})
@@ -1104,7 +1104,7 @@ def _build_assistant_context():
 		f"- {failed_logins} tentative(s) de connexion echouee(s) au total\n"
 		f"- {unpaid_count} facture(s) (vente + achat) impayee(s) ou en retard\n"
 		f"- {backups_count} sauvegarde(s) de base de donnees disponible(s)\n"
-		f"- Classement financier : {compteurs}\n"
+		f"- Classement financier (pret_a_deployer/solide_mais_a_cadrer/risque_a_traiter/insuffisant) : {compteurs}\n"
 	)
 
 
@@ -1431,11 +1431,14 @@ def get_scoring_suggestions(company):
 	data already available in other ERPNext modules instead of asking the
 	analyst to judge them blind:
 
-	- Structure financière / Rentabilité / Liquidité générale: reuses the
-	  same Comptabilité-driven engine (financial_ratio_service.analyze)
-	  already powering "Classement financier".
-	- Capacité de remboursement: reuses Scoring 360's "Bloc Banque" (DSCR-
-	  weighted) score.
+	- Capacité de remboursement / Structure financière / Rentabilité /
+	  Liquidité générale: all four now derive from Scoring 360's single
+	  engine (sitiame_core.scoring360_service.score_company) -- capacité
+	  de remboursement is the Bloc Banque total; structure financière and
+	  rentabilité are that engine's own debt_asset/net_margin criterion
+	  sub-scores, renormalised to 0-100 (score / configured weight * 100)
+	  so they read on the same 0-100 scale _score_to_note expects;
+	  liquidité générale is the engine's current_ratio.
 	- Historique de paiement: % of Payment Entries that reached their
 	  Sales Invoice on or before its due date.
 	- Marché et clientèle: revenue concentration on the top customer.
@@ -1452,17 +1455,9 @@ def get_scoring_suggestions(company):
 	if "System Manager" not in frappe.get_roles():
 		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
 
-	from sitiame_core.financial_ratio_service import analyze as analyze_financials
-	from sitiame_core.scoring360_service import score_company
+	from sitiame_core.scoring360_service import _entries_count, get_config, score_company
 
-	analysis = analyze_financials(company)
-	scores = analysis.get("scores") or {}
-	ratios = analysis.get("ratios") or {}
-	entries_count = analysis.get("entries_count") or 0
-
-	rentabilite_score = (scores.get("rentabilite") or {}).get("valeur")
-	solvabilite_score = (scores.get("solvabilite") or {}).get("valeur")
-	liquidite_ratio = ratios.get("liquidite_generale")
+	entries_count = _entries_count(company)
 
 	kyc_count = frappe.db.count(
 		"File", {"attached_to_doctype": "Company", "attached_to_name": company}
@@ -1480,17 +1475,40 @@ def get_scoring_suggestions(company):
 			"ne peuvent pas être suggérés automatiquement."
 		)
 	else:
-		bank_block = (score_company(company) or {}).get("blocks", {}).get("bank", {})
-		bank_score = bank_block.get("total")
+		cfg = get_config()
+		result = score_company(company)
+		bank_block = result["blocks"]["bank"]
+		internal_block = result["blocks"]["internal"]
+		ratios = result["ratios"]
+
+		bank_score = bank_block["total"]
+
+		debt_asset_weight = float(cfg["bank"]["weights"].get("debt_asset") or 0)
+		debt_asset_criterion = bank_block["criteria"].get("debt_asset") or {}
+		structure_score = (
+			(debt_asset_criterion["score"] / debt_asset_weight * 100)
+			if debt_asset_weight and debt_asset_criterion.get("score") is not None
+			else None
+		)
+
+		net_margin_weight = float(cfg["internal"]["weights"].get("net_margin") or 0)
+		net_margin_criterion = internal_block["criteria"].get("net_margin") or {}
+		rentabilite_score = (
+			(net_margin_criterion["score"] / net_margin_weight * 100)
+			if net_margin_weight and net_margin_criterion.get("score") is not None
+			else None
+		)
+
+		liquidite_ratio = ratios.get("current_ratio")
 
 		suggestions["capacite_remboursement"] = _score_to_note(bank_score)
-		suggestions["structure_financiere"] = _score_to_note(solvabilite_score)
+		suggestions["structure_financiere"] = _score_to_note(structure_score)
 		suggestions["rentabilite"] = _score_to_note(rentabilite_score)
 		suggestions["liquidite_generale"] = _ratio_to_note(liquidite_ratio)
 		suggestions["_comptabilite_note"] = (
 			f"Calculé depuis {entries_count} écriture(s) comptable(s) : "
-			f"score capacité remboursement (DSCR) {bank_score}/100, score solvabilité {solvabilite_score}/100, "
-			f"score rentabilité {rentabilite_score}/100, ratio de liquidité générale {liquidite_ratio}."
+			f"score capacité remboursement (DSCR) {bank_score}/100, score structure financière {structure_score}, "
+			f"score rentabilité {rentabilite_score}, ratio de liquidité générale {liquidite_ratio}."
 		)
 
 	payment_note, payment_explanation = _compute_payment_history(company)
