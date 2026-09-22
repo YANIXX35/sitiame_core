@@ -1,6 +1,26 @@
-/* Standard ERPNext/Frappe module tiles ship as pre-colored blue SVG artwork,
-   not a themeable field, so recoloring them needs a CSS filter rather than
-   a data change. Scoped to the /desk tile grid only. */
+/*
+ * /desk tile grid has two distinct rendering paths (frappe/public/js/frappe/utils/utils.js):
+ *
+ * 1) Standard ERPNext/Frappe module tiles (Stock, Vente, Comptabilite, ...) render a flat,
+ *    two-color SVG (e.g. apps/erpnext/erpnext/public/icons/desktop_icons/solid/stock.svg has
+ *    fill="#0289F7" baked into the path data) loaded as <img class="app-icon">. There is no
+ *    background to restyle -- the blue IS the image content -- so only a filter on the image
+ *    itself can recolor it. hue-rotate leaves white/gray untouched, so the glyph stays white.
+ *
+ * 2) Custom pages without a dedicated icon (Scoring, Financement, Club Sportif) render a
+ *    lettered avatar via frappe.utils.desktop_icon(): a plain <div class="icon-container">
+ *    with an inline background-color set from Desktop Icon.bg_color through
+ *    frappe.utils.desktop_pallete, which only defines "gray"/"blue". bg_color="green" resolves
+ *    to an invalid color, jQuery silently drops it, and the container falls back to its
+ *    default class background (gray) -- a plain background-color override fixes this directly,
+ *    no filter needed.
+ */
 .desktop-wrapper .icon-container {
-	filter: hue-rotate(140deg) saturate(1.8) brightness(0.92);
+	background-color: #16A34A !important;
+}
+.desktop-wrapper .icon-container svg.desktop-alphabet {
+	color: #FFFFFF !important;
+}
+.desktop-wrapper .icon-container img.app-icon {
+	filter: hue-rotate(297deg) saturate(1.5);
 }
