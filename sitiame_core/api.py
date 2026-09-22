@@ -1,6 +1,7 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
+import json
 import os
 import random
 import re
@@ -1186,3 +1187,47 @@ def register_pme_from_erpnext(name, email, company_name, phone=None, password=No
 		frappe.throw(_("PME360 a refusé la demande : {0}").format(message))
 
 	return response.json()
+
+
+# Masquage de menu par utilisateur individuel (page "Gérer le menu"), en
+# complément du masquage par rôle déjà natif à Frappe. Stocke la liste des
+# link_to masqués pour un utilisateur donné dans son champ personnalisé
+# sitiame_hidden_sidebar_items ; le filtrage réel se fait dans boot.py.
+@frappe.whitelist()
+def list_sidebar_items_for_menu_admin(sidebar_title="Organization"):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	doc = frappe.get_doc("Workspace Sidebar", sidebar_title)
+	return [
+		{"label": row.label, "link_to": row.link_to}
+		for row in doc.items
+		if row.type == "Link" and row.link_to
+	]
+
+
+@frappe.whitelist()
+def get_user_hidden_sidebar_items(user):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	raw = frappe.db.get_value("User", user, "sitiame_hidden_sidebar_items")
+	if not raw:
+		return []
+	try:
+		return json.loads(raw)
+	except ValueError:
+		return []
+
+
+@frappe.whitelist()
+def set_user_hidden_sidebar_items(user, hidden_links):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	if isinstance(hidden_links, str):
+		hidden_links = json.loads(hidden_links)
+
+	frappe.db.set_value("User", user, "sitiame_hidden_sidebar_items", json.dumps(hidden_links))
+	frappe.db.commit()
+	return {"status": "ok", "hidden_count": len(hidden_links)}

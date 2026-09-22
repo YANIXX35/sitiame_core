@@ -20,6 +20,8 @@ app_include_js = [
 	"/assets/sitiame_core/js/pin_gate_club_sportif.js",
 ]
 
+extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
+
 scheduler_events = {
 	"daily": [
 		"sitiame_core.tasks.block_expired_trials",
