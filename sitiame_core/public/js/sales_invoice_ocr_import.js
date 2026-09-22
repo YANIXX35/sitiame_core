@@ -115,6 +115,63 @@ function handle_ocr_result(frm, data) {
 			});
 	}
 
+	// Journal Entry only: pre-fill the party-side line of the double
+	// entry (Supplier -> credit payable, Customer -> debit receivable),
+	// then force a blocking confirmation -- see the Journal Entry branch
+	// above for why the offsetting line is never guessed.
+	function add_journal_party_row(supplierName, customerName, amount) {
+		var partyName = supplierName || customerName;
+		if (!partyName || !amount || !frm.fields_dict["accounts"]) return;
+
+		var partyType = supplierName ? "Supplier" : "Customer";
+		var nameField = partyType === "Supplier" ? "supplier_name" : "customer_name";
+
+		frappe.db
+			.get_list(partyType, { filters: [[nameField, "like", "%" + partyName + "%"]], fields: ["name"], limit: 2 })
+			.then(function (matches) {
+				if (matches && matches.length === 1) return matches[0].name;
+				if (!matches || matches.length === 0) {
+					var newParty = {};
+					newParty[nameField] = partyName;
+					return frappe.db.insert({ doctype: partyType, ...newParty }).then(function (created) {
+						return created.name;
+					});
+				}
+				return null; // ambiguous 2+ matches: don't guess which one
+			})
+			.then(function (resolvedName) {
+				if (!resolvedName) return;
+
+				var accountFieldname = partyType === "Supplier" ? "default_payable_account" : "default_receivable_account";
+				frappe.db.get_value("Company", frm.doc.company, accountFieldname).then(function (r) {
+					var defaultAccount = r && r.message ? r.message[accountFieldname] : null;
+
+					var row = frm.add_child("accounts");
+					row.party_type = partyType;
+					row.party = resolvedName;
+					if (defaultAccount) row.account = defaultAccount;
+					if (partyType === "Supplier") {
+						row.credit_in_account_currency = amount;
+					} else {
+						row.debit_in_account_currency = amount;
+					}
+					frm.refresh_field("accounts");
+					filled.push("accounts[0] ← " + partyType + " " + resolvedName + " (" + amount + ")");
+					// eslint-disable-next-line no-console
+					console.log("[OCR] Journal Entry party row:", partyType, resolvedName, amount);
+
+					frappe.msgprint({
+						title: __("Ecriture pre-remplie -- a completer avant enregistrement"),
+						indicator: "orange",
+						message: __(
+							"Une ligne a ete pre-remplie automatiquement ({0} : {1}, {2}). Cette seule ligne ne suffit PAS a equilibrer l'ecriture : ajoutez la ligne de contrepartie (compte de charge, banque, etc.) et verifiez le sens debit/credit avant d'enregistrer.",
+							[partyType === "Supplier" ? __("Fournisseur") : __("Client"), resolvedName, amount]
+						),
+					});
+				});
+			});
+	}
+
 	function add_amount_item_row(rateValue, label) {
 		if (!rateValue) return;
 		var itemsField = frm.fields_dict["items"];
@@ -261,18 +318,26 @@ function handle_ocr_result(frm, data) {
 			match_and_set_party("party", partyType, nameField, extractedParty, "party_type");
 		}
 	} else if (frm.doctype === "Journal Entry") {
-		// Mapping (verified against the real DocFields, 21/09/2026): only
-		// the reference number/date and posting date are plain editable
-		// fields. The "accounts" table (Journal Entry Account) has no
-		// item_name/qty/rate -- it needs a real chart-of-accounts account
-		// plus a debit/credit judgement call, which this button will not
-		// guess at. Filling that row was silently broken before this
-		// rewrite too (it tried item_name/qty/rate, fields that don't
-		// exist on Journal Entry Account) -- left blank here on purpose
-		// rather than invented.
+		// Mapping (verified against the real DocFields, 22/09/2026):
+		// reference number/date and posting date are plain editable
+		// fields. The "accounts" table (Journal Entry Account) has
+		// account/party_type/party/debit_in_account_currency/
+		// credit_in_account_currency -- no item_name/qty/rate.
+		//
+		// A Journal Entry is a full double-entry: this only pre-fills the
+		// PARTY side (payable/receivable, from the matched Supplier/
+		// Customer's default account on the Company) -- that's the one
+		// side an invoice scan can actually justify. The offsetting line
+		// (which expense/income/bank account, and confirming the debit/
+		// credit direction) is a real accounting judgement call this
+		// can't make safely, so it's left for the user -- enforced with a
+		// blocking frappe.msgprint right after filling, not just a code
+		// comment, so it can't be missed and nothing gets saved without
+		// the user seeing it first.
 		set_direct("cheque_no", fields.invoice_number);
 		set_direct("cheque_date", fields.invoice_date);
 		set_direct("posting_date", fields.invoice_date);
+		add_journal_party_row(fields.supplier_name, fields.customer_name, fields.grand_total);
 	} else {
 		// Any other doctype (Payment Entry, Journal Entry, ...): keep the
 		// original generic best-effort behaviour, unchanged.
