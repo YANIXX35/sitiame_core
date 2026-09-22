@@ -1508,3 +1508,39 @@ def get_scoring_suggestions(company):
 	)
 
 	return suggestions
+
+
+@frappe.whitelist()
+def get_financing_dossier_from_pme360(company):
+	"""Pulls the latest FinancingDossier for this PME from PME360 (its
+	analysts fill this in the /analyste wizard, not in ERPNext), same
+	reverse-webhook pattern as register_pme_from_erpnext -- ERPNext calls
+	PME360's read-only endpoint with the shared X-PME360-Webhook-Token.
+	"""
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
+	token = frappe.conf.get("pme360_webhook_token")
+	if not token:
+		frappe.throw(_("pme360_webhook_token n'est pas configuré dans site_config.json."))
+
+	try:
+		response = requests.get(
+			f"{base_url}/webhooks/erpnext/financing-dossier",
+			params={"company": company},
+			headers={"X-PME360-Webhook-Token": token},
+			timeout=20,
+		)
+	except requests.RequestException as e:
+		frappe.throw(_("PME360 injoignable : {0}").format(str(e)))
+
+	if response.status_code >= 400:
+		try:
+			detail = response.json()
+			message = detail.get("message") or detail
+		except ValueError:
+			message = response.text
+		frappe.throw(_("PME360 a refusé la demande : {0}").format(message))
+
+	return response.json()

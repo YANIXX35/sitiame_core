@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "creation": "2026-09-22 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "company",
+  "pme360_reference",
+  "col_break_1",
+  "pme360_status",
+  "last_synced_at",
+  "sync_section",
+  "request_section",
+  "financing_type",
+  "financing_purpose",
+  "col_break_2",
+  "amount_requested",
+  "currency",
+  "col_break_3",
+  "desired_term_months",
+  "grace_period_months",
+  "col_break_4",
+  "repayment_frequency",
+  "promoter_contribution",
+  "desired_disbursement_date",
+  "financing_summary",
+  "repayment_source",
+  "analyst_section",
+  "status",
+  "analyst_notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Serie",
+   "default": "FD-.YYYY.-",
+   "options": "FD-.YYYY.-",
+   "hidden": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Societe",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "pme360_reference",
+   "fieldtype": "Data",
+   "label": "Reference PME360",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "pme360_status",
+   "fieldtype": "Data",
+   "label": "Statut cote PME360",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_synced_at",
+   "fieldtype": "Datetime",
+   "label": "Derniere synchronisation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sync_section",
+   "fieldtype": "Section Break",
+   "label": ""
+  },
+  {
+   "fieldname": "request_section",
+   "fieldtype": "Section Break",
+   "label": "Demande de financement (synchronisee depuis PME360)"
+  },
+  {
+   "fieldname": "financing_type",
+   "fieldtype": "Data",
+   "label": "Type de financement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "financing_purpose",
+   "fieldtype": "Data",
+   "label": "Objet du financement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "amount_requested",
+   "fieldtype": "Currency",
+   "label": "Montant demande",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "label": "Devise",
+   "default": "XOF",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "desired_term_months",
+   "fieldtype": "Int",
+   "label": "Duree souhaitee (mois)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "grace_period_months",
+   "fieldtype": "Int",
+   "label": "Periode de grace (mois)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_4",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "repayment_frequency",
+   "fieldtype": "Data",
+   "label": "Frequence de remboursement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "promoter_contribution",
+   "fieldtype": "Currency",
+   "label": "Apport du promoteur",
+   "read_only": 1
+  },
+  {
+   "fieldname": "desired_disbursement_date",
+   "fieldtype": "Date",
+   "label": "Date de decaissement souhaitee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "financing_summary",
+   "fieldtype": "Small Text",
+   "label": "Resume du financement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "repayment_source",
+   "fieldtype": "Small Text",
+   "label": "Source de remboursement prevue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "analyst_section",
+   "fieldtype": "Section Break",
+   "label": "Analyse ERPNext"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Statut de l'analyse",
+   "default": "A examiner",
+   "options": "A examiner\nEn cours d'analyse\nAvis favorable\nAvis defavorable\nAjourne"
+  },
+  {
+   "fieldname": "analyst_notes",
+   "fieldtype": "Small Text",
+   "label": "Notes de l'analyste"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sitiame Core",
+ "name": "Financing Dossier",
+ "naming_rule": "By \"Naming Series\" field",
+ "autoname": "naming_series:",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
