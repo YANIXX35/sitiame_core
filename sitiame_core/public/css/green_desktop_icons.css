@@ -1,0 +1,6 @@
+/* Standard ERPNext/Frappe module tiles ship as pre-colored blue SVG artwork,
+   not a themeable field, so recoloring them needs a CSS filter rather than
+   a data change. Scoped to the /desk tile grid only. */
+.desktop-wrapper .icon-container {
+	filter: hue-rotate(140deg) saturate(1.8) brightness(0.92);
+}
