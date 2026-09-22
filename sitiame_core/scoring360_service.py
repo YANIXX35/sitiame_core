@@ -5,8 +5,11 @@
 and its Scoring360Defaults (app/Support/Scoring360Defaults.php).
 
 Same 3-block (Banque/Investisseur/Interne) + Composite weighted scoring
-engine, reading GL Entry (via financial_ratio_service's account ledger
-helpers) per ERPNext Company instead of PME360's AccountingEntry per user.
+engine, reading GL Entry per ERPNext Company instead of PME360's
+AccountingEntry per user. This is now the single scoring engine for the
+app -- also powers the "Classement financier" portfolio ranking
+(classement_erpnext below), formerly a separate, slightly divergent
+engine in financial_ratio_service.py (deleted).
 
 Config is stored on the "Scoring 360 Settings" single DocType (thresholds,
 weights, decision cutoffs -- same editable surface as PME360's
@@ -22,8 +25,71 @@ the treasury_net proxy, documented as such.
 """
 
 import frappe
+from frappe.utils import flt
 
-from sitiame_core.financial_ratio_service import _account_ledger, _sum_by_prefixes
+
+def _account_ledger(company, date_from=None, date_to=None):
+	conditions = ["gle.company = %(company)s", "gle.is_cancelled = 0"]
+	params = {"company": company}
+	if date_from:
+		conditions.append("gle.posting_date >= %(date_from)s")
+		params["date_from"] = date_from
+	if date_to:
+		conditions.append("gle.posting_date <= %(date_to)s")
+		params["date_to"] = date_to
+
+	rows = frappe.db.sql(
+		f"""
+		select acc.account_number as code, sum(gle.debit) as debit, sum(gle.credit) as credit
+		from `tabGL Entry` gle
+		inner join `tabAccount` acc on acc.name = gle.account
+		where {" and ".join(conditions)}
+			and acc.account_number is not null and acc.account_number != ''
+		group by acc.account_number
+		""",
+		params,
+		as_dict=True,
+	)
+
+	ledger = {}
+	for r in rows:
+		debit = flt(r.debit)
+		credit = flt(r.credit)
+		ledger[r.code] = {
+			"debit": debit,
+			"credit": credit,
+			"debit_net": max(debit - credit, 0.0),
+			"credit_net": max(credit - debit, 0.0),
+		}
+	return ledger
+
+
+def _entries_count(company, date_from=None, date_to=None):
+	conditions = ["company = %(company)s", "is_cancelled = 0"]
+	params = {"company": company}
+	if date_from:
+		conditions.append("posting_date >= %(date_from)s")
+		params["date_from"] = date_from
+	if date_to:
+		conditions.append("posting_date <= %(date_to)s")
+		params["date_to"] = date_to
+
+	row = frappe.db.sql(
+		f"""select count(distinct concat(voucher_type, '||', voucher_no)) as c
+		from `tabGL Entry` where {" and ".join(conditions)}""",
+		params,
+	)
+	return int(row[0][0]) if row and row[0][0] else 0
+
+
+def _sum_by_prefixes(ledger, prefixes, column="credit_net"):
+	total = 0.0
+	for code, row in ledger.items():
+		for prefix in prefixes:
+			if prefix and code.startswith(prefix):
+				total += row.get(column, 0.0)
+				break
+	return total
 
 CRITERIA_DIRECTIONS = {
 	"bank": {
@@ -347,3 +413,66 @@ def score_company(company, date_from=None, date_to=None):
 			"treasury_net": treasury_net,
 		},
 	}
+
+
+RANKING_CATEGORY_FROM_DECISION_LEVEL = {
+	"strong": "pret_a_deployer",
+	"medium": "solide_mais_a_cadrer",
+	"weak": "risque_a_traiter",
+}
+
+
+def classement_erpnext(date_from=None, date_to=None):
+	companies = frappe.get_all("Company", fields=["name", "company_name"], order_by="company_name")
+
+	lignes = []
+	for company in companies:
+		entries_count = _entries_count(company.name, date_from, date_to)
+
+		if entries_count == 0:
+			lignes.append(
+				{
+					"company": company.name,
+					"company_name": company.company_name,
+					"entries_count": 0,
+					"composite_score": None,
+					"decision": {
+						"level": "insuffisant",
+						"label": "Donnees insuffisantes",
+						"lecture": "Aucune ecriture comptable sur la periode.",
+					},
+					"blocks": None,
+				}
+			)
+			continue
+
+		result = score_company(company.name, date_from, date_to)
+		composite = result["composite"]
+		lignes.append(
+			{
+				"company": company.name,
+				"company_name": company.company_name,
+				"entries_count": entries_count,
+				"composite_score": composite["total"],
+				"decision": composite["decision"],
+				"blocks": {
+					"bank": result["blocks"]["bank"]["total"],
+					"investor": result["blocks"]["investor"]["total"],
+					"internal": result["blocks"]["internal"]["total"],
+				},
+			}
+		)
+
+	def sort_key(row):
+		score = row["composite_score"]
+		return -(score if score is not None else -1)
+
+	lignes.sort(key=sort_key)
+
+	compteurs = {"pret_a_deployer": 0, "solide_mais_a_cadrer": 0, "risque_a_traiter": 0, "insuffisant": 0}
+	for row in lignes:
+		level = row["decision"]["level"]
+		category = RANKING_CATEGORY_FROM_DECISION_LEVEL.get(level, "insuffisant")
+		compteurs[category] += 1
+
+	return {"lignes": lignes, "compteurs": compteurs}
