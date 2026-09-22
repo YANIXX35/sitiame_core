@@ -81,6 +81,29 @@ function handle_ocr_result(frm, data) {
 					filled.push(linkField + " ← " + matches[0].name + " (" + __("correspondance sur le nom") + ")");
 					// eslint-disable-next-line no-console
 					console.log("[OCR] Mapping:", linkField, "->", matches[0].name);
+				} else if (!matches || matches.length === 0) {
+					// No existing record matches the OCR-extracted name --
+					// create one automatically instead of leaving the field
+					// blank, so the imported document is immediately
+					// usable. Only on a clean zero-match: an ambiguous 2+
+					// match is still left for the user to resolve by hand,
+					// never auto-picked.
+					var newParty = {};
+					newParty[nameField] = extractedName;
+					frappe.db
+						.insert({ doctype: doctype, ...newParty })
+						.then(function (created) {
+							frm.set_value(linkField, created.name);
+							filled.push(
+								linkField + " ← " + created.name + " (" + __("nouveau, cree automatiquement") + ")"
+							);
+							// eslint-disable-next-line no-console
+							console.log("[OCR] Created new", doctype, "->", created.name);
+						})
+						.catch(function (e) {
+							// eslint-disable-next-line no-console
+							console.log("[OCR] Could not auto-create", doctype, extractedName, e);
+						});
 				}
 			});
 	}
