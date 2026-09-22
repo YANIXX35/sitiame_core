@@ -17,6 +17,14 @@
   "col_break_3",
   "eval_date",
   "purpose",
+  "company_info_section",
+  "contact_name",
+  "phone_from_signup",
+  "col_break_ci_1",
+  "rccm_from_signup",
+  "col_break_ci_2",
+  "address_from_signup",
+  "city_from_signup",
   "criteria_intro_section",
   "capacite_remboursement_section",
   "capacite_remboursement_weight",
@@ -117,6 +125,46 @@
    "options": "Company",
    "reqd": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "company_info_section",
+   "fieldtype": "Section Break",
+   "label": "Informations entreprise (pré-remplies depuis l'inscription)"
+  },
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Nom du responsable"
+  },
+  {
+   "fieldname": "phone_from_signup",
+   "fieldtype": "Data",
+   "label": "Telephone"
+  },
+  {
+   "fieldname": "col_break_ci_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "rccm_from_signup",
+   "fieldtype": "Data",
+   "label": "Numero RCCM / SIRET"
+  },
+  {
+   "fieldname": "col_break_ci_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "address_from_signup",
+   "fieldtype": "Data",
+   "label": "Adresse complete"
+  },
+  {
+   "fieldname": "city_from_signup",
+   "fieldtype": "Data",
+   "label": "Ville"
   },
   {
    "fieldname": "reference",

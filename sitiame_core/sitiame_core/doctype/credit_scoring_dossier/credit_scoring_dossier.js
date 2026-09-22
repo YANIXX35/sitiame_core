@@ -66,7 +66,39 @@ function credit_scoring_recompute(frm) {
 	);
 }
 
-var handlers = { refresh: credit_scoring_recompute };
+// Pré-remplit les infos entreprise depuis la fiche d'inscription (Company
+// Signup) dès qu'une société est choisie, pour éviter de ressaisir ce qui a
+// déjà été collecté à l'inscription. Ne touche jamais un champ déjà rempli
+// manuellement, pour ne pas écraser une correction de l'analyste.
+function credit_scoring_prefill_company_info(frm) {
+	if (!frm.doc.company) return;
+
+	frappe.call({
+		method: "sitiame_core.api.get_company_signup_info",
+		args: { company: frm.doc.company },
+	}).then(function (r) {
+		var info = r.message || {};
+		var map = {
+			contact_name: "contact_name",
+			phone: "phone_from_signup",
+			rccm: "rccm_from_signup",
+			address: "address_from_signup",
+			city: "city_from_signup",
+			sector: "sector",
+		};
+		Object.keys(map).forEach(function (sourceKey) {
+			var targetField = map[sourceKey];
+			if (info[sourceKey] && !frm.doc[targetField]) {
+				frm.set_value(targetField, info[sourceKey]);
+			}
+		});
+	});
+}
+
+var handlers = {
+	refresh: credit_scoring_recompute,
+	company: credit_scoring_prefill_company_info,
+};
 CREDIT_SCORING_CRITERIA.forEach(function (fname) {
 	handlers[fname + "_weight"] = credit_scoring_recompute;
 	handlers[fname + "_note"] = credit_scoring_recompute;

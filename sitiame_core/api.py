@@ -1303,3 +1303,19 @@ def save_user_menu_visibility(user, hidden_icons, hidden_items):
 	frappe.publish_realtime("sitiame_menu_updated", {}, user=user)
 
 	return {"status": "ok"}
+
+
+@frappe.whitelist()
+def get_company_signup_info(company):
+	"""Company identity captured at registration (Company Signup, filled on
+	/company-signup or via the API registration flow), used to pre-fill the
+	scoring dossier instead of re-typing it -- the dossier's own fields stay
+	editable in case the signup record is missing or out of date.
+	"""
+	signup = frappe.db.get_value(
+		"Company Signup",
+		{"company": company},
+		["contact_name", "phone", "rccm", "address", "city", "sector"],
+		as_dict=True,
+	)
+	return signup or {}
