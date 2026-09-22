@@ -67,7 +67,12 @@ function handle_ocr_result(frm, data) {
 		filled.push(fieldname + " ← " + value);
 	}
 
-	function match_and_set_party(linkField, doctype, nameField, extractedName) {
+	// dynamicTypeField: set on doctypes like Payment Entry where the party
+	// isn't a plain Link field but a Dynamic Link (party_type + party) --
+	// pass the party_type fieldname and it's set to `doctype` right before
+	// linkField, exactly like frm.set_value("party_type", "Supplier") then
+	// frm.set_value("party", "ACME") would do by hand.
+	function match_and_set_party(linkField, doctype, nameField, extractedName, dynamicTypeField) {
 		if (!extractedName || !frm.fields_dict[linkField] || frm.doc[linkField]) return;
 		frappe.db
 			.get_list(doctype, {
@@ -77,6 +82,7 @@ function handle_ocr_result(frm, data) {
 			})
 			.then(function (matches) {
 				if (matches && matches.length === 1) {
+					if (dynamicTypeField) frm.set_value(dynamicTypeField, doctype);
 					frm.set_value(linkField, matches[0].name);
 					filled.push(linkField + " ← " + matches[0].name + " (" + __("correspondance sur le nom") + ")");
 					// eslint-disable-next-line no-console
@@ -93,6 +99,7 @@ function handle_ocr_result(frm, data) {
 					frappe.db
 						.insert({ doctype: doctype, ...newParty })
 						.then(function (created) {
+							if (dynamicTypeField) frm.set_value(dynamicTypeField, doctype);
 							frm.set_value(linkField, created.name);
 							filled.push(
 								linkField + " ← " + created.name + " (" + __("nouveau, cree automatiquement") + ")"
@@ -251,21 +258,7 @@ function handle_ocr_result(frm, data) {
 		var partyType = fields.supplier_name ? "Supplier" : "Customer";
 		if (extractedParty && frm.fields_dict["party"] && !frm.doc.party) {
 			var nameField = partyType === "Supplier" ? "supplier_name" : "customer_name";
-			frappe.db
-				.get_list(partyType, {
-					filters: [[nameField, "like", "%" + extractedParty + "%"]],
-					fields: ["name"],
-					limit: 2,
-				})
-				.then(function (matches) {
-					if (matches && matches.length === 1) {
-						frm.set_value("party_type", partyType);
-						frm.set_value("party", matches[0].name);
-						filled.push("party ← " + matches[0].name);
-						// eslint-disable-next-line no-console
-						console.log("[OCR] Mapping: party ->", matches[0].name);
-					}
-				});
+			match_and_set_party("party", partyType, nameField, extractedParty, "party_type");
 		}
 	} else if (frm.doctype === "Journal Entry") {
 		// Mapping (verified against the real DocFields, 21/09/2026): only
