@@ -43,17 +43,11 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 			var c = data.compteurs || {};
 
 			var html = "<div class='row'>";
-			html += statCard(__("Financables"), c.financable || 0, "#2b8a3e");
-			html += statCard(__("Solvables seulement"), c.solvable_seulement || 0, "#e8a33d");
-			html += statCard(__("Non retenus"), c.non_retenu || 0, "#868e96");
+			html += statCard(__("Pret a deployer"), c.pret_a_deployer || 0, "#2b8a3e");
+			html += statCard(__("Solide mais a cadrer"), c.solide_mais_a_cadrer || 0, "#e8a33d");
+			html += statCard(__("Risque a traiter"), c.risque_a_traiter || 0, "#e03131");
 			html += statCard(__("Donnees insuffisantes"), c.insuffisant || 0, "#868e96");
 			html += "</div>";
-
-			html +=
-				"<div class='alert alert-secondary small'>" +
-				"<strong>" + __("Solvable") + "</strong> " + __("- au moins 5 ecritures et verdict de solvabilite favorable ou score >= 54/100.") +
-				"<br><strong>" + __("Financable") + "</strong> " + __("- profil solvable + au moins 15 ecritures + rentabilite favorable + fiabilite des donnees >= 52% + synthese fiabilisee >= 48/100.") +
-				"</div>";
 
 			if (!lignes.length) {
 				html += "<p class='text-muted'>" + __("Aucune societe a classer.") + "</p>";
@@ -62,29 +56,30 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 					"<table class='table table-bordered bg-white'><thead><tr>" +
 					"<th>" + __("Societe") + "</th>" +
 					"<th class='text-end'>" + __("Ecritures") + "</th>" +
-					"<th>" + __("Categorie") + "</th>" +
-					"<th class='text-center'>" + __("Solvable") + "</th>" +
-					"<th class='text-center'>" + __("Financable") + "</th>" +
-					"<th class='text-end'>" + __("Synthese fiabilisee") + "</th>" +
-					"<th>" + __("Motifs") + "</th>" +
+					"<th class='text-end'>" + __("Score composite") + "</th>" +
+					"<th>" + __("Decision") + "</th>" +
+					"<th class='text-end'>" + __("Contribution Banque") + "</th>" +
+					"<th class='text-end'>" + __("Contribution Investisseur") + "</th>" +
+					"<th class='text-end'>" + __("Contribution Interne") + "</th>" +
 					"</tr></thead><tbody>";
 
-				var badgeClass = { financable: "success", solvable_seulement: "warning", non_retenu: "secondary" };
+				var badgeClass = { pret_a_deployer: "success", solide_mais_a_cadrer: "warning", risque_a_traiter: "danger" };
 
 				lignes.forEach(function (row) {
-					var cl = row.classement || {};
-					var code = cl.code || "insuffisant";
-					var cls = badgeClass[code] || "light";
-					var motifs = (cl.motifs || []).slice(0, 3);
+					var decision = row.decision || {};
+					var level = decision.level === "insuffisant" ? "insuffisant" :
+						(decision.level === "strong" ? "pret_a_deployer" : decision.level === "medium" ? "solide_mais_a_cadrer" : "risque_a_traiter");
+					var cls = badgeClass[level] || "light";
+					var blocks = row.blocks || {};
 					html +=
 						"<tr>" +
 						"<td class='fw-bold'>" + frappe.utils.escape_html(row.company_name || row.company) + "</td>" +
 						"<td class='text-end'>" + row.entries_count + "</td>" +
-						"<td><span class='indicator-pill " + cls + "'>" + frappe.utils.escape_html(cl.libelle || "-") + "</span></td>" +
-						"<td class='text-center'>" + (cl.solvable ? "<span class='text-success'>Oui</span>" : "<span class='text-muted'>Non</span>") + "</td>" +
-						"<td class='text-center'>" + (cl.financable ? "<span class='text-success fw-bold'>Oui</span>" : "<span class='text-muted'>Non</span>") + "</td>" +
-						"<td class='text-end'>" + (row.synthese_fiabilisee !== null && row.synthese_fiabilisee !== undefined ? row.synthese_fiabilisee : "-") + "</td>" +
-						"<td class='small text-muted'>" + motifs.map(frappe.utils.escape_html).join("<br>") + "</td>" +
+						"<td class='text-end'>" + (row.composite_score !== null && row.composite_score !== undefined ? row.composite_score : "-") + "</td>" +
+						"<td><span class='indicator-pill " + cls + "'>" + frappe.utils.escape_html(decision.label || "-") + "</span></td>" +
+						"<td class='text-end'>" + (blocks.bank !== undefined && blocks.bank !== null ? blocks.bank : "-") + "</td>" +
+						"<td class='text-end'>" + (blocks.investor !== undefined && blocks.investor !== null ? blocks.investor : "-") + "</td>" +
+						"<td class='text-end'>" + (blocks.internal !== undefined && blocks.internal !== null ? blocks.internal : "-") + "</td>" +
 						"</tr>";
 				});
 
