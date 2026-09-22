@@ -8,7 +8,7 @@ frappe.pages["erp-gerer-menu"].on_page_load = function (wrapper) {
 	var $intro = $(
 		"<p class='text-muted' style='padding:0 15px;'>" +
 			__(
-				"Masque des tuiles de la page d'accueil (/desk) et des liens du menu Organisation pour un utilisateur précis, indépendamment de son rôle. Prend effet à sa prochaine connexion."
+				"Masque des tuiles de la page d'accueil (/desk) et des liens du menu Organisation pour un utilisateur précis, indépendamment de son rôle. Effet immédiat si la personne est déjà connectée, sinon dès sa prochaine connexion."
 			) +
 			"</p>"
 	).appendTo(page.body);
@@ -108,21 +108,34 @@ frappe.pages["erp-gerer-menu"].on_page_load = function (wrapper) {
 					}
 				});
 
-				Promise.all([
-					frappe.call({
-						method: "sitiame_core.api.set_user_hidden_desktop_icons",
-						args: { user: user, hidden_labels: hiddenIconsToSave },
-					}),
-					frappe.call({
-						method: "sitiame_core.api.set_user_hidden_sidebar_items",
-						args: { user: user, hidden_links: hiddenLinksToSave },
-					}),
-				]).then(function () {
-					$body.find(".gm-result").html(
-						"<div class='alert alert-success'>" +
-							__("Enregistré. Prend effet à la prochaine connexion de cet utilisateur.") +
-							"</div>"
-					);
+				var $saveBtn = $body.find(".gm-save");
+				$saveBtn.prop("disabled", true).text(__("Enregistrement..."));
+				$body.find(".gm-result").html("");
+
+				frappe.call({
+					method: "sitiame_core.api.save_user_menu_visibility",
+					args: {
+						user: user,
+						hidden_icons: hiddenIconsToSave,
+						hidden_items: hiddenLinksToSave,
+					},
+					callback: function () {
+						$body.find(".gm-result").html(
+							"<div class='alert alert-success'>" +
+								__("Enregistré et appliqué immédiatement si cette personne est déjà connectée.") +
+								"</div>"
+						);
+					},
+					error: function () {
+						$body.find(".gm-result").html(
+							"<div class='alert alert-danger'>" +
+								__("Échec de l'enregistrement. Voir la console pour le détail.") +
+								"</div>"
+						);
+					},
+					always: function () {
+						$saveBtn.prop("disabled", false).text(__("Enregistrer"));
+					},
 				});
 			});
 		});

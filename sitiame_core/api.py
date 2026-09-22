@@ -1273,3 +1273,33 @@ def set_user_hidden_desktop_icons(user, hidden_labels):
 	frappe.db.set_value("User", user, "sitiame_hidden_desktop_icons", json.dumps(hidden_labels))
 	frappe.db.commit()
 	return {"status": "ok", "hidden_count": len(hidden_labels)}
+
+
+@frappe.whitelist()
+def save_user_menu_visibility(user, hidden_icons, hidden_items):
+	"""Single call used by the "Gérer le menu" page: saves both lists, busts
+	the server-side Desktop Icon cache (which is only rebuilt from bootinfo
+	otherwise, so a stale cached list would keep showing on that user's next
+	login even after this save), and pushes a realtime event so an already
+	open browser tab for that user updates immediately instead of waiting
+	for their next login.
+	"""
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	if isinstance(hidden_icons, str):
+		hidden_icons = json.loads(hidden_icons)
+	if isinstance(hidden_items, str):
+		hidden_items = json.loads(hidden_items)
+
+	frappe.db.set_value("User", user, "sitiame_hidden_desktop_icons", json.dumps(hidden_icons))
+	frappe.db.set_value("User", user, "sitiame_hidden_sidebar_items", json.dumps(hidden_items))
+	frappe.db.commit()
+
+	from frappe.desk.doctype.desktop_icon.desktop_icon import clear_desktop_icons_cache
+
+	clear_desktop_icons_cache(user)
+
+	frappe.publish_realtime("sitiame_menu_updated", {}, user=user)
+
+	return {"status": "ok"}

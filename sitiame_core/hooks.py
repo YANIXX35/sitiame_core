@@ -18,6 +18,7 @@ app_include_js = [
 	"/assets/sitiame_core/js/scoring360_settings_test.js",
 	"/assets/sitiame_core/js/ai_assistant.js",
 	"/assets/sitiame_core/js/pin_gate_club_sportif.js",
+	"/assets/sitiame_core/js/menu_visibility_watcher.js",
 ]
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
