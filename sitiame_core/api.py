@@ -1137,3 +1137,52 @@ def verify_club_sportif_pin(pin):
 	if not configured:
 		return {"ok": False}
 	return {"ok": str(pin).strip() == str(configured).strip()}
+
+
+# Inscription d'une nouvelle PME depuis le desk ERPNext (page "Inscrire une
+# PME" du module Sitiame Core). PME360 reste la seule source de vérité pour
+# les comptes PME (voir F-35) : cette fonction ne crée rien localement, elle
+# relaie la demande à PME360 qui crée le compte, seede son plan comptable
+# local et déclenche elle-même le provisionnement automatique de la société
+# sur ERPNext (même chemin que /register ou l'espace Commercial de PME360).
+@frappe.whitelist()
+def register_pme_from_erpnext(name, email, company_name, phone=None, password=None,
+	company_tax_id=None, rccm=None, city=None):
+	if "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
+	token = frappe.conf.get("pme360_webhook_token")
+	if not token:
+		frappe.throw(_("pme360_webhook_token n'est pas configuré dans site_config.json."))
+
+	payload = {
+		"name": name,
+		"email": email,
+		"company_name": company_name,
+		"phone": phone,
+		"password": password,
+		"company_tax_id": company_tax_id,
+		"rccm": rccm,
+		"city": city,
+	}
+
+	try:
+		response = requests.post(
+			f"{base_url}/webhooks/erpnext/register-pme",
+			json=payload,
+			headers={"X-PME360-Webhook-Token": token},
+			timeout=20,
+		)
+	except requests.RequestException as e:
+		frappe.throw(_("PME360 injoignable : {0}").format(str(e)))
+
+	if response.status_code >= 400:
+		try:
+			detail = response.json()
+			message = detail.get("message") or detail.get("errors") or detail
+		except ValueError:
+			message = response.text
+		frappe.throw(_("PME360 a refusé la demande : {0}").format(message))
+
+	return response.json()
