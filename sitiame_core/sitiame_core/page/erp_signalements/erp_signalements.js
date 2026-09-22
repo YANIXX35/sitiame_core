@@ -1,7 +1,7 @@
 frappe.pages["erp-signalements"].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: __("Signalements ERPNext"),
+		title: __("Signalements"),
 		single_column: true,
 	});
 
