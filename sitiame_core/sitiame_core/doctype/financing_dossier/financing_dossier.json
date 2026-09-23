@@ -202,6 +202,17 @@
    "role": "System Manager",
    "share": 0,
    "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "PME Client",
+   "share": 0,
+   "write": 0
   }
  ],
  "sort_field": "modified",
