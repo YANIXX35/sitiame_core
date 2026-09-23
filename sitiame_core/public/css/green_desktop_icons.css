@@ -13,28 +13,26 @@
  *    source icons alike. White glyphs stay close to white throughout (grayscale/sepia barely
  *    affect pure white).
  *
- * 2) Custom pages without a dedicated icon (Scoring, Financement, Club Sportif) render a
- *    lettered avatar via frappe.utils.desktop_icon(): a plain <div class="icon-container">
- *    with an inline background-color set from Desktop Icon.bg_color through
- *    frappe.utils.desktop_pallete, which only defines "gray"/"blue". bg_color="green" resolves
- *    to an invalid color, jQuery silently drops it, and the container falls back to its
- *    default class background (gray) -- a plain background-color override fixes this directly,
- *    no filter needed.
+ * 2) Custom pages without a dedicated icon (Scoring, Financement) render a lettered avatar via
+ *    frappe.utils.desktop_icon(): a plain <div class="icon-container"> with an inline
+ *    background-color set from Desktop Icon.bg_color through frappe.utils.desktop_pallete,
+ *    which only defines "gray"/"blue". bg_color="green" resolves to an invalid color, jQuery
+ *    silently drops it, and the container falls back to its default class background (gray) --
+ *    a plain background-color override fixes this directly, no filter needed.
  *
- * Folder tiles (e.g. clicking "Comptabilite" or "Parametres") open their sub-icons in a
- * Bootstrap modal (.desktop-modal) that Frappe appends directly to <body>, OUTSIDE
- * .desktop-wrapper -- so both selectors below are scoped to .desktop-wrapper AND
- * .desktop-modal, not just the former, or every folder popup stays unstyled.
+ * ".icon-container" is scoped intentionally, not to an ancestor: folder tiles (e.g. clicking
+ * "Comptabilite" or "Parametres") open their sub-icons inside a Bootstrap modal Frappe builds
+ * fresh via frappe.get_modal() and appends independently of the main desk grid -- trying to
+ * scope this to ".desktop-wrapper"/".desktop-modal" missed that modal in practice, so this
+ * targets the icon-container class directly. It's specific to Frappe's own desktop-icon
+ * template (desktop_icon.html) and isn't reused anywhere else in the app.
  */
-.desktop-wrapper .icon-container,
-.desktop-modal .icon-container {
+.icon-container {
 	background-color: #16A34A !important;
 }
-.desktop-wrapper .icon-container svg.desktop-alphabet,
-.desktop-modal .icon-container svg.desktop-alphabet {
+.icon-container svg.desktop-alphabet {
 	color: #FFFFFF !important;
 }
-.desktop-wrapper .icon-container img.app-icon,
-.desktop-modal .icon-container img.app-icon {
-	filter: grayscale(1) sepia(1) hue-rotate(90deg) saturate(3) brightness(0.95);
+.icon-container img.app-icon {
+	filter: grayscale(1) sepia(1) hue-rotate(90deg) saturate(3) brightness(0.95) !important;
 }
