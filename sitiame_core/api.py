@@ -136,6 +136,23 @@ def _apply_syscohada_defaults(company_name):
 		frappe.db.set_value("Company", company_name, company_updates)
 
 
+# Same 11-module allowlist as PME360's provisioning path
+# (ErpNextClient::hiddenDesktopIconLabelsForPme) -- these are the DocType's
+# raw `label` values as stored, not the French display text (every native
+# ERPNext tile's label is still the untranslated English name; only the
+# /desk display goes through __() at render time).
+_PME_ALLOWED_DESKTOP_ICON_LABELS = [
+	"Financement", "Scoring", "Selling", "Buying", "Stock",
+	"Accounting", "Subcontracting", "Abonnement",
+	"Manufacturing", "Projects", "Assets",
+]
+
+
+def _hidden_desktop_icon_labels_for_pme():
+	all_labels = frappe.get_all("Desktop Icon", pluck="label")
+	return [label for label in all_labels if label not in _PME_ALLOWED_DESKTOP_ICON_LABELS]
+
+
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=5, seconds=3600)
 def register_company(
@@ -194,6 +211,13 @@ def register_company(
 	company.insert(ignore_permissions=True)
 	_apply_syscohada_defaults(company.name)
 
+	# Same 11-tile allowlist and "PME Client" read-only dossier access as
+	# the PME360-triggered signup path (ErpNextClient::provisionCompanyForPme,
+	# see 2026-09-23-pme-erpnext-accounts-design.md) -- this form is a
+	# second, independent entry point for the same kind of account and must
+	# not diverge from it.
+	hidden_desktop_icons = _hidden_desktop_icon_labels_for_pme()
+
 	user = frappe.get_doc(
 		{
 			"doctype": "User",
@@ -205,17 +229,33 @@ def register_company(
 			# Deliberately NOT "System Manager": that role bypasses block_modules
 			# (Frappe treats it as admin-equivalent for the trial-blocking check
 			# in desk.py), which would make the 1-month trial cutoff a no-op.
-			# Deliberately no "Projects Manager": the company dashboard should not
-			# expose Projets (or Organisation/Club Sportif, which carry no
-			# ERPNext business role at all and are Sitiame-internal/admin-only).
+			# Full list verified against each module's real DocPerm requirements
+			# (2026-09-23): Frappe roles are not hierarchical, so "Manager"
+			# alone does not imply "User" -- e.g. Work Order's create perm is
+			# granted to "Manufacturing User", not "Manufacturing Manager", and
+			# Project/Task need "Projects User" specifically. Organisation/Club
+			# Sportif carry no ERPNext business role at all and stay excluded
+			# (Sitiame-internal/admin-only).
 			"roles": [
+				{"role": "PME Client"},
 				{"role": "Accounts Manager"},
+				{"role": "Accounts User"},
 				{"role": "Sales Manager"},
+				{"role": "Sales User"},
 				{"role": "Purchase Manager"},
+				{"role": "Purchase Master Manager"},
+				{"role": "Purchase User"},
 				{"role": "Stock Manager"},
+				{"role": "Stock User"},
+				{"role": "Item Manager"},
 				{"role": "Manufacturing Manager"},
+				{"role": "Manufacturing User"},
+				{"role": "Projects Manager"},
+				{"role": "Projects User"},
 				{"role": "Quality Manager"},
 			],
+			"sitiame_hidden_desktop_icons": json.dumps(hidden_desktop_icons),
+			"sitiame_hidden_sidebar_items": json.dumps(["erp-financial-ranking", "Scoring 360 Settings"]),
 		}
 	)
 	user.insert(ignore_permissions=True)
