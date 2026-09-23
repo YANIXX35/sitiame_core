@@ -394,12 +394,19 @@ def get_company_signup_status(token):
 		return {"status": "not_found"}
 
 	if progress["status"] == "success":
+		# Deliberately NOT deleted here: if this response is lost in transit
+		# (dropped connection, browser tab backgrounded, a proxy retry that
+		# raced two identical requests -- observed directly during testing on
+		# 2026-09-23, where the second of two near-simultaneous polls saw
+		# not_found because the first had already deleted the key), the
+		# browser's next poll must still be able to see "success" and log
+		# in. login_as() is idempotent, so re-running it on a later poll is
+		# harmless. The 15-minute TTL on the cache entry is what eventually
+		# cleans this up, not an explicit delete.
 		frappe.local.login_manager.login_as(progress["email"])
-		frappe.cache().delete_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token)
 		return {"status": "success", "redirect": "/app"}
 
 	if progress["status"] == "failed":
-		frappe.cache().delete_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token)
 		return {"status": "failed", "message": progress.get("message")}
 
 	return {"status": "pending"}
