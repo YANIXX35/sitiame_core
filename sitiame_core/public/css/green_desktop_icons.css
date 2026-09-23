@@ -1,11 +1,17 @@
 /*
  * /desk tile grid has two distinct rendering paths (frappe/public/js/frappe/utils/utils.js):
  *
- * 1) Standard ERPNext/Frappe module tiles (Stock, Vente, Comptabilite, ...) render a flat,
- *    two-color SVG (e.g. apps/erpnext/erpnext/public/icons/desktop_icons/solid/stock.svg has
- *    fill="#0289F7" baked into the path data) loaded as <img class="app-icon">. There is no
- *    background to restyle -- the blue IS the image content -- so only a filter on the image
- *    itself can recolor it. hue-rotate leaves white/gray untouched, so the glyph stays white.
+ * 1) Standard ERPNext/Frappe module tiles (Stock, Vente, Comptabilite, Parametres subfolders,
+ *    ...) render a flat, pre-colored SVG (e.g. apps/erpnext/erpnext/public/icons/desktop_icons/
+ *    solid/stock.svg has fill="#0289F7" baked into the path data; some categories -- notably the
+ *    "Parametres" subfolder icons -- use a gray fill like #7B808A instead of blue) loaded as
+ *    <img class="app-icon">. There is no background to restyle -- the color IS the image content
+ *    -- so only a filter on the image itself can recolor it. A plain hue-rotate() only works on
+ *    the blue icons: gray is desaturated, so rotating its (nonexistent) hue does nothing.
+ *    grayscale(1) + sepia(1) + hue-rotate() first normalises ANY input color to a uniform sepia
+ *    tone by luminance, then rotates that tone to green -- works on both the blue and gray
+ *    source icons alike. White glyphs stay close to white throughout (grayscale/sepia barely
+ *    affect pure white).
  *
  * 2) Custom pages without a dedicated icon (Scoring, Financement, Club Sportif) render a
  *    lettered avatar via frappe.utils.desktop_icon(): a plain <div class="icon-container">
@@ -14,13 +20,21 @@
  *    to an invalid color, jQuery silently drops it, and the container falls back to its
  *    default class background (gray) -- a plain background-color override fixes this directly,
  *    no filter needed.
+ *
+ * Folder tiles (e.g. clicking "Comptabilite" or "Parametres") open their sub-icons in a
+ * Bootstrap modal (.desktop-modal) that Frappe appends directly to <body>, OUTSIDE
+ * .desktop-wrapper -- so both selectors below are scoped to .desktop-wrapper AND
+ * .desktop-modal, not just the former, or every folder popup stays unstyled.
  */
-.desktop-wrapper .icon-container {
+.desktop-wrapper .icon-container,
+.desktop-modal .icon-container {
 	background-color: #16A34A !important;
 }
-.desktop-wrapper .icon-container svg.desktop-alphabet {
+.desktop-wrapper .icon-container svg.desktop-alphabet,
+.desktop-modal .icon-container svg.desktop-alphabet {
 	color: #FFFFFF !important;
 }
-.desktop-wrapper .icon-container img.app-icon {
-	filter: hue-rotate(297deg) saturate(1.5);
+.desktop-wrapper .icon-container img.app-icon,
+.desktop-modal .icon-container img.app-icon {
+	filter: grayscale(1) sepia(1) hue-rotate(90deg) saturate(3) brightness(0.95);
 }
