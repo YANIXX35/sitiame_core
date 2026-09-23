@@ -14,7 +14,11 @@ from sitiame_core.cinetpay_client import get_payment_status, init_payment
 
 def _generate_payment_link(doc):
 	site_url = frappe.utils.get_url()
-	notify_url = f"{site_url}/api/method/sitiame_core.subscription_api.cinetpay_subscription_webhook"
+
+	notify_token = doc.notify_token or frappe.generate_hash(length=32)
+	doc.db_set("notify_token", notify_token)
+
+	notify_url = f"{site_url}/api/method/sitiame_core.subscription_api.cinetpay_subscription_webhook?token={notify_token}&docname={doc.name}"
 	success_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=success"
 	failed_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=failed"
 
@@ -45,7 +49,6 @@ def _generate_payment_link(doc):
 		payment_url = f"https://secure.cinetpay.net/checkout/{payment_token}"
 
 	doc.db_set("transaction_id", result.get("transaction_id"))
-	doc.db_set("notify_token", result.get("notify_token"))
 	doc.db_set("payment_url", payment_url)
 	frappe.db.commit()
 
@@ -273,29 +276,43 @@ def _notify_pme360(subscription_payment):
 
 @frappe.whitelist(allow_guest=True)
 def cinetpay_subscription_webhook():
-	data = frappe.local.form_dict
-	merchant_transaction_id = data.get("merchant_transaction_id")
-	notify_token = data.get("notify_token")
+	data = frappe.local.form_dict or {}
 
-	if not merchant_transaction_id or not frappe.db.exists("Subscription Payment", merchant_transaction_id):
+	merchant_transaction_id = (
+		data.get("docname")
+		or data.get("cpm_order_id")
+		or data.get("merchant_transaction_id")
+	)
+
+	cpm_trans_id = data.get("cpm_trans_id") or data.get("transaction_id")
+
+	doc = None
+	if merchant_transaction_id and frappe.db.exists("Subscription Payment", merchant_transaction_id):
+		doc = frappe.get_doc("Subscription Payment", merchant_transaction_id)
+	elif cpm_trans_id:
+		name = frappe.db.get_value("Subscription Payment", {"transaction_id": cpm_trans_id}, "name")
+		if name:
+			doc = frappe.get_doc("Subscription Payment", name)
+
+	if not doc:
 		frappe.response["http_status_code"] = 200
 		return {"status": "ignored"}
 
-	doc = frappe.get_doc("Subscription Payment", merchant_transaction_id)
-
-	if not doc.notify_token or not notify_token or not hmac.compare_digest(str(doc.notify_token), str(notify_token)):
-		frappe.response["http_status_code"] = 403
-		frappe.log_error(
-			title="Subscription Payment: notify_token invalide",
-			message=f"{doc.name}: jeton recu invalide",
-		)
-		return {"status": "forbidden"}
+	received_token = data.get("token") or data.get("notify_token")
+	if doc.notify_token and received_token:
+		if not hmac.compare_digest(str(doc.notify_token), str(received_token)):
+			frappe.log_error(
+				title="Subscription Payment: notify_token invalide",
+				message=f"{doc.name}: jeton recu invalide",
+			)
+			frappe.response["http_status_code"] = 403
+			return {"status": "forbidden"}
 
 	if doc.status == "Payé":
 		frappe.response["http_status_code"] = 200
 		return {"status": "already processed"}
 
-	status_data = get_payment_status(merchant_transaction_id)
+	status_data = get_payment_status(doc.name)
 	real_status = (status_data.get("status") or "").upper()
 
 	if real_status in ["SUCCESS", "ACCEPTED"]:
