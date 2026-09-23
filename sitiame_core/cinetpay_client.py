@@ -1,3 +1,4 @@
+﻿# -*- coding: utf-8 -*-
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
@@ -47,22 +48,42 @@ def get_access_token():
 	return token
 
 
-def init_payment(merchant_transaction_id, amount, designation, notify_url, success_url, failed_url):
+def init_payment(merchant_transaction_id, amount, designation, notify_url, success_url, failed_url, customer=None):
 	token = get_access_token()
+
+	client_first_name = "Sitiame"
+	client_last_name = "Capital"
+	client_email = frappe.conf.get("cinetpay_default_client_email") or "contact@sitiame-capital.com"
+	client_phone_number = None
+
+	if customer and isinstance(customer, dict):
+		if customer.get("first_name"):
+			client_first_name = customer["first_name"]
+		if customer.get("last_name"):
+			client_last_name = customer["last_name"]
+		if customer.get("email"):
+			client_email = customer["email"]
+		if customer.get("phone"):
+			client_phone_number = customer["phone"]
+
 	payload = {
 		"currency": "XOF",
 		"merchant_transaction_id": merchant_transaction_id,
 		"amount": amount,
 		"lang": "fr",
 		"designation": designation,
-		"client_first_name": "Sitiame",
-		"client_last_name": "Capital",
-		"client_email": frappe.conf.get("cinetpay_default_client_email") or "contact@sitiame-capital.com",
+		"client_first_name": client_first_name,
+		"client_last_name": client_last_name,
+		"client_email": client_email,
 		"success_url": success_url,
 		"failed_url": failed_url,
 		"notify_url": notify_url,
 		"direct_pay": False,
 	}
+
+	if client_phone_number:
+		payload["client_phone_number"] = client_phone_number
+
 	try:
 		response = requests.post(
 			f"{CINETPAY_BASE_URL}/v1/payment",
