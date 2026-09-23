@@ -1562,3 +1562,45 @@ def get_financing_dossier_from_pme360(company):
 		frappe.throw(_("PME360 a refusé la demande : {0}").format(message))
 
 	return response.json()
+
+
+PLATFORM_USERS_ALLOWED_EMAILS = {
+	"fnguessan@sitiame-capital.com",
+	"joseph@sitiame-capital.com",
+	"kyliyanisse@gmail.com",
+}
+
+
+@frappe.whitelist()
+def get_platform_users():
+	"""Liste toutes les PME provisionnees avec leur statut d'abonnement et
+	leur activite de connexion, pour la page admin "Utilisateurs de la
+	plateforme". Reserve a une liste precise d'admins -- pas seulement
+	System Manager, meme un autre admin ERPNext n'y a pas acces.
+	"""
+	if frappe.session.user not in PLATFORM_USERS_ALLOWED_EMAILS:
+		frappe.throw(_("Reserve a certains administrateurs."), frappe.PermissionError)
+
+	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
+	token = frappe.conf.get("pme360_webhook_token")
+	if not token:
+		frappe.throw(_("pme360_webhook_token n'est pas configure dans site_config.json."))
+
+	try:
+		response = requests.get(
+			f"{base_url}/webhooks/erpnext/platform-users",
+			headers={"X-PME360-Webhook-Token": token},
+			timeout=20,
+		)
+	except requests.RequestException as e:
+		frappe.throw(_("PME360 injoignable : {0}").format(str(e)))
+
+	if response.status_code >= 400:
+		try:
+			detail = response.json()
+			message = detail.get("message") or detail
+		except ValueError:
+			message = response.text
+		frappe.throw(_("PME360 a refuse la demande : {0}").format(message))
+
+	return response.json()
