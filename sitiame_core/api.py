@@ -148,9 +148,31 @@ _PME_ALLOWED_DESKTOP_ICON_LABELS = [
 ]
 
 
+# Frappe's own desktop.js hides a Folder-type Desktop Icon entirely once
+# it has zero visible children (DesktopIcon.validate_icon(): "if
+# icon_type == Folder and child_icons.length == 0, return false") --
+# confirmed 2026-09-23 by reading that source directly after "Accounting"
+# (a Folder, unlike every other allowed tile which is a plain Link)
+# vanished from PME desks even though the server's bootinfo correctly
+# listed it as visible. Its children (Invoicing, Payments, Taxes, ...)
+# aren't in the top-level allowlist above, so the blanket hide-everything-
+# else rule was hiding all of them too, leaving the folder empty and thus
+# self-hidden by Frappe. "Share Management" stays hidden (capital/shares
+# administration, not relevant to a typical PME); every other Accounting
+# child stays visible so the folder has something to open into.
+_ACCOUNTING_CHILDREN_TO_KEEP_HIDDEN = {"Share Management"}
+
+
 def _hidden_desktop_icon_labels_for_pme():
 	all_labels = frappe.get_all("Desktop Icon", pluck="label")
-	return [label for label in all_labels if label not in _PME_ALLOWED_DESKTOP_ICON_LABELS]
+	accounting_children = set(
+		frappe.get_all("Desktop Icon", filters={"parent_icon": "Accounting"}, pluck="label")
+	) - _ACCOUNTING_CHILDREN_TO_KEEP_HIDDEN
+	return [
+		label
+		for label in all_labels
+		if label not in _PME_ALLOWED_DESKTOP_ICON_LABELS and label not in accounting_children
+	]
 
 
 @frappe.whitelist(allow_guest=True)
