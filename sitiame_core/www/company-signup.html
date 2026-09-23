@@ -243,6 +243,14 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		var submitBtn = document.getElementById("signup-submit");
 		var attempts = 0;
 		var maxAttempts = 60; // ~2 minutes at 2s intervals
+		// A "not_found" read can happen as a transient blip right around job
+		// completion (observed directly during testing, 2026-09-23) even
+		// though the account was created successfully -- treating a single
+		// occurrence as final would wrongly tell a real user their signup
+		// failed. Only give up after several IN A ROW; an explicit "failed"
+		// from the backend (a real provisioning error) still stops right away.
+		var consecutiveNotFound = 0;
+		var maxConsecutiveNotFound = 3;
 
 		var interval = setInterval(function () {
 			attempts += 1;
@@ -258,7 +266,7 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 						return;
 					}
 
-					if (status === "failed" || status === "not_found") {
+					if (status === "failed") {
 						clearInterval(interval);
 						successBox.style.display = "none";
 						errorBox.textContent = (result.message && result.message.message) ||
@@ -269,6 +277,21 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 						loadCaptcha();
 						return;
 					}
+
+					if (status === "not_found") {
+						consecutiveNotFound += 1;
+						if (consecutiveNotFound >= maxConsecutiveNotFound) {
+							clearInterval(interval);
+							successBox.style.display = "none";
+							errorBox.textContent = "La creation de votre compte a echoue. Veuillez reessayer ou nous contacter.";
+							errorBox.style.display = "block";
+							submitBtn.disabled = false;
+							submitBtn.textContent = "Créer mon compte";
+							loadCaptcha();
+						}
+						return;
+					}
+					consecutiveNotFound = 0;
 
 					if (attempts >= maxAttempts) {
 						clearInterval(interval);
