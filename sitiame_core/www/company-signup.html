@@ -216,9 +216,10 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 			});
 		})
 		.then(function (result) {
-			if (result.ok && result.data.message && result.data.message.success) {
+			if (result.ok && result.data.message && result.data.message.pending && result.data.message.token) {
+				successBox.textContent = "Compte en cours de creation (environ 1 minute)...";
 				successBox.style.display = "block";
-				window.location.href = result.data.message.redirect || "/app";
+				pollSignupStatus(result.data.message.token);
 			} else {
 				var msg = extractErrorMessage(result.data);
 				errorBox.textContent = msg;
@@ -235,6 +236,61 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 			submitBtn.textContent = "Créer mon compte";
 			loadCaptcha();
 		});
+
+	function pollSignupStatus(token) {
+		var errorBox = document.getElementById("signup-error");
+		var successBox = document.getElementById("signup-success");
+		var submitBtn = document.getElementById("signup-submit");
+		var attempts = 0;
+		var maxAttempts = 60; // ~2 minutes at 2s intervals
+
+		var interval = setInterval(function () {
+			attempts += 1;
+			fetch("/api/method/sitiame_core.api.get_company_signup_status?token=" + encodeURIComponent(token))
+				.then(function (res) { return res.json(); })
+				.then(function (result) {
+					var status = (result.message || {}).status;
+
+					if (status === "success") {
+						clearInterval(interval);
+						successBox.textContent = "Compte cree, connexion en cours...";
+						window.location.href = result.message.redirect || "/app";
+						return;
+					}
+
+					if (status === "failed" || status === "not_found") {
+						clearInterval(interval);
+						successBox.style.display = "none";
+						errorBox.textContent = (result.message && result.message.message) ||
+							"La creation de votre compte a echoue. Veuillez reessayer ou nous contacter.";
+						errorBox.style.display = "block";
+						submitBtn.disabled = false;
+						submitBtn.textContent = "Créer mon compte";
+						loadCaptcha();
+						return;
+					}
+
+					if (attempts >= maxAttempts) {
+						clearInterval(interval);
+						successBox.style.display = "none";
+						errorBox.textContent = "La creation prend plus de temps que prevu. Contactez-nous si le probleme persiste.";
+						errorBox.style.display = "block";
+						submitBtn.disabled = false;
+						submitBtn.textContent = "Créer mon compte";
+					}
+				})
+				.catch(function () {
+					if (attempts >= maxAttempts) {
+						clearInterval(interval);
+						successBox.style.display = "none";
+						errorBox.textContent = "Impossible de contacter le serveur, veuillez réessayer.";
+						errorBox.style.display = "block";
+						submitBtn.disabled = false;
+						submitBtn.textContent = "Créer mon compte";
+					}
+				});
+		}, 2000);
+	}
 });
 </script>
 {% endblock %}

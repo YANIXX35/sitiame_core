@@ -196,103 +196,196 @@ def register_company(
 	if frappe.db.exists("User", email):
 		frappe.throw(_("Un compte existe deja avec cet email."))
 
-	company = frappe.get_doc(
-		{
-			"doctype": "Company",
-			"company_name": company_name,
-			"abbr": _make_abbr(company_name, company_sigle),
-			"default_currency": "XOF",
-			"country": _default_country(),
-			"tax_id": company_tax_id,
-			"chart_of_accounts": SYSCOHADA_CHART_OF_ACCOUNTS,
-			"create_chart_of_accounts_based_on": "Standard Template",
-		}
+	# The Company Chart of Accounts import (SYSCOHADA, ~1370 accounts) alone
+	# takes ~45s -- measured directly (2026-09-23) via bench-execute timing
+	# scripts, not guessed. Doing that synchronously in the request meant the
+	# form sat on "Creation en cours..." for ~48s total. The validation above
+	# (captcha/honeypot/terms/email uniqueness) stays synchronous so bad
+	# input still fails instantly; only the slow provisioning moves to a
+	# background job. `token` is a random bearer credential (NOT the email)
+	# so that polling status can also log the new user in once ready without
+	# letting a third party who merely guesses/knows the email hijack the
+	# session in the few-second window around completion.
+	token = frappe.generate_hash(length=32)
+	_set_company_signup_progress(token, {"status": "pending", "email": email})
+
+	frappe.enqueue(
+		"sitiame_core.api._provision_company_signup",
+		queue="long",
+		timeout=300,
+		now=frappe.flags.in_test,
+		token=token,
+		contact_name=contact_name,
+		email=email,
+		password=password,
+		company_name=company_name,
+		phone=phone,
+		company_sigle=company_sigle,
+		company_tax_id=company_tax_id,
+		sector=sector,
+		rccm=rccm,
+		address=address,
+		city=city,
+		signup_ip=frappe.local.request_ip,
 	)
-	company.insert(ignore_permissions=True)
-	_apply_syscohada_defaults(company.name)
 
-	# Same 11-tile allowlist and "PME Client" read-only dossier access as
-	# the PME360-triggered signup path (ErpNextClient::provisionCompanyForPme,
-	# see 2026-09-23-pme-erpnext-accounts-design.md) -- this form is a
-	# second, independent entry point for the same kind of account and must
-	# not diverge from it.
-	hidden_desktop_icons = _hidden_desktop_icon_labels_for_pme()
+	return {"success": True, "pending": True, "token": token}
 
-	user = frappe.get_doc(
-		{
-			"doctype": "User",
-			"email": email,
-			"first_name": contact_name,
-			"send_welcome_email": 0,
-			"new_password": password,
-			"phone": phone,
-			# Deliberately NOT "System Manager": that role bypasses block_modules
-			# (Frappe treats it as admin-equivalent for the trial-blocking check
-			# in desk.py), which would make the 1-month trial cutoff a no-op.
-			# Full list verified against each module's real DocPerm requirements
-			# (2026-09-23): Frappe roles are not hierarchical, so "Manager"
-			# alone does not imply "User" -- e.g. Work Order's create perm is
-			# granted to "Manufacturing User", not "Manufacturing Manager", and
-			# Project/Task need "Projects User" specifically. Organisation/Club
-			# Sportif carry no ERPNext business role at all and stay excluded
-			# (Sitiame-internal/admin-only).
-			"roles": [
-				{"role": "PME Client"},
-				{"role": "Accounts Manager"},
-				{"role": "Accounts User"},
-				{"role": "Sales Manager"},
-				{"role": "Sales User"},
-				{"role": "Purchase Manager"},
-				{"role": "Purchase Master Manager"},
-				{"role": "Purchase User"},
-				{"role": "Stock Manager"},
-				{"role": "Stock User"},
-				{"role": "Item Manager"},
-				{"role": "Manufacturing Manager"},
-				{"role": "Manufacturing User"},
-				{"role": "Projects Manager"},
-				{"role": "Projects User"},
-				{"role": "Quality Manager"},
-			],
-			"sitiame_hidden_desktop_icons": json.dumps(hidden_desktop_icons),
-			"sitiame_hidden_sidebar_items": json.dumps(["erp-financial-ranking", "Scoring 360 Settings"]),
-		}
-	)
-	user.insert(ignore_permissions=True)
 
-	frappe.get_doc(
-		{
-			"doctype": "User Permission",
-			"user": email,
-			"allow": "Company",
-			"for_value": company.name,
-		}
-	).insert(ignore_permissions=True)
+_COMPANY_SIGNUP_PROGRESS_PREFIX = "sitiame_core:company_signup_progress:"
+_COMPANY_SIGNUP_PROGRESS_TTL = 900  # 15 minutes
 
-	frappe.get_doc(
-		{
-			"doctype": "Company Signup",
-			"contact_name": contact_name,
-			"email": email,
-			"phone": phone,
-			"company": company.name,
-			"company_sigle": company_sigle,
-			"sector": sector,
-			"rccm": rccm,
-			"trial_ends_on": frappe.utils.add_days(frappe.utils.today(), 30),
-			"address": address,
-			"city": city,
-			"terms_accepted": 1,
-			"terms_accepted_at": frappe.utils.now_datetime(),
-			"signup_ip": frappe.local.request_ip,
-		}
-	).insert(ignore_permissions=True)
 
-	frappe.db.commit()
+def _set_company_signup_progress(token, data):
+	frappe.cache().set_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token, data, expires_in_sec=_COMPANY_SIGNUP_PROGRESS_TTL)
 
-	frappe.local.login_manager.login_as(email)
 
-	return {"success": True, "redirect": "/app"}
+def _get_company_signup_progress(token):
+	return frappe.cache().get_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token)
+
+
+def _provision_company_signup(
+	token,
+	contact_name,
+	email,
+	password,
+	company_name,
+	phone,
+	company_sigle,
+	company_tax_id,
+	sector,
+	rccm,
+	address,
+	city,
+	signup_ip,
+):
+	try:
+		company = frappe.get_doc(
+			{
+				"doctype": "Company",
+				"company_name": company_name,
+				"abbr": _make_abbr(company_name, company_sigle),
+				"default_currency": "XOF",
+				"country": _default_country(),
+				"tax_id": company_tax_id,
+				"chart_of_accounts": SYSCOHADA_CHART_OF_ACCOUNTS,
+				"create_chart_of_accounts_based_on": "Standard Template",
+			}
+		)
+		company.insert(ignore_permissions=True)
+		_apply_syscohada_defaults(company.name)
+
+		# Same 11-tile allowlist and "PME Client" read-only dossier access as
+		# the PME360-triggered signup path (ErpNextClient::provisionCompanyForPme,
+		# see 2026-09-23-pme-erpnext-accounts-design.md) -- this form is a
+		# second, independent entry point for the same kind of account and must
+		# not diverge from it.
+		hidden_desktop_icons = _hidden_desktop_icon_labels_for_pme()
+
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": email,
+				"first_name": contact_name,
+				"send_welcome_email": 0,
+				"new_password": password,
+				"phone": phone,
+				# Deliberately NOT "System Manager": that role bypasses block_modules
+				# (Frappe treats it as admin-equivalent for the trial-blocking check
+				# in desk.py), which would make the 1-month trial cutoff a no-op.
+				# Full list verified against each module's real DocPerm requirements
+				# (2026-09-23): Frappe roles are not hierarchical, so "Manager"
+				# alone does not imply "User" -- e.g. Work Order's create perm is
+				# granted to "Manufacturing User", not "Manufacturing Manager", and
+				# Project/Task need "Projects User" specifically. Organisation/Club
+				# Sportif carry no ERPNext business role at all and stay excluded
+				# (Sitiame-internal/admin-only).
+				"roles": [
+					{"role": "PME Client"},
+					{"role": "Accounts Manager"},
+					{"role": "Accounts User"},
+					{"role": "Sales Manager"},
+					{"role": "Sales User"},
+					{"role": "Purchase Manager"},
+					{"role": "Purchase Master Manager"},
+					{"role": "Purchase User"},
+					{"role": "Stock Manager"},
+					{"role": "Stock User"},
+					{"role": "Item Manager"},
+					{"role": "Manufacturing Manager"},
+					{"role": "Manufacturing User"},
+					{"role": "Projects Manager"},
+					{"role": "Projects User"},
+					{"role": "Quality Manager"},
+				],
+				"sitiame_hidden_desktop_icons": json.dumps(hidden_desktop_icons),
+				"sitiame_hidden_sidebar_items": json.dumps(["erp-financial-ranking", "Scoring 360 Settings"]),
+			}
+		)
+		user.insert(ignore_permissions=True)
+
+		frappe.get_doc(
+			{
+				"doctype": "User Permission",
+				"user": email,
+				"allow": "Company",
+				"for_value": company.name,
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.get_doc(
+			{
+				"doctype": "Company Signup",
+				"contact_name": contact_name,
+				"email": email,
+				"phone": phone,
+				"company": company.name,
+				"company_sigle": company_sigle,
+				"sector": sector,
+				"rccm": rccm,
+				"trial_ends_on": frappe.utils.add_days(frappe.utils.today(), 30),
+				"address": address,
+				"city": city,
+				"terms_accepted": 1,
+				"terms_accepted_at": frappe.utils.now_datetime(),
+				"signup_ip": signup_ip,
+			}
+		).insert(ignore_permissions=True)
+
+		frappe.db.commit()
+		_set_company_signup_progress(token, {"status": "success", "email": email})
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title="Company signup provisioning failed", message=frappe.get_traceback())
+		_set_company_signup_progress(
+			token,
+			{
+				"status": "failed",
+				"email": email,
+				"message": _(
+					"La creation de votre compte a echoue. Veuillez reessayer ou nous contacter."
+				),
+			},
+		)
+
+
+@frappe.whitelist(allow_guest=True)
+@rate_limit(limit=120, seconds=3600)
+def get_company_signup_status(token):
+	progress = _get_company_signup_progress(token)
+	if not progress:
+		return {"status": "not_found"}
+
+	if progress["status"] == "success":
+		frappe.local.login_manager.login_as(progress["email"])
+		frappe.cache().delete_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token)
+		return {"status": "success", "redirect": "/app"}
+
+	if progress["status"] == "failed":
+		frappe.cache().delete_value(_COMPANY_SIGNUP_PROGRESS_PREFIX + token)
+		return {"status": "failed", "message": progress.get("message")}
+
+	return {"status": "pending"}
 
 
 # Invoice-scan extraction: pulls raw text via OCR.space, then runs a
