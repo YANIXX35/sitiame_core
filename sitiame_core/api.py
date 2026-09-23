@@ -259,6 +259,23 @@ def _provision_company_signup(
 	city,
 	signup_ip,
 ):
+	# Background workers don't inherit the request's language the way a web
+	# request does, so frappe.local.lang defaults to "en" here even though
+	# the site's default (System Settings) is "fr". That mismatch is a real
+	# bug: erpnext.setup.doctype.company.company.create_default_departments()
+	# checks whether the shared "All Departments" root exists via
+	# frappe.db.exists("Department", _("All Departments")) -- an exists-by-
+	# name check -- while every child Department's parent_department link is
+	# also set to that same literal _("All Departments") string. Under "en"
+	# this string stays untranslated ("All Departments"), which matches
+	# neither the real root (named "Tous les departements", created under
+	# "fr" by earlier real web-request signups) nor any doc's actual name,
+	# so every child Department insert fails with LinkValidationError and
+	# the new company silently ends up with zero departments. Forcing "fr"
+	# here (root-caused via a real reproduction on 2026-09-23, not guessed)
+	# restores the same language context the old synchronous, in-request
+	# code path always had.
+	frappe.local.lang = "fr"
 	try:
 		company = frappe.get_doc(
 			{
