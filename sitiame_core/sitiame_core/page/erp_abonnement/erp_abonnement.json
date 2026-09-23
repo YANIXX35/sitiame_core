@@ -1,0 +1,26 @@
+{
+ "content": null,
+ "creation": "2026-09-23 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "credit-card",
+ "idx": 0,
+ "modified": "2026-09-23 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sitiame Core",
+ "name": "erp-abonnement",
+ "owner": "Administrator",
+ "page_name": "erp-abonnement",
+ "restrict_to_domain": null,
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "PME Client"
+  }
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Abonnement SITIAME"
+}
