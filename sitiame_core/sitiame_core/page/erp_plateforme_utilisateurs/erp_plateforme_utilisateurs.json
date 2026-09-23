@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-09-23 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "users",
+ "idx": 0,
+ "modified": "2026-09-23 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sitiame Core",
+ "name": "erp-plateforme-utilisateurs",
+ "owner": "Administrator",
+ "page_name": "erp-plateforme-utilisateurs",
+ "restrict_to_domain": null,
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Utilisateurs de la plateforme"
+}
