@@ -118,12 +118,19 @@ _SYSCOHADA_ACCOUNT_TYPES = {
 }
 
 
+# Rounding differences (audit F-46): 6588 "Autres charges diverses", a
+# posting (leaf) account. "658"/"758" are group accounts, unusable for
+# postings, and a prefix search had landed on 6581 "Indemnites de fonction
+# ... d'administrateurs", which is not a rounding account.
+ROUND_OFF_ACCOUNT_NUMBER = "6588"
+
+
 def _apply_syscohada_defaults(company_name):
 	accounts_by_number = {
 		row.account_number: row.name
 		for row in frappe.get_all(
 			"Account",
-			filters={"company": company_name, "account_number": ["in", list(_SYSCOHADA_ACCOUNT_TYPES.keys() | _SYSCOHADA_DEFAULT_ACCOUNTS.keys() | {"658", "758"})]},
+			filters={"company": company_name, "account_number": ["in", list(_SYSCOHADA_ACCOUNT_TYPES.keys() | _SYSCOHADA_DEFAULT_ACCOUNTS.keys() | {ROUND_OFF_ACCOUNT_NUMBER})]},
 			fields=["name", "account_number"],
 		)
 	}
@@ -139,7 +146,7 @@ def _apply_syscohada_defaults(company_name):
 		if account_name:
 			company_updates[fieldname] = account_name
 
-	round_off = accounts_by_number.get("658") or accounts_by_number.get("758")
+	round_off = accounts_by_number.get(ROUND_OFF_ACCOUNT_NUMBER)
 	if round_off:
 		company_updates["round_off_account"] = round_off
 
@@ -1314,6 +1321,12 @@ def get_month_closing_status(company, year_month):
 		"check_journal": entries_count > 0,
 		"check_payments": payments_count > 0,
 		"closure": closure,
+		"locked": bool(
+			frappe.db.exists(
+				"Accounting Period",
+				{"company": company, "start_date": start, "end_date": end, "disabled": 0},
+			)
+		),
 	}
 
 
@@ -1342,8 +1355,43 @@ def close_month(company, year_month, notes=None):
 		)
 		doc.insert()
 
+	_lock_accounting_period(company, year_month)
+
 	frappe.db.commit()
 	return {"name": doc.name, "closed_at": doc.closed_at}
+
+
+def _lock_accounting_period(company, year_month):
+	"""Audit F-15: a closure used to be a soft marker only -- entries could
+	still be posted or cancelled in the closed month. An ERPNext Accounting
+	Period over that month makes validate_accounting_period_on_doc_save
+	reject any GL-affecting document dated inside it (the doctype list is
+	bootstrapped by ERPNext itself on insert)."""
+	start = f"{year_month}-01"
+	end = frappe.utils.get_last_day(start)
+
+	existing = frappe.db.get_value(
+		"Accounting Period",
+		{"company": company, "start_date": start, "end_date": end},
+		["name", "disabled"],
+		as_dict=True,
+	)
+	if existing:
+		if existing.disabled:
+			frappe.db.set_value("Accounting Period", existing.name, "disabled", 0)
+		return existing.name
+
+	period = frappe.get_doc(
+		{
+			"doctype": "Accounting Period",
+			"period_name": _("Cloture {0}").format(year_month),
+			"start_date": start,
+			"end_date": end,
+			"company": company,
+		}
+	)
+	period.insert()
+	return period.name
 
 
 # ERPNext port of PME360's "Assistant IA Admin" (Google Gemini). See
