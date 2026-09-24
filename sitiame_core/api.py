@@ -526,6 +526,14 @@ _INVOICE_NUMBER_PATTERNS = [
 	# unrelated "N° Contribuable" / "N° RCCM" line that has no separator
 	# right after "N°".
 	re.compile(r"^\s*N[°ºo]\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})\s*$", re.IGNORECASE | re.MULTILINE),
+	# Bare "N FAC-2026-0512" (no degree sign) as its own cell of an
+	# OCR.space isTable row ("<letterhead>\tN FAC-2026-0512\t"). A
+	# separator is required right after the N, so "NIF 1234567X"/"NCC ..."
+	# can't match, and _looks_like_reference still requires a digit.
+	re.compile(
+		r"(?:^|\t)[ ]*N(?:[°º]|o)?[ .:\-]+([A-Za-z0-9][A-Za-z0-9\-/_.]{2,})[ ]*(?:\t|\r?$)",
+		re.IGNORECASE | re.MULTILINE,
+	),
 ]
 _INVOICE_DATE_PATTERNS = [
 	# "Date de facture", "Date d'emission", "Date de reception", "Date de
@@ -533,7 +541,7 @@ _INVOICE_DATE_PATTERNS = [
 	# word isn't "echeance" (that's due_date's own pattern below), plus the
 	# bare "Date :" form.
 	re.compile(
-		r"Date\s*(?:d[e’']\s*(?!\s*[ée]ch[ée]ance)[A-Za-zÀ-ÿ]+\s*)?[:\-]\s*" + _DATE_VALUE,
+		r"Date\s*(?:d[e’']\s*(?!\s*[ée]ch[ée]ance)[A-Za-zÀ-ÿ]+\s*)?[:\-]?\s*" + _DATE_VALUE,
 		re.IGNORECASE,
 	),
 ]
@@ -543,8 +551,13 @@ _DUE_DATE_PATTERNS = [
 		re.IGNORECASE,
 	),
 ]
-_SUPPLIER_PATTERNS = [re.compile(r"Fournisseur\s*[:\-]\s*(.+)", re.IGNORECASE)]
-_CUSTOMER_PATTERNS = [re.compile(r"Client\s*[:\-]\s*(.+)", re.IGNORECASE)]
+# Values stop at a tab: OCR.space isTable rows separate cells with tabs.
+_SUPPLIER_PATTERNS = [re.compile(r"Fournisseur\s*[:\-]\s*([^\t\r\n]+)", re.IGNORECASE)]
+_CUSTOMER_PATTERNS = [
+	re.compile(r"Client\s*[:\-]\s*([^\t\r\n]+)", re.IGNORECASE),
+	# "Client SITIAME CAPITAL SARL" with no colon, at the start of a line
+	re.compile(r"^[ ]*Client[ ]+([^\t\r\n]{3,})", re.IGNORECASE | re.MULTILINE),
+]
 _TAX_ID_PATTERNS = [
 	re.compile(r"\bNIF\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
 	re.compile(r"N[°ºo]?\s*Contribuable\s*[:\-]?\s*([A-Za-z0-9\-]{4,})", re.IGNORECASE),
@@ -558,7 +571,12 @@ _SUBTOTAL_PATTERNS = [
 _TAX_AMOUNT_PATTERNS = [
 	# The rate suffix is optional and may appear bare ("TVA 18% :") or
 	# parenthesised ("TVA (18%) :") -- both seen on real invoices.
-	re.compile(r"T\.?V\.?A\.?(?:\s*\(?\d{1,2}\s*%\)?)?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+	# OCR can also spell the % sign out ("TVA 18 percent 63 720"): without
+	# that alternative the rate itself was captured as the VAT amount (18).
+	re.compile(
+		r"T\.?V\.?A\.?(?:\s*\(?\d{1,2}(?:[.,]\d+)?\s*(?:%|percent|pourcent|pct)\)?)?\s*[:\-]?\s*" + _AMOUNT_VALUE,
+		re.IGNORECASE,
+	),
 ]
 _GRAND_TOTAL_PATTERNS = [
 	re.compile(r"(?:TOTAL|MONTANT)\s*T\.?T\.?C\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
@@ -654,6 +672,11 @@ def _guess_supplier_from_letterhead(text: str) -> str | None:
 		# Skip the document-type heading itself ("FACTURE", "INVOICE", ...),
 		# that's not a company name.
 		if re.match(r"^(facture|invoice|devis|avoir|bon de commande)\b", line, re.IGNORECASE):
+			continue
+		# OCR.space isTable rows put the "FACTURE" heading on the same line
+		# as the letterhead, in its own tab-separated cell: keep the first.
+		line = re.split(r"\t|\s{2,}", line)[0].strip()
+		if not line:
 			continue
 		return line[:120]
 	return None

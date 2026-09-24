@@ -142,7 +142,16 @@ def _resolve_amounts(fields):
 		net = gross - tax if tax else gross
 		if not tax:
 			warnings.append(_("Seul le TTC a ete lu : facture enregistree sans TVA, a verifier."))
-	if not tax and net and gross and gross - net > AMOUNT_TOLERANCE:
+	if net and gross and gross - net > AMOUNT_TOLERANCE and abs(net + tax - gross) > AMOUNT_TOLERANCE:
+		# HT and TTC both read but the VAT doesn't reconcile (missing, or a
+		# misread such as the rate "18" taken for the amount): the paper's
+		# own HT/TTC pair is the more reliable source.
+		if tax:
+			warnings.append(
+				_("TVA lue ({0}) incoherente avec HT {1} / TTC {2} : recalculee a {3}.").format(
+					tax, net, gross, gross - net
+				)
+			)
 		tax = gross - net
 
 	if net <= 0:
