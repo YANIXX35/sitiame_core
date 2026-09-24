@@ -95,7 +95,13 @@ def _generate_payment_link(doc):
 	failed_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=failed"
 
 	customer = {}
-	user_email = doc.owner or frappe.session.user
+	# Prefer the PME's own account: when Sitiame staff generate the link,
+	# doc.owner is the staff member, not the customer paying.
+	user_email = (
+		frappe.db.get_value("User Permission", {"allow": "Company", "for_value": doc.company}, "user")
+		or doc.owner
+		or frappe.session.user
+	)
 	if user_email and frappe.db.exists("User", user_email):
 		user_doc = frappe.get_doc("User", user_email)
 		customer["first_name"] = user_doc.first_name or "Client"
@@ -160,8 +166,63 @@ def get_or_create_pme_checkout_url(force_new=0):
 			_("L'abonnement se paie depuis le compte de la PME : aucune societe n'est rattachee a votre compte.")
 		)
 
-	force = int(force_new or 0)
+	return _get_or_create_checkout(company, int(force_new or 0))
 
+
+@frappe.whitelist()
+def create_company_payment_link(company):
+	"""Sitiame staff: always a fresh checkout link for the chosen PME, to
+	send it to them (WhatsApp, e-mail...)."""
+	frappe.only_for("System Manager")
+	if not frappe.db.exists("Company", company):
+		frappe.throw(_("Societe introuvable : {0}").format(company))
+	return _get_or_create_checkout(company, force=1)
+
+
+@frappe.whitelist()
+def list_company_subscriptions():
+	"""Sitiame staff overview: every PME company with its subscription state
+	and paid history."""
+	frappe.only_for("System Manager")
+
+	paid = {}
+	for row in frappe.get_all(
+		"Subscription Payment", filters={"status": "Payé"}, fields=["company", "paid_at"]
+	):
+		history = paid.setdefault(row.company, {"paid_count": 0, "last_paid_at": None})
+		history["paid_count"] += 1
+		if row.paid_at and (not history["last_paid_at"] or row.paid_at > history["last_paid_at"]):
+			history["last_paid_at"] = row.paid_at
+
+	pme_companies = {
+		row.for_value
+		for row in frappe.get_all("User Permission", filters={"allow": "Company"}, fields=["for_value"])
+	}
+
+	rows = []
+	for company in sorted(pme_companies | set(paid)):
+		sub = get_company_subscription(company)
+		history = paid.get(company) or {}
+		if sub["active"]:
+			state = "Actif"
+		elif sub["in_trial"]:
+			state = "Essai"
+		elif sub["ends_on"]:
+			state = "Expiré"
+		else:
+			state = "Aucun"
+		rows.append(
+			{
+				**sub,
+				"state": state,
+				"paid_count": history.get("paid_count") or 0,
+				"last_paid_at": str(history["last_paid_at"]) if history.get("last_paid_at") else None,
+			}
+		)
+	return rows
+
+
+def _get_or_create_checkout(company, force=0):
 	if not force:
 		existing = frappe.get_all(
 			"Subscription Payment",

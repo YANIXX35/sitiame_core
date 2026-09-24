@@ -137,7 +137,10 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			method: "sitiame_core.subscription_api.get_my_subscription",
 		}).then(function (r) {
 			var sub = r.message || {};
-			if (!sub.company) {
+			if (!sub.company && frappe.user.has_role("System Manager")) {
+				$container.hide();
+				renderAdminPanel();
+			} else if (!sub.company) {
 				$("#abonnement-state-loading").hide();
 				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement.")).show();
 			} else if (sub.active) {
@@ -150,6 +153,111 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		}).catch(function () {
 			requestAndRedirect(0);
 		});
+	}
+
+	// Sitiame staff: generate a checkout link for any PME (to send it to
+	// them) and see every PME's subscription state.
+	function renderAdminPanel() {
+		var $admin = $(
+			"<div style='max-width: 1000px; margin: 24px auto; padding: 0 16px;'>" +
+				"<div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px 22px; margin-bottom: 20px;'>" +
+					"<h4 style='font-weight: 700; margin: 0 0 4px;'>" + __("Générer un lien de paiement") + "</h4>" +
+					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien CinetPay (15 000 FCFA / 1 mois) et envoyez-le-lui.") + "</p>" +
+					"<div style='display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;'>" +
+						"<div class='admin-company-field' style='min-width: 280px; flex: 1;'></div>" +
+						"<button class='btn btn-primary btn-generate-link' style='margin-bottom: 15px;'>" + __("Générer le lien") + "</button>" +
+					"</div>" +
+					"<div class='admin-link-result' style='display: none; margin-top: 4px;'>" +
+						"<div style='display: flex; gap: 8px; flex-wrap: wrap;'>" +
+							"<input class='form-control admin-link-input' readonly style='flex: 1; min-width: 260px;'>" +
+							"<button class='btn btn-default btn-copy-link'>" + __("Copier") + "</button>" +
+							"<a class='btn btn-default btn-open-link' target='_blank'>" + __("Ouvrir") + "</a>" +
+						"</div>" +
+						"<div class='admin-link-doc' style='font-size: 12px; color: #64748b; margin-top: 6px;'></div>" +
+					"</div>" +
+				"</div>" +
+				"<div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px 22px;'>" +
+					"<h4 style='font-weight: 700; margin: 0 0 12px;'>" + __("Abonnements des PME") + "</h4>" +
+					"<div class='admin-subscriptions' style='overflow-x: auto;'>" + __("Chargement...") + "</div>" +
+				"</div>" +
+			"</div>"
+		).appendTo(page.body);
+
+		var companyField = frappe.ui.form.make_control({
+			parent: $admin.find(".admin-company-field"),
+			df: {
+				fieldtype: "Link",
+				options: "Company",
+				label: __("Société (PME)"),
+				get_query: function () {
+					return { filters: { name: ["!=", "SITIAME"] } };
+				},
+			},
+			render_input: true,
+		});
+
+		$admin.find(".btn-generate-link").on("click", function () {
+			var company = companyField.get_value();
+			if (!company) {
+				frappe.msgprint(__("Choisissez d'abord une société."));
+				return;
+			}
+			frappe.call({
+				method: "sitiame_core.subscription_api.create_company_payment_link",
+				args: { company: company },
+				freeze: true,
+				freeze_message: __("Génération du lien CinetPay..."),
+			}).then(function (r) {
+				var res = r.message || {};
+				if (!res.payment_url) {
+					frappe.msgprint(__("CinetPay n'a pas renvoyé de lien. Voir le journal des erreurs."));
+					return;
+				}
+				$admin.find(".admin-link-input").val(res.payment_url);
+				$admin.find(".btn-open-link").attr("href", res.payment_url);
+				$admin.find(".admin-link-doc").text(__("Paiement {0} créé pour {1}.", [res.docname, res.company]));
+				$admin.find(".admin-link-result").show();
+				loadSubscriptions();
+			});
+		});
+
+		$admin.find(".btn-copy-link").on("click", function () {
+			frappe.utils.copy_to_clipboard($admin.find(".admin-link-input").val());
+		});
+
+		var STATE_COLORS = { "Actif": "green", "Essai": "orange", "Expiré": "red", "Aucun": "gray" };
+
+		function formatDate(value) {
+			return value ? frappe.datetime.str_to_user(value) : "-";
+		}
+
+		function loadSubscriptions() {
+			frappe.call({ method: "sitiame_core.subscription_api.list_company_subscriptions" }).then(function (r) {
+				var rows = r.message || [];
+				if (!rows.length) {
+					$admin.find(".admin-subscriptions").html("<p style='color: #64748b;'>" + __("Aucune PME.") + "</p>");
+					return;
+				}
+				var html = "<table class='table table-bordered' style='font-size: 13px; margin: 0;'><thead><tr>" +
+					"<th>" + __("Société") + "</th><th>" + __("Statut") + "</th><th>" + __("Actif jusqu'au") + "</th>" +
+					"<th>" + __("Fin d'essai") + "</th><th>" + __("Paiements") + "</th><th>" + __("Dernier paiement") + "</th>" +
+					"</tr></thead><tbody>";
+				rows.forEach(function (row) {
+					html += "<tr>" +
+						"<td>" + frappe.utils.escape_html(row.company) + "</td>" +
+						"<td><span class='indicator-pill " + (STATE_COLORS[row.state] || "gray") + "'>" + __(row.state) + "</span></td>" +
+						"<td>" + formatDate(row.ends_on) + "</td>" +
+						"<td>" + formatDate(row.trial_ends_on) + "</td>" +
+						"<td>" + row.paid_count + "</td>" +
+						"<td>" + (row.last_paid_at ? frappe.datetime.str_to_user(row.last_paid_at) : "-") + "</td>" +
+						"</tr>";
+				});
+				html += "</tbody></table>";
+				$admin.find(".admin-subscriptions").html(html);
+			});
+		}
+
+		loadSubscriptions();
 	}
 
 	function requestAndRedirect(forceNew) {
