@@ -1365,8 +1365,12 @@ def _lock_accounting_period(company, year_month):
 	"""Audit F-15: a closure used to be a soft marker only -- entries could
 	still be posted or cancelled in the closed month. An ERPNext Accounting
 	Period over that month makes validate_accounting_period_on_doc_save
-	reject any GL-affecting document dated inside it (the doctype list is
-	bootstrapped by ERPNext itself on insert)."""
+	reject any GL-affecting document dated inside it.
+
+	closed_documents is filled here from the same period_closing_doctypes
+	hook ERPNext uses: its own bootstrap_doctypes_for_closing (16.35)
+	reads those rows as objects while building them as dicts and crashes
+	with AttributeError on every insert that leaves the table empty."""
 	start = f"{year_month}-01"
 	end = frappe.utils.get_last_day(start)
 
@@ -1388,6 +1392,9 @@ def _lock_accounting_period(company, year_month):
 			"start_date": start,
 			"end_date": end,
 			"company": company,
+			"closed_documents": [
+				{"document_type": doctype, "closed": 1} for doctype in frappe.get_hooks("period_closing_doctypes")
+			],
 		}
 	)
 	period.insert()
