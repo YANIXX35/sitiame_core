@@ -25,6 +25,11 @@ app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
 ]
 
+doctype_list_js = {
+	"Purchase Invoice": "public/js/ocr_invoice_list.js",
+	"Sales Invoice": "public/js/ocr_invoice_list.js",
+}
+
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
 
 after_migrate = "sitiame_core.setup.after_migrate"

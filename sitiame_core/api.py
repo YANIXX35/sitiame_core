@@ -747,6 +747,12 @@ def ocr_extract_invoice(file_url):
 			"confidence": {"invoice_number": 0.9, ...},
 		}
 	"""
+	return read_invoice_file(file_url)
+
+
+def read_invoice_file(file_url):
+	"""OCR + structured extraction, shared by ocr_extract_invoice (form
+	pre-fill) and sitiame_core.ocr_invoice (full draft invoice creation)."""
 	filename, content = frappe.utils.file_manager.get_file(file_url)
 
 	response = requests.post(

@@ -18,12 +18,58 @@
 //
 // Nothing is auto-saved: the form is filled, the user reviews/edits,
 // then saves manually like any other document.
+//
+// v3: on Purchase Invoice / Sales Invoice the button no longer pre-fills
+// the open form: the server builds the complete draft invoice (party, HT
+// line, TVA row on the company's 4452/4431 account, scan attached, see
+// sitiame_core/ocr_invoice.py) and the user lands on it, ready to review
+// and submit. The same button is added on both list views.
+var OCR_DRAFT_DOCTYPES = ["Purchase Invoice", "Sales Invoice"];
+
+function create_invoice_draft_from_scan(doctype, company) {
+	var uploader = new frappe.ui.FileUploader({
+		folder: "Home",
+		on_success: function (file_doc) {
+			frappe
+				.call({
+					method: "sitiame_core.ocr_invoice.ocr_create_invoice_draft",
+					args: { file_url: file_doc.file_url, doctype: doctype, company: company || null },
+					freeze: true,
+					freeze_message: __("Lecture de la facture et creation du brouillon..."),
+				})
+				.then(function (r) {
+					var res = r.message || {};
+					if (!res.name) return;
+					frappe.set_route("Form", res.doctype, res.name);
+					var warnings = res.warnings || [];
+					frappe.msgprint({
+						title: __("Brouillon cree -- a verifier puis soumettre"),
+						indicator: warnings.length ? "orange" : "green",
+						message:
+							__("La facture {0} a ete creee avec le tiers, le montant HT et la TVA. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name]) +
+							(warnings.length
+								? "<br><br><b>" + __("Points a verifier :") + "</b><ul><li>" + warnings.map(frappe.utils.escape_html).join("</li><li>") + "</li></ul>"
+								: ""),
+					});
+				});
+		},
+	});
+	uploader.show();
+}
+
+// used by public/js/ocr_invoice_list.js (doctype_list_js hook)
+window.sitiame_create_invoice_draft_from_scan = create_invoice_draft_from_scan;
+
 frappe.ui.form.on("*", {
 	refresh(frm) {
 		if (!frm.is_new()) return;
 		if (frm.custom_buttons && frm.custom_buttons[__("Importer une facture")]) return;
 
 		frm.add_custom_button(__("Importer une facture"), function () {
+			if (OCR_DRAFT_DOCTYPES.indexOf(frm.doctype) !== -1) {
+				create_invoice_draft_from_scan(frm.doctype, frm.doc.company);
+				return;
+			}
 			var uploader = new frappe.ui.FileUploader({
 				folder: "Home",
 				on_success: function (file_doc) {
