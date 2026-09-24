@@ -30,6 +30,24 @@ def extend_bootinfo(bootinfo):
 	except Exception:
 		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: desktop icons failed")
 
+	try:
+		_add_subscription_status(bootinfo)
+	except Exception:
+		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: subscription status failed")
+
+
+def _add_subscription_status(bootinfo):
+	"""Read by public/js/subscription_banner.js. Only PME accounts get it:
+	Sitiame staff never see the renewal banner."""
+	if "PME Client" not in frappe.get_roles():
+		return
+
+	from sitiame_core.subscription_api import get_company_subscription, get_user_company
+
+	company = get_user_company()
+	if company:
+		bootinfo["sitiame_subscription"] = get_company_subscription(company)
+
 
 def _get_hidden_set(fieldname):
 	raw = frappe.db.get_value("User", frappe.session.user, fieldname)

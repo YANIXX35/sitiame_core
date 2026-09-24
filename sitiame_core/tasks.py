@@ -30,10 +30,18 @@ def block_expired_trials():
 			"trial_ends_on": ["<", frappe.utils.today()],
 			"trial_blocked": 0,
 		},
-		fields=["name", "email"],
+		fields=["name", "email", "company"],
 	)
 
 	for row in expired:
+		# A PME that paid its subscription (sitiame_subscription_ends_on,
+		# see subscription_api.py) keeps its access past the trial.
+		subscription_ends_on = row.company and frappe.db.get_value(
+			"Company", row.company, "sitiame_subscription_ends_on"
+		)
+		if subscription_ends_on and frappe.utils.getdate(subscription_ends_on) >= frappe.utils.getdate():
+			continue
+
 		try:
 			_revoke_trial_roles(row.email)
 			frappe.db.set_value("Company Signup", row.name, "trial_blocked", 1)

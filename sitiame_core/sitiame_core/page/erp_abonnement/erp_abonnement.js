@@ -29,6 +29,15 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				"<div style='font-size: 12px; color: #94a3b8; margin-top: 12px;'>" + __("Si la redirection automatique ne d\u00e9marre pas, cliquez sur le bouton ci-dessus.") + "</div>" +
 			"</div>" +
 
+			// State: Already subscribed (no automatic redirect to CinetPay)
+			"<div id='abonnement-state-active' style='display: none; padding: 20px 0;'>" +
+				"<div style='font-size: 20px; font-weight: 700; color: #15803d; margin-bottom: 8px;'>" + __("Abonnement actif") + "</div>" +
+				"<div id='abonnement-active-desc' style='font-size: 14px; color: #475569; margin-bottom: 25px; line-height: 1.5;'></div>" +
+				"<button id='btn-extend-subscription' class='btn btn-primary' style='border-radius: 8px; padding: 11px 24px; font-weight: 600;'>" +
+					__("Prolonger d'un mois (15 000 FCFA)") +
+				"</button>" +
+			"</div>" +
+
 			// State: Success
 			"<div id='abonnement-state-success' style='display: none; padding: 20px 0;'>" +
 				"<div style='font-size: 52px; color: #16a34a; margin-bottom: 12px;'>\u2705</div>" +
@@ -75,6 +84,17 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		frappe.set_route("app");
 	});
 
+	$("#btn-extend-subscription").on("click", function () {
+		$("#abonnement-state-active").hide();
+		$("#abonnement-state-loading").show();
+		requestAndRedirect(0);
+	});
+
+	function endsOnText(sub) {
+		if (!sub || !sub.ends_on) return "";
+		return __("Actif jusqu'au <strong>{0}</strong>.", [frappe.datetime.str_to_user(sub.ends_on)]);
+	}
+
 	$("#btn-retry-payment").on("click", function () {
 		$("#abonnement-state-failed").hide();
 		$("#abonnement-state-loading").show();
@@ -100,7 +120,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				$("#abonnement-state-loading").hide();
 				$("#abonnement-state-ready").hide();
 				if (data.company) {
-					$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]));
+					$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]) + " " + endsOnText(data.subscription));
 				}
 				$("#abonnement-state-success").show();
 			} else if (data.status === "\u00c9chou\u00e9") {
@@ -113,7 +133,20 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			requestAndRedirect(0);
 		});
 	} else {
-		requestAndRedirect(0);
+		frappe.call({
+			method: "sitiame_core.subscription_api.get_my_subscription",
+		}).then(function (r) {
+			var sub = r.message || {};
+			if (sub.active) {
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-active-desc").html(endsOnText(sub));
+				$("#abonnement-state-active").show();
+			} else {
+				requestAndRedirect(0);
+			}
+		}).catch(function () {
+			requestAndRedirect(0);
+		});
 	}
 
 	function requestAndRedirect(forceNew) {

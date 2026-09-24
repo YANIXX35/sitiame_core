@@ -19,12 +19,15 @@ app_include_js = [
 	"/assets/sitiame_core/js/ai_assistant.js",
 	"/assets/sitiame_core/js/menu_visibility_watcher.js",
 	"/assets/sitiame_core/js/green_desktop_icons_enforce.js",
+	"/assets/sitiame_core/js/subscription_banner.js",
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
 ]
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
+
+after_migrate = "sitiame_core.setup.after_migrate"
 
 scheduler_events = {
 	"daily": [

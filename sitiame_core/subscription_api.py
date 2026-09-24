@@ -4,12 +4,83 @@
 
 import hmac
 
-import requests
-
 import frappe
 from frappe import _
+from frappe.utils import add_months, getdate, today
 
 from sitiame_core.cinetpay_client import get_payment_status, init_payment
+from sitiame_core.tasks import TRIAL_ROLES
+
+# Custom Field on Company (created by sitiame_core.setup.after_migrate).
+# ERPNext is the only source of truth for a PME's subscription: the
+# subscription is active while this date is today or later.
+SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
+
+
+def get_user_company(user=None):
+	user = user or frappe.session.user
+	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value") or (
+		frappe.defaults.get_user_default("Company", user)
+	)
+
+
+def get_company_subscription(company):
+	ends_on = frappe.db.get_value("Company", company, SUBSCRIPTION_ENDS_FIELD) if company else None
+	trial_ends_on = frappe.db.get_value("Company Signup", {"company": company}, "trial_ends_on") if company else None
+
+	return {
+		"company": company,
+		"ends_on": str(ends_on) if ends_on else None,
+		"active": bool(ends_on and getdate(ends_on) >= getdate(today())),
+		"trial_ends_on": str(trial_ends_on) if trial_ends_on else None,
+		"in_trial": bool(trial_ends_on and getdate(trial_ends_on) >= getdate(today())),
+	}
+
+
+def _mark_paid(docname):
+	"""Single entry point once CinetPay confirms a payment (webhook, return
+	page, pending-session check): flags the Subscription Payment as paid,
+	extends the Company's subscription and gives back any access the
+	trial expiry had removed. Row-locked so the webhook and the return page
+	racing each other can never extend the subscription twice."""
+	status = frappe.db.get_value("Subscription Payment", docname, "status", for_update=True)
+	if status == "Payé":
+		return
+
+	doc = frappe.get_doc("Subscription Payment", docname)
+	doc.db_set("status", "Payé")
+	doc.db_set("paid_at", frappe.utils.now())
+
+	# Stack on top of whatever access the PME still has (running
+	# subscription or free trial) so paying early never loses days.
+	current = get_company_subscription(doc.company)
+	start = getdate(today())
+	for date in (current["ends_on"], current["trial_ends_on"]):
+		if date and getdate(date) > start:
+			start = getdate(date)
+	frappe.db.set_value("Company", doc.company, SUBSCRIPTION_ENDS_FIELD, add_months(start, doc.duration_months or 1))
+
+	_restore_trial_roles(doc.company)
+	frappe.db.commit()
+
+
+def _restore_trial_roles(company):
+	for signup in frappe.get_all(
+		"Company Signup", filters={"company": company, "trial_blocked": 1}, fields=["name", "email"]
+	):
+		if frappe.db.exists("User", signup.email):
+			user = frappe.get_doc("User", signup.email)
+			# the CinetPay webhook runs as Guest
+			user.flags.ignore_permissions = True
+			user.add_roles(*TRIAL_ROLES)
+		frappe.db.set_value("Company Signup", signup.name, "trial_blocked", 0)
+
+
+@frappe.whitelist()
+def get_my_subscription():
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Connexion requise."), frappe.PermissionError)
+	return get_company_subscription(get_user_company())
 
 
 def _generate_payment_link(doc):
@@ -131,11 +202,7 @@ def get_or_create_pme_checkout_url(force_new=0):
 							"is_new": False,
 						}
 					elif live_status in ["SUCCESS", "ACCEPTED"]:
-						frappe.db.set_value("Subscription Payment", existing_name, "status", "Payé")
-						frappe.db.set_value("Subscription Payment", existing_name, "paid_at", frappe.utils.now())
-						frappe.db.commit()
-						doc_paid = frappe.get_doc("Subscription Payment", existing_name)
-						_notify_pme360(doc_paid)
+						_mark_paid(existing_name)
 						return {
 							"status": "Payé",
 							"already_paid": True,
@@ -190,11 +257,8 @@ def check_pme_subscription_status(docname=None):
 				live_info = get_payment_status(doc.name)
 				live_status = (live_info.get("status") or "").upper()
 				if live_status in ["SUCCESS", "ACCEPTED"]:
-					doc.db_set("status", "Payé")
-					doc.db_set("paid_at", frappe.utils.now())
-					frappe.db.commit()
+					_mark_paid(doc.name)
 					doc.reload()
-					_notify_pme360(doc)
 				elif live_status in ["FAILED", "CANCELLED", "REFUSED"]:
 					doc.db_set("status", "Échoué")
 					frappe.db.commit()
@@ -208,9 +272,10 @@ def check_pme_subscription_status(docname=None):
 			"company": doc.company,
 			"amount": doc.amount,
 			"payment_url": doc.payment_url,
+			"subscription": get_company_subscription(doc.company),
 		}
 
-	company = frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value") or frappe.defaults.get_user_default("Company")
+	company = get_user_company(user)
 	if not company:
 		return {"status": "unknown"}
 
@@ -231,47 +296,6 @@ def check_pme_subscription_status(docname=None):
 			"payment_url": last[0].get("payment_url"),
 		}
 	return {"status": "none", "company": company}
-
-
-def _notify_pme360(subscription_payment):
-	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
-	token = frappe.conf.get("pme360_webhook_token")
-	if not token:
-		frappe.log_error(
-			title="Subscription Payment: pme360_webhook_token manquant",
-			message=f"Impossible de notifier PME360 pour {subscription_payment.name}",
-		)
-		return False
-
-	payload = {
-		"company": subscription_payment.company,
-		"duration_months": subscription_payment.duration_months,
-		"paid_at": str(subscription_payment.paid_at),
-	}
-	try:
-		response = requests.post(
-			f"{base_url}/webhooks/erpnext/subscription-paid",
-			json=payload,
-			headers={"X-PME360-Webhook-Token": token},
-			timeout=5,
-		)
-	except requests.RequestException as e:
-		frappe.log_error(
-			title="Subscription Payment: PME360 injoignable",
-			message=f"{subscription_payment.name}: {e}",
-		)
-		return False
-
-	if response.status_code >= 400:
-		frappe.log_error(
-			title="Subscription Payment: PME360 a refuse la notification",
-			message=f"{subscription_payment.name}: {response.status_code} {response.text}",
-		)
-		return False
-
-	frappe.db.set_value("Subscription Payment", subscription_payment.name, "pme360_notified_at", frappe.utils.now())
-	frappe.db.commit()
-	return True
 
 
 @frappe.whitelist(allow_guest=True)
@@ -316,30 +340,10 @@ def cinetpay_subscription_webhook():
 	real_status = (status_data.get("status") or "").upper()
 
 	if real_status in ["SUCCESS", "ACCEPTED"]:
-		doc.db_set("status", "Payé")
-		doc.db_set("paid_at", frappe.utils.now())
-		frappe.db.commit()
-		doc.reload()
-		_notify_pme360(doc)
+		_mark_paid(doc.name)
 	elif real_status in ["FAILED", "CANCELLED", "REFUSED"]:
 		doc.db_set("status", "Échoué")
 		frappe.db.commit()
 
 	frappe.response["http_status_code"] = 200
-	return {"status": "ok"}
-
-
-@frappe.whitelist()
-def resend_pme360_notification(docname):
-	if "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Reserve aux administrateurs."), frappe.PermissionError)
-
-	doc = frappe.get_doc("Subscription Payment", docname)
-	if doc.status != "Payé":
-		frappe.throw(_("Ce document n'est pas marque comme paye."))
-
-	sent = _notify_pme360(doc)
-	if not sent:
-		frappe.throw(_("PME360 injoignable, voir le journal des erreurs (Error Log)."))
-
 	return {"status": "ok"}
