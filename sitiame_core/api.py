@@ -102,6 +102,11 @@ _SYSCOHADA_DEFAULT_ACCOUNTS = {
 	"6011": "default_expense_account",
 	"6031": "stock_adjustment_account",
 	"3111": "default_inventory_account",
+	# Clearing account for a stock item invoiced before it is received.
+	# Left unset, ERPNext picks the first account of that type it finds,
+	# which on this chart is 4086 "Fournisseurs, interets courus" (audit
+	# F-46: a real purchase landed there).
+	"4081": "stock_received_but_not_billed",
 }
 
 # account_number -> account_type to enforce (the SYSCOHADA template ships
