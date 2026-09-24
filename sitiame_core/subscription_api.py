@@ -356,9 +356,11 @@ def check_pme_subscription_status(docname=None):
 @frappe.whitelist(allow_guest=True)
 def cinetpay_subscription_webhook():
 	data = frappe.local.form_dict or {}
+	query = frappe.request.args if frappe.request else {}
 
 	merchant_transaction_id = (
-		data.get("docname")
+		query.get("docname")
+		or data.get("docname")
 		or data.get("cpm_order_id")
 		or data.get("merchant_transaction_id")
 	)
@@ -377,15 +379,19 @@ def cinetpay_subscription_webhook():
 		frappe.response["http_status_code"] = 200
 		return {"status": "ignored"}
 
-	received_token = data.get("token") or data.get("notify_token")
-	if doc.notify_token and received_token:
-		if not hmac.compare_digest(str(doc.notify_token), str(received_token)):
-			frappe.log_error(
-				title="Subscription Payment: notify_token invalide",
-				message=f"{doc.name}: jeton recu invalide",
-			)
-			frappe.response["http_status_code"] = 403
-			return {"status": "forbidden"}
+	# Our secret travels in the notify_url query string (?token=...). CinetPay
+	# POSTs a JSON body, and for JSON requests Frappe builds form_dict from
+	# the body only (frappe.app.make_form_dict), so it must be read from the
+	# query string itself. The body's own "notify_token" is CinetPay's, a
+	# different value -- comparing against it rejected every webhook (403).
+	received_token = frappe.request.args.get("token") if frappe.request else None
+	if not received_token or not hmac.compare_digest(str(doc.notify_token or ""), str(received_token)):
+		frappe.log_error(
+			title="Subscription Payment: notify_token invalide",
+			message=f"{doc.name}: jeton recu invalide",
+		)
+		frappe.response["http_status_code"] = 403
+		return {"status": "forbidden"}
 
 	if doc.status == "Payé":
 		frappe.response["http_status_code"] = 200
