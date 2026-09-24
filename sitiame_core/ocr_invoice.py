@@ -241,3 +241,28 @@ def _add_review_comment(invoice, fields, confidence, warnings):
 		html += "<b>" + _("Points a verifier :") + "</b><ul>"
 		html += "".join(f"<li>{frappe.utils.escape_html(w)}</li>" for w in warnings) + "</ul>"
 	invoice.add_comment("Comment", html)
+
+
+@frappe.whitelist()
+def match_items(item_names):
+	"""Scanned line label -> existing Item code, for pre-filling item rows
+	on stock/buying/selling documents. Only an exact name/code match, or a
+	single partial match, is returned: an ambiguous label is left for the
+	user to pick rather than guessed."""
+	names = frappe.parse_json(item_names) or []
+	matches = {}
+	for label in names:
+		label = (label or "").strip()
+		if not label:
+			continue
+		code = frappe.db.get_value("Item", {"item_code": label, "disabled": 0}, "name") or frappe.db.get_value(
+			"Item", {"item_name": label, "disabled": 0}, "name"
+		)
+		if not code:
+			partial = frappe.get_all(
+				"Item", filters={"item_name": ["like", f"%{label}%"], "disabled": 0}, pluck="name", limit=2
+			)
+			code = partial[0] if len(partial) == 1 else None
+		if code:
+			matches[label] = code
+	return matches

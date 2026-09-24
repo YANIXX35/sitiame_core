@@ -24,48 +24,122 @@
 // line, TVA row on the company's 4452/4431 account, scan attached, see
 // sitiame_core/ocr_invoice.py) and the user lands on it, ready to review
 // and submit. The same button is added on both list views.
-var OCR_DRAFT_DOCTYPES = ["Purchase Invoice", "Sales Invoice"];
+//
+// v4: Payment Entry works the same way from a scanned receipt (see
+// sitiame_core/ocr_payment.py): the draft payment is matched to the open
+// invoice and allocated against it. Submitted invoices with an amount
+// still due get an "Importer le recu de paiement" button that settles
+// that very invoice. Stock/buying/selling documents (orders, quotations,
+// receipts, delivery notes, material requests, stock entries) keep the
+// form pre-fill, now with the unit price and the Item itself when the
+// scanned label matches exactly one existing Item.
+var OCR_DRAFT_DOCTYPES = ["Purchase Invoice", "Sales Invoice", "Payment Entry"];
 
-function create_invoice_draft_from_scan(doctype, company) {
+// Pre-fill doctypes that legitimately start from a non-invoice paper
+// (bon de commande, devis, bon de livraison...): no "is it an invoice?" gate.
+var OCR_ANY_DOCUMENT_DOCTYPES = [
+	"Purchase Order",
+	"Supplier Quotation",
+	"Purchase Receipt",
+	"Sales Order",
+	"Quotation",
+	"Delivery Note",
+	"Material Request",
+	"Stock Entry",
+];
+
+function show_draft_result(res, message) {
+	frappe.set_route("Form", res.doctype, res.name);
+	var warnings = res.warnings || [];
+	frappe.msgprint({
+		title: __("Brouillon cree -- a verifier puis soumettre"),
+		indicator: warnings.length ? "orange" : "green",
+		message:
+			message +
+			(warnings.length
+				? "<br><br><b>" + __("Points a verifier :") + "</b><ul><li>" + warnings.map(frappe.utils.escape_html).join("</li><li>") + "</li></ul>"
+				: ""),
+	});
+}
+
+function upload_then_call(method, args, freeze_message, on_done) {
 	var uploader = new frappe.ui.FileUploader({
 		folder: "Home",
 		on_success: function (file_doc) {
 			frappe
 				.call({
-					method: "sitiame_core.ocr_invoice.ocr_create_invoice_draft",
-					args: { file_url: file_doc.file_url, doctype: doctype, company: company || null },
+					method: method,
+					args: Object.assign({ file_url: file_doc.file_url }, args),
 					freeze: true,
-					freeze_message: __("Lecture de la facture et creation du brouillon..."),
+					freeze_message: freeze_message,
 				})
 				.then(function (r) {
 					var res = r.message || {};
-					if (!res.name) return;
-					frappe.set_route("Form", res.doctype, res.name);
-					var warnings = res.warnings || [];
-					frappe.msgprint({
-						title: __("Brouillon cree -- a verifier puis soumettre"),
-						indicator: warnings.length ? "orange" : "green",
-						message:
-							__("La facture {0} a ete creee avec le tiers, le montant HT et la TVA. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name]) +
-							(warnings.length
-								? "<br><br><b>" + __("Points a verifier :") + "</b><ul><li>" + warnings.map(frappe.utils.escape_html).join("</li><li>") + "</li></ul>"
-								: ""),
-					});
+					if (res.name) on_done(res);
 				});
 		},
 	});
 	uploader.show();
 }
 
+function create_invoice_draft_from_scan(doctype, company) {
+	if (doctype === "Payment Entry") {
+		create_payment_draft_from_scan({ company: company || null });
+		return;
+	}
+	upload_then_call(
+		"sitiame_core.ocr_invoice.ocr_create_invoice_draft",
+		{ doctype: doctype, company: company || null },
+		__("Lecture de la facture et creation du brouillon..."),
+		function (res) {
+			show_draft_result(
+				res,
+				__("La facture {0} a ete creee avec le tiers, le montant HT et la TVA. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name])
+			);
+		}
+	);
+}
+
+function create_payment_draft_from_scan(args) {
+	upload_then_call(
+		"sitiame_core.ocr_payment.ocr_create_payment_draft",
+		args,
+		__("Lecture du recu et creation du paiement..."),
+		function (res) {
+			show_draft_result(
+				res,
+				__("Le paiement {0} a ete cree et rattache a la facture {1}. Verifiez-le puis cliquez sur Soumettre pour passer les ecritures.", [res.name, res.invoice])
+			);
+		}
+	);
+}
+
 // used by public/js/ocr_invoice_list.js (doctype_list_js hook)
 window.sitiame_create_invoice_draft_from_scan = create_invoice_draft_from_scan;
+
+// A submitted invoice with an amount still due: settle it from its receipt.
+["Purchase Invoice", "Sales Invoice"].forEach(function (doctype) {
+	frappe.ui.form.on(doctype, {
+		refresh(frm) {
+			if (frm.doc.docstatus !== 1 || !(frm.doc.outstanding_amount > 0)) return;
+			frm.add_custom_button(__("Importer le recu de paiement"), function () {
+				create_payment_draft_from_scan({ invoice_doctype: frm.doctype, invoice_name: frm.doc.name });
+			});
+		},
+	});
+});
 
 frappe.ui.form.on("*", {
 	refresh(frm) {
 		if (!frm.is_new()) return;
-		if (frm.custom_buttons && frm.custom_buttons[__("Importer une facture")]) return;
+		var label = OCR_ANY_DOCUMENT_DOCTYPES.indexOf(frm.doctype) !== -1
+			? __("Importer un document")
+			: frm.doctype === "Payment Entry"
+			? __("Importer un recu")
+			: __("Importer une facture");
+		if (frm.custom_buttons && frm.custom_buttons[label]) return;
 
-		frm.add_custom_button(__("Importer une facture"), function () {
+		frm.add_custom_button(label, function () {
 			if (OCR_DRAFT_DOCTYPES.indexOf(frm.doctype) !== -1) {
 				create_invoice_draft_from_scan(frm.doctype, frm.doc.company);
 				return;
@@ -239,40 +313,71 @@ function handle_ocr_result(frm, data) {
 		filled.push("items[0].rate ← " + rateValue);
 	}
 
-	// Fills one real row per parsed table line (Designation/Reference/Qte/
-	// Unite or similar -- see api.py::_extract_line_items). Only item_name
-	// and qty are set: item_code/uom are Link fields that must match an
-	// existing Item/UOM master record, which this has no way to verify, so
-	// it never guesses those -- the user picks the right item per row.
-	function add_line_items(lineItems) {
+	// Fills one real row per parsed table line (see
+	// api.py::_extract_line_items). The Item link is set only when the
+	// scanned label matches exactly one existing Item (server-side
+	// match_items); otherwise the row keeps the label and the user picks
+	// the item. qty/rate are set after the item fetch so ERPNext's own
+	// price lookup doesn't overwrite the price printed on the paper.
+	// rateField: "basic_rate" on Stock Entry, "rate" everywhere else.
+	function add_line_items(lineItems, rateField) {
 		if (!lineItems || !lineItems.length) return;
 		var itemsField = frm.fields_dict["items"];
 		if (!itemsField || itemsField.df.fieldtype !== "Table") return;
+		rateField = rateField || "rate";
 
-		lineItems.forEach(function (entry, idx) {
-			var blankRow =
-				idx === 0
-					? (frm.doc.items || []).find(function (row) {
-							return !row.item_name && !row.rate && !row.qty;
-					  })
-					: null;
-			var row = blankRow || frm.add_child("items");
-			frappe.model.set_value(row.doctype, row.name, "item_name", entry.item_name);
-			frappe.model.set_value(
-				row.doctype,
-				row.name,
-				"description",
-				__("Ligne ajoutee automatiquement depuis le document importe -- a completer/corriger (code article a choisir).")
-			);
-			if (entry.qty) frappe.model.set_value(row.doctype, row.name, "qty", entry.qty);
-		});
-		frm.refresh_field("items");
-		filled.push("items (" + lineItems.length + " ligne(s)) ← " + lineItems.map(function (e) { return e.item_name; }).join(", "));
-		// eslint-disable-next-line no-console
-		console.log("[OCR] Mapping: line_items ->", lineItems);
+		frappe
+			.call({
+				method: "sitiame_core.ocr_invoice.match_items",
+				args: { item_names: lineItems.map(function (e) { return e.item_name; }) },
+			})
+			.then(function (r) {
+				var codes = r.message || {};
+				var chain = Promise.resolve();
+				lineItems.forEach(function (entry, idx) {
+					chain = chain.then(function () {
+						var blankRow =
+							idx === 0
+								? (frm.doc.items || []).find(function (row) {
+										return !row.item_code && !row.item_name && !row.qty;
+								  })
+								: null;
+						var row = blankRow || frm.add_child("items");
+						var code = codes[entry.item_name];
+						var step = code
+							? frappe.model.set_value(row.doctype, row.name, "item_code", code)
+							: Promise.all([
+									frappe.model.set_value(row.doctype, row.name, "item_name", entry.item_name),
+									frappe.model.set_value(
+										row.doctype,
+										row.name,
+										"description",
+										__("Ligne importee depuis le document -- choisissez l'article.")
+									),
+							  ]);
+						return Promise.resolve(step).then(function () {
+							var sets = [];
+							if (entry.qty) sets.push(frappe.model.set_value(row.doctype, row.name, "qty", entry.qty));
+							if (entry.rate) sets.push(frappe.model.set_value(row.doctype, row.name, rateField, entry.rate));
+							return Promise.all(sets);
+						});
+					});
+				});
+				return chain.then(function () {
+					frm.refresh_field("items");
+					var matched = Object.keys(codes).length;
+					filled.push(
+						"items (" + lineItems.length + " ligne(s), " + matched + " article(s) reconnu(s)) ← " +
+							lineItems.map(function (e) { return e.item_name; }).join(", ")
+					);
+					// eslint-disable-next-line no-console
+					console.log("[OCR] Mapping: line_items ->", lineItems, "items ->", codes);
+				});
+			});
 	}
 
-	if (data.document_type && data.document_type !== "invoice") {
+	var anyDocument = OCR_ANY_DOCUMENT_DOCTYPES.indexOf(frm.doctype) !== -1;
+	if (!anyDocument && data.document_type && data.document_type !== "invoice") {
 		// Not recognised as an invoice (e.g. devis/avoir/bon de commande):
 		// don't guess-fill invoice-shaped fields onto an unrelated document.
 		frappe.msgprint({
@@ -339,30 +444,39 @@ function handle_ocr_result(frm, data) {
 		set_direct("posting_date", fields.invoice_date);
 		match_and_set_party("customer", "Customer", "customer_name", fields.customer_name);
 		add_line_items(lineItems);
-	} else if (frm.doctype === "Payment Entry") {
-		// Mapping (verified against the real DocFields, 21/09/2026):
-		//   invoice_number -> reference_no    (Data, editable)
-		//   invoice_date   -> reference_date  (Date, editable)
-		//   grand_total    -> paid_amount OR received_amount, depending on
-		//                     payment_type ("Pay" vs "Receive") -- Payment
-		//                     Entry has no single "amount" field.
-		//   supplier_name/customer_name -> party (Dynamic Link: party_type
-		//                     must be set first, there is no plain
-		//                     "customer"/"supplier" field on this doctype).
-		set_direct("reference_no", fields.invoice_number);
-		set_direct("reference_date", fields.invoice_date);
-
-		if (fields.grand_total) {
-			var amountField = frm.doc.payment_type === "Receive" ? "received_amount" : "paid_amount";
-			set_direct(amountField, fields.grand_total);
-		}
-
-		var extractedParty = fields.supplier_name || fields.customer_name;
-		var partyType = fields.supplier_name ? "Supplier" : "Customer";
-		if (extractedParty && frm.fields_dict["party"] && !frm.doc.party) {
-			var nameField = partyType === "Supplier" ? "supplier_name" : "customer_name";
-			match_and_set_party("party", partyType, nameField, extractedParty, "party_type");
-		}
+	} else if (frm.doctype === "Purchase Order" || frm.doctype === "Supplier Quotation") {
+		// Mapping (verified against the real DocFields, 24/09/2026):
+		//   invoice_date   -> transaction_date (Date, reqd)
+		//   invoice_number -> order_confirmation_no (PO) / quotation_number (SQ)
+		//   supplier_name  -> supplier (Link, resolved by name)
+		//   line_items     -> items (Item when recognised, qty, rate)
+		set_direct("transaction_date", fields.invoice_date);
+		set_direct(frm.doctype === "Purchase Order" ? "order_confirmation_no" : "quotation_number", fields.invoice_number);
+		if (frm.doctype === "Purchase Order") set_direct("order_confirmation_date", fields.invoice_date);
+		if (frm.doctype === "Supplier Quotation") set_direct("valid_till", fields.due_date);
+		match_and_set_party("supplier", "Supplier", "supplier_name", fields.supplier_name);
+		add_line_items(lineItems);
+	} else if (frm.doctype === "Sales Order") {
+		// The customer's own purchase order is the paper being scanned:
+		// its number/date go to po_no/po_date ("Bon de commande client").
+		set_direct("po_no", fields.invoice_number);
+		set_direct("po_date", fields.invoice_date);
+		set_direct("delivery_date", fields.due_date);
+		match_and_set_party("customer", "Customer", "customer_name", fields.customer_name);
+		add_line_items(lineItems);
+	} else if (frm.doctype === "Quotation") {
+		// party_name is a Dynamic Link driven by quotation_to.
+		set_direct("transaction_date", fields.invoice_date);
+		set_direct("valid_till", fields.due_date);
+		match_and_set_party("party_name", "Customer", "customer_name", fields.customer_name, "quotation_to");
+		add_line_items(lineItems);
+	} else if (frm.doctype === "Material Request") {
+		set_direct("transaction_date", fields.invoice_date);
+		add_line_items(lineItems);
+	} else if (frm.doctype === "Stock Entry") {
+		// No party on a stock entry; the valuation rate field is basic_rate.
+		set_direct("posting_date", fields.invoice_date);
+		add_line_items(lineItems, "basic_rate");
 	} else if (frm.doctype === "Journal Entry") {
 		// Mapping (verified against the real DocFields, 22/09/2026):
 		// reference number/date and posting date are plain editable

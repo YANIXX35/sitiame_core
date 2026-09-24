@@ -28,6 +28,7 @@ app_include_css = [
 doctype_list_js = {
 	"Purchase Invoice": "public/js/ocr_invoice_list.js",
 	"Sales Invoice": "public/js/ocr_invoice_list.js",
+	"Payment Entry": "public/js/ocr_invoice_list.js",
 }
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"

@@ -741,17 +741,19 @@ _SUMMARY_LINE_RE = re.compile(
 )
 
 
+_CELL_SPLIT_RE = re.compile(r"\t|\s{2,}")
+
+
 def _extract_line_items(text: str) -> list:
 	"""Parse the item table (Designation/Reference/Qte/Unite, or
 	Designation/Qte/Prix unitaire/Montant) into one dict per row.
 
-	OCR.space's isTable mode keeps columns aligned with runs of spaces, so
-	rows are split on 2+ consecutive spaces rather than a single space
-	(item/reference names routinely contain single spaces). Only
-	item_name and qty are ever handed to the caller to fill in -- unit,
-	item code and rate would need to match an existing master record
-	(UOM/Item) to be safe to set on a Link field, which this function has
-	no way to verify, so it doesn't guess those.
+	OCR.space's isTable mode separates columns with a tab (and sometimes
+	runs of spaces), so rows are split on either -- never on a single
+	space, which item/reference names routinely contain. Returns
+	item_name, and qty/rate when the columns exist (rate is a plain
+	Currency field, safe to set; the Item link itself is matched by the
+	caller against existing Item records, never guessed here).
 	"""
 	lines = (text or "").splitlines()
 	header_idx = None
@@ -759,7 +761,7 @@ def _extract_line_items(text: str) -> list:
 	for i, line in enumerate(lines):
 		if re.match(r"^\s*d[ée]signation\b", line, re.IGNORECASE):
 			header_idx = i
-			header_cells = [c.strip().lower() for c in re.split(r"\s{2,}", line.strip()) if c.strip()]
+			header_cells = [c.strip().lower() for c in _CELL_SPLIT_RE.split(line.strip()) if c.strip()]
 			break
 	if header_idx is None:
 		return []
@@ -771,6 +773,13 @@ def _extract_line_items(text: str) -> list:
 		return None
 
 	qty_idx = col_index("qte", "qté", "quantite", "quantité")
+	rate_idx = col_index("prix", "p.u", "unitaire")
+	amount_idx = col_index("montant", "total")
+
+	def number_at(cells, idx):
+		if idx is None or idx >= len(cells):
+			return None
+		return _parse_amount(cells[idx])
 
 	items = []
 	for line in lines[header_idx + 1 :]:
@@ -779,14 +788,21 @@ def _extract_line_items(text: str) -> list:
 			break
 		if _SUMMARY_LINE_RE.match(stripped):
 			break
-		cells = [c.strip() for c in re.split(r"\s{2,}", stripped) if c.strip()]
+		cells = [c.strip() for c in _CELL_SPLIT_RE.split(stripped) if c.strip()]
 		if len(cells) < 2:
 			break
 		entry = {"item_name": cells[0]}
-		if qty_idx is not None and qty_idx < len(cells):
-			qty_value = _parse_amount(cells[qty_idx])
-			if qty_value is not None:
-				entry["qty"] = qty_value
+		qty = number_at(cells, qty_idx)
+		rate = number_at(cells, rate_idx)
+		amount = number_at(cells, amount_idx)
+		if qty is not None:
+			entry["qty"] = qty
+		# unit price printed, or derivable from the line amount
+		if rate is not None:
+			entry["rate"] = rate
+		elif amount is not None:
+			entry["rate"] = amount / qty if qty else amount
+			entry.setdefault("qty", 1)
 		items.append(entry)
 
 	return items
