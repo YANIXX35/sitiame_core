@@ -137,7 +137,10 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			method: "sitiame_core.subscription_api.get_my_subscription",
 		}).then(function (r) {
 			var sub = r.message || {};
-			if (sub.active) {
+			if (!sub.company) {
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement.")).show();
+			} else if (sub.active) {
 				$("#abonnement-state-loading").hide();
 				$("#abonnement-active-desc").html(endsOnText(sub));
 				$("#abonnement-state-active").show();

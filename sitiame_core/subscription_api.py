@@ -18,10 +18,11 @@ SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
 
 
 def get_user_company(user=None):
+	# The Company User Permission is what ties a PME account to its company
+	# (both signup paths create it). No fallback on the "default company"
+	# user setting: a staff account's default would point at the wrong PME.
 	user = user or frappe.session.user
-	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value") or (
-		frappe.defaults.get_user_default("Company", user)
-	)
+	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
 
 
 def get_company_subscription(company):
@@ -151,20 +152,13 @@ def get_or_create_pme_checkout_url(force_new=0):
 	if user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
 
-	roles = frappe.get_roles()
-
-	company = None
-	if "System Manager" in roles:
-		company = frappe.defaults.get_user_default("Company")
-		if not company or company == "SITIAME":
-			company = frappe.db.get_value("Company", {"name": ["!=", "SITIAME"]}, "name") or "SITIAME"
-	else:
-		company = frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
-		if not company:
-			company = frappe.defaults.get_user_default("Company")
-
+	# Only a PME account pays for its own company: a Sitiame staff account
+	# with no company must never open a checkout on some other PME's behalf.
+	company = get_user_company(user)
 	if not company:
-		frappe.throw(_("Aucune societe rattachee a votre compte."))
+		frappe.throw(
+			_("L'abonnement se paie depuis le compte de la PME : aucune societe n'est rattachee a votre compte.")
+		)
 
 	force = int(force_new or 0)
 
