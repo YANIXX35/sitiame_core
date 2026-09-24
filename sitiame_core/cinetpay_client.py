@@ -7,8 +7,27 @@ import requests
 import frappe
 from frappe import _
 
-CINETPAY_BASE_URL = "https://api.cinetpay.net"
+# Sandbox (sk_test_ keys) and production (sk_live_ keys) are two different
+# API hosts -- same split as CinetPay's official SDK (cinetpay-js,
+# src/types/config.ts). A live key sent to the sandbox host is refused.
+CINETPAY_SANDBOX_URL = "https://api.cinetpay.net"
+CINETPAY_PRODUCTION_URL = "https://api.cinetpay.co"
 _TOKEN_CACHE_KEY = "cinetpay_oauth_token"
+
+
+def get_base_url():
+	"""site_config "cinetpay_base_url" wins; otherwise chosen from the key."""
+	explicit = frappe.conf.get("cinetpay_base_url")
+	if explicit:
+		return explicit.rstrip("/")
+	api_key = frappe.conf.get("cinetpay_api_key") or ""
+	return CINETPAY_PRODUCTION_URL if api_key.startswith("sk_live_") else CINETPAY_SANDBOX_URL
+
+
+def _token_cache_key():
+	# per host, so switching from sandbox to live keys never reuses a
+	# sandbox token against production
+	return f"{_TOKEN_CACHE_KEY}:{get_base_url()}"
 
 
 def normalize_phone(phone):
@@ -40,14 +59,14 @@ def _get_credentials():
 
 
 def get_access_token():
-	cached = frappe.cache().get_value(_TOKEN_CACHE_KEY)
+	cached = frappe.cache().get_value(_token_cache_key())
 	if cached:
 		return cached
 
 	api_key, api_password = _get_credentials()
 	try:
 		response = requests.post(
-			f"{CINETPAY_BASE_URL}/v1/oauth/login",
+			f"{get_base_url()}/v1/oauth/login",
 			json={"api_key": api_key, "api_password": api_password},
 			timeout=20,
 		)
@@ -64,7 +83,7 @@ def get_access_token():
 
 	expires_in = int(data.get("expires_in") or 3000)
 	# safety margin so a cached token is never handed out right as it expires
-	frappe.cache().set_value(_TOKEN_CACHE_KEY, token, expires_in_sec=max(expires_in - 60, 60))
+	frappe.cache().set_value(_token_cache_key(), token, expires_in_sec=max(expires_in - 60, 60))
 	return token
 
 
@@ -106,7 +125,7 @@ def init_payment(merchant_transaction_id, amount, designation, notify_url, succe
 
 	try:
 		response = requests.post(
-			f"{CINETPAY_BASE_URL}/v1/payment",
+			f"{get_base_url()}/v1/payment",
 			json=payload,
 			headers={"Authorization": f"Bearer {token}"},
 			timeout=30,
@@ -125,7 +144,7 @@ def get_payment_status(merchant_transaction_id):
 	token = get_access_token()
 	try:
 		response = requests.get(
-			f"{CINETPAY_BASE_URL}/v1/payment/{merchant_transaction_id}",
+			f"{get_base_url()}/v1/payment/{merchant_transaction_id}",
 			headers={"Authorization": f"Bearer {token}"},
 			timeout=20,
 		)
