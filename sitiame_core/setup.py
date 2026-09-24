@@ -10,6 +10,47 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 def after_migrate():
 	_create_subscription_fields()
 	make_hr_icon_a_folder()
+	add_syscohada_report_to_sidebar()
+
+
+FINANCIAL_REPORTS_SIDEBAR = "Financial Reports"
+SYSCOHADA_REPORT = "Liasse SYSCOHADA"
+
+
+def add_syscohada_report_to_sidebar():
+	"""Put the SYSCOHADA statements first under "Financial Reports", ahead
+	of ERPNext's IFRS Balance Sheet. That sidebar is standard (erpnext) and
+	may be re-synced by an erpnext update, hence re-checked on every
+	migrate; the row is written directly because a standard sidebar can't
+	be saved outside developer mode."""
+	if not frappe.db.exists("Workspace Sidebar", FINANCIAL_REPORTS_SIDEBAR):
+		return
+	if frappe.db.exists(
+		"Workspace Sidebar Item", {"parent": FINANCIAL_REPORTS_SIDEBAR, "link_to": SYSCOHADA_REPORT}
+	):
+		return
+
+	frappe.db.sql(
+		"update `tabWorkspace Sidebar Item` set idx = idx + 1 where parent = %s and idx >= 2",
+		FINANCIAL_REPORTS_SIDEBAR,
+	)
+	item = frappe.get_doc(
+		{
+			"doctype": "Workspace Sidebar Item",
+			"parent": FINANCIAL_REPORTS_SIDEBAR,
+			"parenttype": "Workspace Sidebar",
+			"parentfield": "items",
+			"idx": 2,
+			"label": "Liasse SYSCOHADA (Bilan, Résultat)",
+			"type": "Link",
+			"link_type": "Report",
+			"link_to": SYSCOHADA_REPORT,
+			"child": 1,
+		}
+	)
+	item.db_insert()
+	frappe.db.commit()
+	frappe.clear_cache()
 
 
 HR_ICON = "Frappe HR"
