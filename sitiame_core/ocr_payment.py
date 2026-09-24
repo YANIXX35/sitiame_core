@@ -17,7 +17,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, today
+from frappe.utils import flt, today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from sitiame_core.api import _AMOUNT_VALUE, _parse_amount, read_invoice_file
@@ -102,7 +102,10 @@ def ocr_create_payment_draft(file_url, company=None, invoice_doctype=None, invoi
 		pe.paid_amount = pe.received_amount = amount
 	pe.posting_date = payment_date
 	pe.reference_date = payment_date
-	pe.reference_no = fields.get("invoice_number") or _("Recu scanne du {0}").format(payment_date)
+	# the operator's transaction id is what bank reconciliation matches on
+	pe.reference_no = (
+		_read_transaction_id(text) or fields.get("invoice_number") or _("Recu scanne du {0}").format(payment_date)
+	)
 	if mode_of_payment:
 		pe.mode_of_payment = mode_of_payment
 	pe.remarks = _("Paiement cree depuis le recu scanne, pour {0} {1}.").format(_(invoice.doctype), invoice.name)
@@ -127,6 +130,21 @@ def ocr_create_payment_draft(file_url, company=None, invoice_doctype=None, invoi
 	)
 
 	return {"doctype": "Payment Entry", "name": pe.name, "invoice": invoice.name, "warnings": warnings}
+
+
+_TRANSACTION_ID_RE = re.compile(
+	r"(?:ID\s*(?:de\s*)?transaction|transaction\s*ID|N[°ºo]?\s*(?:de\s*)?transaction|r[ée]f[ée]rence\s*(?:de\s*)?(?:transaction|paiement|op[ée]ration)?)"
+	r"\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9\-_/.]{3,})",
+	re.IGNORECASE,
+)
+
+
+def _read_transaction_id(text):
+	for match in _TRANSACTION_ID_RE.finditer(text or ""):
+		value = match.group(1)
+		if any(ch.isdigit() for ch in value):
+			return value
+	return None
 
 
 def _read_paid_amount(text, fields):
