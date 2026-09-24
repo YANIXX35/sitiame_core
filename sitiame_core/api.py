@@ -98,16 +98,23 @@ _SYSCOHADA_DEFAULT_ACCOUNTS = {
 	"4011": "default_payable_account",
 	"5211": "default_bank_account",
 	"5711": "default_cash_account",
+	"7061": "default_income_account",
+	"6011": "default_expense_account",
+	"6031": "stock_adjustment_account",
+	"3111": "default_inventory_account",
 }
 
 # account_number -> account_type to enforce (the SYSCOHADA template ships
 # these untyped, which breaks TVA reporting and the Cash/Bank dashboards).
 _SYSCOHADA_ACCOUNT_TYPES = {
+	"4111": "Receivable",
+	"4011": "Payable",
+	"5211": "Bank",
+	"5711": "Cash",
 	"4431": "Tax",
 	"4432": "Tax",
 	"4452": "Tax",
 	"4454": "Tax",
-	"5711": "Cash",
 }
 
 
@@ -116,7 +123,7 @@ def _apply_syscohada_defaults(company_name):
 		row.account_number: row.name
 		for row in frappe.get_all(
 			"Account",
-			filters={"company": company_name, "account_number": ["in", list(_SYSCOHADA_ACCOUNT_TYPES.keys() | _SYSCOHADA_DEFAULT_ACCOUNTS.keys())]},
+			filters={"company": company_name, "account_number": ["in", list(_SYSCOHADA_ACCOUNT_TYPES.keys() | _SYSCOHADA_DEFAULT_ACCOUNTS.keys() | {"658", "758"})]},
 			fields=["name", "account_number"],
 		)
 	}
@@ -132,8 +139,59 @@ def _apply_syscohada_defaults(company_name):
 		if account_name:
 			company_updates[fieldname] = account_name
 
+	round_off = accounts_by_number.get("658") or accounts_by_number.get("758")
+	if round_off:
+		company_updates["round_off_account"] = round_off
+
 	if company_updates:
 		frappe.db.set_value("Company", company_name, company_updates)
+
+	# Nettoyage automatique du compte parasite Metric et des modeles Ivory Coast
+	for m in frappe.get_all("Account", filters={"company": company_name, "account_name": ["like", "%Metric%"]}):
+		frappe.db.sql("DELETE FROM `tabSales Taxes and Charges` WHERE account_head=%s", m.name)
+		frappe.db.sql("DELETE FROM `tabPurchase Taxes and Charges` WHERE account_head=%s", m.name)
+		frappe.delete_doc("Account", m.name, force=1, ignore_permissions=True)
+
+	for t in frappe.get_all("Sales Taxes and Charges Template", filters={"company": company_name}):
+		if "Ivory Coast" in t.name or "Metric" in t.name:
+			frappe.delete_doc("Sales Taxes and Charges Template", t.name, force=1, ignore_permissions=True)
+
+	for t in frappe.get_all("Purchase Taxes and Charges Template", filters={"company": company_name}):
+		if "Ivory Coast" in t.name or "Metric" in t.name:
+			frappe.delete_doc("Purchase Taxes and Charges Template", t.name, force=1, ignore_permissions=True)
+
+	# Creation automatique des modeles de TVA 18% officiels
+	tax_4431 = accounts_by_number.get("4431")
+	if tax_4431 and not frappe.db.exists("Sales Taxes and Charges Template", {"company": company_name, "title": "TVA 18%"}):
+		try:
+			frappe.get_doc({
+				"doctype": "Sales Taxes and Charges Template",
+				"title": "TVA 18%",
+				"company": company_name,
+				"is_default": 1,
+				"taxes": [{"charge_type": "On Net Total", "account_head": tax_4431, "description": "TVA 18%", "rate": 18.0}],
+			}).insert(ignore_permissions=True)
+		except Exception:
+			pass
+
+	tax_4452 = accounts_by_number.get("4452")
+	if tax_4452 and not frappe.db.exists("Purchase Taxes and Charges Template", {"company": company_name, "title": "TVA 18% Achat"}):
+		try:
+			frappe.get_doc({
+				"doctype": "Purchase Taxes and Charges Template",
+				"title": "TVA 18% Achat",
+				"company": company_name,
+				"is_default": 1,
+				"taxes": [{"charge_type": "On Net Total", "account_head": tax_4452, "description": "TVA 18% Déductible", "rate": 18.0}],
+			}).insert(ignore_permissions=True)
+		except Exception:
+			pass
+
+	# Rattacher l'entrepot au compte 3111
+	stock_3111 = accounts_by_number.get("3111")
+	if stock_3111:
+		for wh in frappe.get_all("Warehouse", filters={"company": company_name}):
+			frappe.db.set_value("Warehouse", wh.name, "account", stock_3111)
 
 
 # Same 11-module allowlist as PME360's provisioning path
