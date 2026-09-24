@@ -11,6 +11,26 @@ CINETPAY_BASE_URL = "https://api.cinetpay.net"
 _TOKEN_CACHE_KEY = "cinetpay_oauth_token"
 
 
+def normalize_phone(phone):
+	"""CinetPay needs an international number: a local Ivorian "0143875302"
+	makes it open a checkout session that is FAILED at once (transaction id
+	"ER-P-...", checkout page 404) -- verified in sandbox on 2026-09-24,
+	while "+2250143875302" or no phone at all both work. Returns the
+	+225 form, or None when the number can't be made safe (then it is
+	simply not sent)."""
+	digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+	raw = (phone or "").strip()
+	if raw.startswith("+") and 8 <= len(digits) <= 15:
+		return "+" + digits
+	if digits.startswith("00") and 10 <= len(digits) - 2 <= 15:
+		return "+" + digits[2:]
+	if digits.startswith("225") and len(digits) == 13:
+		return "+" + digits
+	if len(digits) == 10:
+		return "+225" + digits
+	return None
+
+
 def _get_credentials():
 	api_key = frappe.conf.get("cinetpay_api_key")
 	api_password = frappe.conf.get("cinetpay_api_password")
@@ -64,7 +84,7 @@ def init_payment(merchant_transaction_id, amount, designation, notify_url, succe
 		if customer.get("email"):
 			client_email = customer["email"]
 		if customer.get("phone"):
-			client_phone_number = customer["phone"]
+			client_phone_number = normalize_phone(customer["phone"])
 
 	payload = {
 		"currency": "XOF",
