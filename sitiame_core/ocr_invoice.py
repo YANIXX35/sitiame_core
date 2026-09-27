@@ -4,8 +4,10 @@
 """Scanned invoice -> complete draft Purchase/Sales Invoice.
 
 The accountant uploads the paper invoice; this creates the whole invoice as
-a draft (party found or created, one HT line, the VAT on the company's own
-TVA account, dates, supplier invoice number, the scan attached). Nothing is
+a draft (party found or created, one line per line read when they add up
+to the HT -- else a single HT line --, each on the account proposed by
+ocr_accounts, the VAT on the company's own TVA account, dates, supplier
+invoice number, the scan attached). Nothing is
 submitted here: the accountant reviews the draft and clicks "Soumettre",
 and ERPNext's own GL engine then books charge/produit + TVA + tiers into
 the journal, general ledger and trial balance.
@@ -16,6 +18,7 @@ from frappe import _
 from frappe.utils import flt, getdate, today
 
 from sitiame_core.api import read_invoice_file
+from sitiame_core.ocr_accounts import choose_account, remembered_account
 
 SUPPORTED_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
 
@@ -84,18 +87,33 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 		"Company", company, "default_expense_account" if is_purchase else "default_income_account"
 	)
 	reference = fields.get("invoice_number") or _("sans numero")
-	invoice.append(
-		"items",
-		{
-			"item_name": _("Facture {0} - {1}").format(reference, party)[:140],
-			"description": _("Montant HT importe depuis la facture scannee -- verifiez le compte de charge/produit."),
-			"qty": 1,
-			"uom": "Nos",
-			"rate": net,
-			account_field: company_account,
-			"cost_center": frappe.get_cached_value("Company", company, "cost_center"),
-		},
-	)
+	lines, line_warnings = _invoice_lines(data.get("line_items") or [], net, reference, party)
+	warnings += line_warnings
+
+	remembered = remembered_account(is_purchase, party, company)
+	cost_center = frappe.get_cached_value("Company", company, "cost_center")
+	proposals = []
+	for line in lines:
+		account, source = choose_account(is_purchase, company, line["item_name"], company_account, remembered)
+		proposals.append((line["item_name"], account, source))
+		invoice.append(
+			"items",
+			{
+				"item_name": line["item_name"][:140],
+				"description": line["description"],
+				"qty": line["qty"],
+				"uom": "Nos",
+				"rate": line["rate"],
+				account_field: account,
+				"cost_center": cost_center,
+			},
+		)
+	if any(source == "defaut" for label, account, source in proposals):
+		warnings.append(
+			_("Compte par defaut ({0}) utilise faute d'historique ou de mot-cle reconnu : verifiez-le avant de soumettre.").format(
+				company_account
+			)
+		)
 
 	if tax > 0:
 		tax_account = _company_vat_account(company, is_purchase)
@@ -118,7 +136,7 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 
 	invoice.insert()
 	_attach_scan(file_url, invoice)
-	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings)
+	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings, proposals)
 
 	return {"doctype": doctype, "name": invoice.name, "warnings": warnings}
 
@@ -164,6 +182,46 @@ def _resolve_amounts(fields):
 			)
 		)
 	return net, tax, warnings
+
+
+def _invoice_lines(line_items, net, reference, party):
+	"""One draft line per line read on the document when they add up to
+	the HT; otherwise the single HT line -- never lines that contradict the
+	invoice's own total (a misread table, or no table found)."""
+	lines = []
+	for item in line_items:
+		label = (item.get("item_name") or "").strip()
+		rate = flt(item.get("rate"))
+		if not label or rate <= 0:
+			lines = []
+			break
+		lines.append(
+			{
+				"item_name": label,
+				"qty": flt(item.get("qty")) or 1,
+				"rate": rate,
+				"description": _("Ligne lue sur la facture scannee -- verifiez le compte."),
+			}
+		)
+
+	read_total = sum((flt(item.get("qty")) or 1) * flt(item.get("rate")) for item in line_items)
+	if lines and abs(read_total - net) <= AMOUNT_TOLERANCE * len(lines):
+		return lines, []
+
+	warnings = []
+	if line_items:
+		warnings.append(
+			_("Lignes lues ({0}) incoherentes avec le HT ({1}) : une seule ligne au HT a ete creee.").format(
+				flt(read_total), net
+			)
+		)
+	single = {
+		"item_name": _("Facture {0} - {1}").format(reference, party),
+		"qty": 1,
+		"rate": net,
+		"description": _("Montant HT importe depuis la facture scannee -- verifiez le compte de charge/produit."),
+	}
+	return [single], warnings
 
 
 def _assert_not_already_imported(bill_no, party_name, company):
@@ -222,7 +280,7 @@ def _attach_scan(file_url, invoice):
 	file_doc.save(ignore_permissions=True)
 
 
-def _add_review_comment(invoice, fields, confidence, warnings):
+def _add_review_comment(invoice, fields, confidence, warnings, proposals=()):
 	labels = {
 		"invoice_number": _("Numero"),
 		"invoice_date": _("Date"),
@@ -242,6 +300,19 @@ def _add_review_comment(invoice, fields, confidence, warnings):
 	]
 	html = "<b>" + _("Facture creee depuis le document scanne -- a verifier puis soumettre.") + "</b>"
 	html += "<ul>" + "".join(lines) + "</ul>"
+	if proposals:
+		sources = {
+			"memoire": _("derniere facture de ce tiers"),
+			"mot-cle": _("mot-cle du libelle"),
+			"defaut": _("compte par defaut, a verifier"),
+		}
+		html += "<b>" + _("Comptes proposes :") + "</b><ul>"
+		html += "".join(
+			f"<li>{frappe.utils.escape_html(label)} &rarr; {frappe.utils.escape_html(account or '-')}"
+			f" ({frappe.utils.escape_html(sources[source])})</li>"
+			for label, account, source in proposals
+		)
+		html += "</ul>"
 	if warnings:
 		html += "<b>" + _("Points a verifier :") + "</b><ul>"
 		html += "".join(f"<li>{frappe.utils.escape_html(w)}</li>" for w in warnings) + "</ul>"
