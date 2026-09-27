@@ -206,6 +206,11 @@ def _apply_syscohada_defaults(company_name):
 		for wh in frappe.get_all("Warehouse", filters={"company": company_name}):
 			frappe.db.set_value("Warehouse", wh.name, "account", stock_3111)
 
+	# Wave/Orange Money/MTN MoMo/Moov Money -> compte 552 de la societe
+	from sitiame_core.ocr_accounts import ensure_mobile_money_modes
+
+	ensure_mobile_money_modes(company_name)
+
 
 # Same 11-module allowlist as PME360's provisioning path
 # (ErpNextClient::hiddenDesktopIconLabelsForPme) -- these are the DocType's

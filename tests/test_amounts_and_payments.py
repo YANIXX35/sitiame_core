@@ -90,3 +90,17 @@ class TestReceiptParsing:
 	def test_mode_of_payment(self, monkeypatch, text, mode):
 		monkeypatch.setattr(frappe.db, "exists", lambda doctype, name=None: True, raising=False)
 		assert ocr_payment._detect_mode_of_payment(text) == mode
+
+
+def test_phone_mode_without_linked_account_uses_the_mobile_money_account(monkeypatch):
+	"""Only SITIAME had Wave/Orange/MTN/Moov linked: elsewhere a Mobile
+	Money receipt fell back to the 5211 bank account."""
+
+	def get_value(doctype, filters, fieldname=None, **kwargs):
+		if doctype == "Mode of Payment" and fieldname == "type":
+			return "Phone"
+		return None
+
+	monkeypatch.setattr(frappe.db, "get_value", get_value, raising=False)
+	monkeypatch.setattr(ocr_payment, "mobile_money_account", lambda company, mode: f"552 - MM - {company}", raising=False)
+	assert ocr_payment._mode_account("Wave", "YAO") == "552 - MM - YAO"

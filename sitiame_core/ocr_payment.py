@@ -21,6 +21,7 @@ from frappe.utils import flt, today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from sitiame_core.api import _AMOUNT_VALUE, _parse_amount, read_invoice_file
+from sitiame_core.ocr_accounts import mobile_money_account
 from sitiame_core.ocr_invoice import AMOUNT_TOLERANCE, _attach_scan, _default_company
 
 INVOICE_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
@@ -227,6 +228,11 @@ def _mode_account(mode_of_payment, company):
 	)
 	if account:
 		return account
-	if frappe.db.get_value("Mode of Payment", mode_of_payment, "type") == "Cash":
+	mode_type = frappe.db.get_value("Mode of Payment", mode_of_payment, "type")
+	if mode_type == "Cash":
 		return frappe.get_cached_value("Company", company, "default_cash_account")
+	if mode_type == "Phone":
+		# Wave/Orange/MTN/Moov not linked for this company yet: its 552
+		# Mobile Money account, never the bank account.
+		return mobile_money_account(company, mode_of_payment)
 	return None
