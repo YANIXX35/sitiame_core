@@ -26,9 +26,16 @@ app_include_css = [
 ]
 
 doctype_list_js = {
-	"Purchase Invoice": "public/js/ocr_invoice_list.js",
-	"Sales Invoice": "public/js/ocr_invoice_list.js",
-	"Payment Entry": "public/js/ocr_invoice_list.js",
+	"Purchase Invoice": ["public/js/ocr_invoice_list.js", "public/js/list_download.js"],
+	"Sales Invoice": ["public/js/ocr_invoice_list.js", "public/js/list_download.js"],
+	"Payment Entry": ["public/js/ocr_invoice_list.js", "public/js/list_download.js"],
+	"Journal Entry": "public/js/list_download.js",
+	"Stock Entry": "public/js/list_download.js",
+	"Purchase Receipt": "public/js/list_download.js",
+	"Delivery Note": "public/js/list_download.js",
+	"Purchase Order": "public/js/list_download.js",
+	"Sales Order": "public/js/list_download.js",
+	"Item": "public/js/list_download.js",
 }
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
