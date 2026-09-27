@@ -17,6 +17,12 @@
   "col_break_3",
   "eval_date",
   "purpose",
+  "scoring360_section",
+  "scoring_period_from",
+  "scoring_period_col",
+  "scoring_period_to",
+  "scoring360_panel_break",
+  "scoring360_panel",
   "company_info_section",
   "contact_name",
   "phone_from_signup",
@@ -216,6 +222,34 @@
    "fieldname": "purpose",
    "fieldtype": "Data",
    "label": "Objet du credit"
+  },
+  {
+   "fieldname": "scoring360_section",
+   "fieldtype": "Section Break",
+   "label": "Analyse automatique Scoring 360"
+  },
+  {
+   "description": "Pre-remplie sur 12 mois glissants a la date d'evaluation. La croissance est calculee contre la periode de meme duree qui precede.",
+   "fieldname": "scoring_period_from",
+   "fieldtype": "Date",
+   "label": "Periode analysee du"
+  },
+  {
+   "fieldname": "scoring_period_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scoring_period_to",
+   "fieldtype": "Date",
+   "label": "au"
+  },
+  {
+   "fieldname": "scoring360_panel_break",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "scoring360_panel",
+   "fieldtype": "HTML"
   },
   {
    "fieldname": "criteria_intro_section",
@@ -651,7 +685,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-18 00:00:00.000000",
+ "modified": "2026-09-27 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Credit Scoring Dossier",
