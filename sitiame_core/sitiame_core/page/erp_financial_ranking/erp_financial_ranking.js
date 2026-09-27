@@ -63,7 +63,9 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 					"<th class='text-end'>" + __("Contribution Interne") + "</th>" +
 					"</tr></thead><tbody>";
 
-				var badgeClass = { pret_a_deployer: "success", solide_mais_a_cadrer: "warning", risque_a_traiter: "danger" };
+				// Frappe indicator-pill colors (success/warning/danger are not
+				// indicator classes and rendered uncolored).
+				var badgeClass = { pret_a_deployer: "green", solide_mais_a_cadrer: "orange", risque_a_traiter: "red", insuffisant: "gray" };
 
 				lignes.forEach(function (row) {
 					var decision = row.decision || {};
