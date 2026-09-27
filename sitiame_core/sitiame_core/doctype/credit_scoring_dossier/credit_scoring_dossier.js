@@ -321,8 +321,10 @@ function scoring360_block_html(block, data) {
 	});
 
 	return (
-		"<div class='col-md-4' style='margin-bottom:15px;'>" +
-		"<div class='card' style='padding:12px;height:100%;'>" +
+		// Full width, stacked: the form column is too narrow for 3 cards side
+		// by side (Niveau/Points columns ended up clipped behind a scrollbar).
+		"<div class='col-12' style='margin-bottom:15px;'>" +
+		"<div class='card' style='padding:12px;'>" +
 		"<div style='display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;'>" +
 		"<b>" + scoring360_esc(__("Bloc {0}", [block.label])) + "</b>" +
 		"<span><b>" + format_number(result.total || 0, null, 1) + "</b> / 100 " +
