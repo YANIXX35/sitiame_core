@@ -41,5 +41,6 @@ scheduler_events = {
 	],
 	"cron": {
 		"0 */4 * * *": ["sitiame_core.tasks.run_scheduled_backup"],
+		"*/10 * * * *": ["sitiame_core.subscription_api.reconcile_pending_payments"],
 	},
 }

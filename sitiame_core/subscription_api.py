@@ -87,10 +87,12 @@ def get_my_subscription():
 def _generate_payment_link(doc):
 	site_url = frappe.utils.get_url()
 
-	notify_token = doc.notify_token or frappe.generate_hash(length=32)
-	doc.db_set("notify_token", notify_token)
-
-	notify_url = f"{site_url}/api/method/sitiame_core.subscription_api.cinetpay_subscription_webhook?token={notify_token}&docname={doc.name}"
+	# CinetPay caps notify_url at 120 characters (official SDK, types/
+	# payment.ts); with our own ?token=&docname= it was 164, and webhooks
+	# for successful payments never arrived. The bare method URL is 102
+	# characters: the webhook body carries merchant_transaction_id, and
+	# the notify_token CinetPay returns below is what authenticates it.
+	notify_url = f"{site_url}/api/method/sitiame_core.subscription_api.cinetpay_subscription_webhook"
 	success_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=success"
 	failed_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=failed"
 
@@ -128,6 +130,8 @@ def _generate_payment_link(doc):
 
 	doc.db_set("transaction_id", result.get("transaction_id"))
 	doc.db_set("payment_url", payment_url)
+	if result.get("notify_token"):
+		doc.db_set("notify_token", result["notify_token"])
 	frappe.db.commit()
 
 	return {"payment_url": payment_url}
@@ -306,6 +310,9 @@ def check_pme_subscription_status(docname=None):
 
 	if docname and frappe.db.exists("Subscription Payment", docname):
 		doc = frappe.get_doc("Subscription Payment", docname)
+		# a PME may only look at its own company's payments (amount, link)
+		if "System Manager" not in frappe.get_roles() and doc.company != get_user_company(user):
+			frappe.throw(_("Ce paiement ne concerne pas votre societe."), frappe.PermissionError)
 
 		if doc.status == "En attente":
 			try:
@@ -379,13 +386,15 @@ def cinetpay_subscription_webhook():
 		frappe.response["http_status_code"] = 200
 		return {"status": "ignored"}
 
-	# Our secret travels in the notify_url query string (?token=...). CinetPay
-	# POSTs a JSON body, and for JSON requests Frappe builds form_dict from
-	# the body only (frappe.app.make_form_dict), so it must be read from the
-	# query string itself. The body's own "notify_token" is CinetPay's, a
-	# different value -- comparing against it rejected every webhook (403).
-	received_token = frappe.request.args.get("token") if frappe.request else None
-	if not received_token or not hmac.compare_digest(str(doc.notify_token or ""), str(received_token)):
+	# Links created since 2026-09-25 store the notify_token CinetPay returned
+	# at init and it comes back in the JSON body (official scheme). Older
+	# links carried our own token in the notify_url query string, read from
+	# request.args because Frappe builds form_dict from a JSON body only.
+	expected = str(doc.notify_token or "")
+	candidates = [data.get("notify_token"), query.get("token")]
+	if not expected or not any(
+		token and hmac.compare_digest(expected, str(token)) for token in candidates
+	):
 		frappe.log_error(
 			title="Subscription Payment: notify_token invalide",
 			message=f"{doc.name}: jeton recu invalide",
@@ -408,3 +417,30 @@ def cinetpay_subscription_webhook():
 
 	frappe.response["http_status_code"] = 200
 	return {"status": "ok"}
+
+
+def reconcile_pending_payments():
+	"""Scheduler job (every 10 min, see hooks.py): settle payments still "En
+	attente" by asking CinetPay directly. The webhook is the fast path, but
+	it can be lost or delayed (sandbox batches them, a restart can drop
+	one); without this, a paid subscription stayed inactive unless the
+	customer happened to come back to the Abonnement page."""
+	since = frappe.utils.add_days(frappe.utils.now_datetime(), -3)
+	for name in frappe.get_all(
+		"Subscription Payment",
+		filters={"status": "En attente", "creation": [">=", since], "transaction_id": ["is", "set"]},
+		pluck="name",
+	):
+		try:
+			status = (get_payment_status(name).get("status") or "").upper()
+			if status in ("SUCCESS", "ACCEPTED"):
+				_mark_paid(name)
+			elif status in ("FAILED", "CANCELLED", "REFUSED"):
+				frappe.db.set_value("Subscription Payment", name, "status", "Échoué")
+				frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			frappe.log_error(
+				title="Subscription Payment: reconciliation echouee",
+				message=f"{name}\n{frappe.get_traceback()}",
+			)
