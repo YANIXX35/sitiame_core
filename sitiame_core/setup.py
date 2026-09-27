@@ -11,6 +11,20 @@ def after_migrate():
 	_create_subscription_fields()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
+	_ensure_platform_admin_role()
+
+
+# Grants access to the "Utilisateurs de la plateforme" page (every PME and
+# its subscription). Given to people from the User form, never hard-coded.
+PLATFORM_ADMIN_ROLE = "Administrateur Plateforme Sitiame"
+
+
+def _ensure_platform_admin_role():
+	if not frappe.db.exists("Role", PLATFORM_ADMIN_ROLE):
+		frappe.get_doc(
+			{"doctype": "Role", "role_name": PLATFORM_ADMIN_ROLE, "desk_access": 1}
+		).insert(ignore_permissions=True)
+		frappe.db.commit()
 
 
 FINANCIAL_REPORTS_SIDEBAR = "Financial Reports"

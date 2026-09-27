@@ -16,6 +16,7 @@ import frappe
 from frappe import _
 from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, get_backups_path, get_bench_path
+from frappe.utils.password import decrypt, encrypt
 
 # Signup anti-bot: short-lived math challenge, answer cached server-side
 # keyed by a one-time token. No external captcha service/API key needed.
@@ -300,6 +301,15 @@ def register_company(
 	# session in the few-second window around completion.
 	token = frappe.generate_hash(length=32)
 	_set_company_signup_progress(token, {"status": "pending", "email": email})
+	# Audit M1: job kwargs sit in the Redis queue in clear (and stay in the
+	# failed-job registry if the job crashes), so the password never goes
+	# there -- only encrypted with the site key, under a short-lived cache
+	# entry the job reads once and deletes.
+	frappe.cache().set_value(
+		_SIGNUP_PASSWORD_PREFIX + token,
+		encrypt(password),
+		expires_in_sec=_COMPANY_SIGNUP_PROGRESS_TTL,
+	)
 
 	frappe.enqueue(
 		"sitiame_core.api._provision_company_signup",
@@ -309,7 +319,6 @@ def register_company(
 		token=token,
 		contact_name=contact_name,
 		email=email,
-		password=password,
 		company_name=company_name,
 		phone=phone,
 		company_sigle=company_sigle,
@@ -326,6 +335,14 @@ def register_company(
 
 _COMPANY_SIGNUP_PROGRESS_PREFIX = "sitiame_core:company_signup_progress:"
 _COMPANY_SIGNUP_PROGRESS_TTL = 900  # 15 minutes
+_SIGNUP_PASSWORD_PREFIX = "sitiame_core:company_signup_pwd:"
+
+
+def _pop_signup_password(token):
+	key = _SIGNUP_PASSWORD_PREFIX + token
+	encrypted = frappe.cache().get_value(key)
+	frappe.cache().delete_value(key)
+	return decrypt(encrypted) if encrypted else None
 
 
 def _set_company_signup_progress(token, data):
@@ -340,7 +357,6 @@ def _provision_company_signup(
 	token,
 	contact_name,
 	email,
-	password,
 	company_name,
 	phone,
 	company_sigle,
@@ -350,7 +366,16 @@ def _provision_company_signup(
 	address,
 	city,
 	signup_ip,
+	password=None,  # only for jobs queued before the M1 fix
 ):
+	password = password or _pop_signup_password(token)
+	if not password:
+		_set_company_signup_progress(
+			token,
+			{"status": "failed", "email": email, "message": _("Session d'inscription expiree. Veuillez recommencer.")},
+		)
+		return
+
 	# Background workers don't inherit the request's language the way a web
 	# request does, so frappe.local.lang defaults to "en" here even though
 	# the site's default (System Settings) is "fr". That mismatch is a real
@@ -1916,21 +1941,17 @@ def get_financing_dossier_from_pme360(company):
 	return response.json()
 
 
-PLATFORM_USERS_ALLOWED_EMAILS = {
-	"fnguessan@sitiame-capital.com",
-	"joseph@sitiame-capital.com",
-	"kyliyanisse@gmail.com",
-}
-
-
 @frappe.whitelist()
 def get_platform_users():
 	"""Liste toutes les PME provisionnees avec leur statut d'abonnement et
 	leur activite de connexion, pour la page admin "Utilisateurs de la
-	plateforme". Reserve a une liste precise d'admins -- pas seulement
-	System Manager, meme un autre admin ERPNext n'y a pas acces.
+	plateforme". Reserve au role PLATFORM_ADMIN_ROLE -- pas seulement
+	System Manager, meme un autre admin ERPNext n'y a pas acces. (Audit
+	M4 : c'etait une liste d'e-mails ecrite en dur dans ce depot public.)
 	"""
-	if frappe.session.user not in PLATFORM_USERS_ALLOWED_EMAILS:
+	from sitiame_core.setup import PLATFORM_ADMIN_ROLE
+
+	if PLATFORM_ADMIN_ROLE not in frappe.get_roles():
 		frappe.throw(_("Reserve a certains administrateurs."), frappe.PermissionError)
 
 	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")

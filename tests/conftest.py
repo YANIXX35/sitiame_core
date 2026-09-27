@@ -92,6 +92,12 @@ def _install_frappe_stub():
 	utils.get_bench_path = lambda: ""
 	frappe.utils = utils
 
+	password = types.ModuleType("frappe.utils.password")
+	password.encrypt = lambda text, *args, **kwargs: f"enc:{text}"
+	password.decrypt = lambda text, *args, **kwargs: text[len("enc:"):]
+	utils.password = password
+	sys.modules["frappe.utils.password"] = password
+
 	rate_limiter = types.ModuleType("frappe.rate_limiter")
 	rate_limiter.rate_limit = lambda *args, **kwargs: (lambda fn: fn)
 
