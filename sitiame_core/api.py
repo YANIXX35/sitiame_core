@@ -1148,12 +1148,34 @@ def get_financial_ranking(date_from=None, date_to=None):
 @frappe.whitelist()
 def get_scoring360_score(company, date_from=None, date_to=None):
 	"""ERPNext port of PME360's Scoring360Service::scoreUser(), driven by
-	the "Scoring 360 Settings" single doctype. See scoring360_service.py."""
-	frappe.only_for("System Manager")
+	the "Scoring 360 Settings" single doctype. See scoring360_service.py.
 
-	from sitiame_core.scoring360_service import score_company
+	Read access on the Company is enough (same rule as the Liasse
+	SYSCOHADA report): staff see every company, a PME account is limited
+	to its own by its Company User Permission -- it powers the detailed
+	panel of its Credit Scoring Dossier. Also returns entries_count and
+	the weights/thresholds in use, so the panel shows them without
+	hardcoding anything."""
+	frappe.has_permission("Company", "read", company, throw=True)
 
-	return score_company(company, date_from or None, date_to or None)
+	from sitiame_core.scoring360_service import _entries_count, get_config, score_company
+
+	date_from = date_from or None
+	date_to = date_to or None
+
+	entries_count = _entries_count(company, date_from, date_to)
+	if not entries_count:
+		return {"entries_count": 0}
+
+	result = score_company(company, date_from, date_to)
+	cfg = get_config()
+	result["entries_count"] = entries_count
+	result["config"] = {
+		block: {"weights": cfg[block]["weights"], "thresholds": cfg[block]["thresholds"]}
+		for block in ("bank", "investor", "internal")
+	}
+	result["config"]["composite"] = {"weights": cfg["composite"]["weights"]}
+	return result
 
 
 @frappe.whitelist()
