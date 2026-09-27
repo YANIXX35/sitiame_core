@@ -94,6 +94,10 @@ window.sitiame_open_download_dialog = function (listview) {
 						: __("{0} document(s) selon les filtres de la liste", [c.count])) +
 					"</p>";
 			}
+			if (c.note) {
+				// e.g. cancelled documents, which ERPNext refuses to print
+				html += "<p class='text-muted small'>" + frappe.utils.escape_html(c.note) + "</p>";
+			}
 			dialog.fields_dict.info.$wrapper.html(html);
 		});
 	}

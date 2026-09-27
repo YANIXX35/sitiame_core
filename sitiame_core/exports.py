@@ -137,30 +137,42 @@ def _parse(value):
 	return frappe.parse_json(value) if isinstance(value, str) and value else value
 
 
-def _names(doctype, names, filters, limit):
+def _names(doctype, names, filters, limit, excluded_docstatus=()):
 	"""Names of the checked rows, else of the rows matching the list
 	filters -- read-permission and User Permission checked, at most
 	limit + 1 so "too many" can be told apart from "exactly the limit"."""
 	names = _parse(names) or []
-	return frappe.get_list(
-		doctype,
-		filters=[["name", "in", names]] if names else (_parse(filters) or []),
-		pluck="name",
-		order_by="creation asc",
-		limit_page_length=limit + 1,
-	)
+	filters = [["name", "in", names]] if names else list(_parse(filters) or [])
+	if excluded_docstatus:
+		filters.append(["docstatus", "not in", list(excluded_docstatus)])
+	return frappe.get_list(doctype, filters=filters, pluck="name", order_by="creation asc", limit_page_length=limit + 1)
+
+
+def _unprintable_docstatus(doctype, fmt):
+	"""Docstatuses ERPNext refuses to print (Print Settings) -- cancelled
+	documents by default, drafts when turned off: left out of a PDF, since
+	a single one made the whole file fail."""
+	if fmt != "pdf" or not frappe.get_meta(doctype).is_submittable:
+		return []
+	settings = frappe.get_single("Print Settings")
+	return ([] if settings.allow_print_for_cancelled else [2]) + ([] if settings.allow_print_for_draft else [0])
 
 
 @frappe.whitelist()
 def count_documents(doctype, fmt, names=None, filters=None):
 	_config(doctype, fmt)
-	return {"count": len(_names(doctype, names, filters, LIMITS[fmt])), "limit": LIMITS[fmt]}
+	excluded = _unprintable_docstatus(doctype, fmt)
+	result = {"count": len(_names(doctype, names, filters, LIMITS[fmt], excluded)), "limit": LIMITS[fmt]}
+	if excluded:
+		kinds = [_("annules") if status == 2 else _("brouillons") for status in excluded]
+		result["note"] = _("Documents {0} non inclus : ERPNext ne les imprime pas.").format(_(" et ").join(kinds))
+	return result
 
 
 @frappe.whitelist()
 def download(doctype, fmt, names=None, filters=None):
 	config = _config(doctype, fmt)
-	found = _names(doctype, names, filters, LIMITS[fmt])
+	found = _names(doctype, names, filters, LIMITS[fmt], _unprintable_docstatus(doctype, fmt))
 	if not found:
 		frappe.throw(_("Aucun document a telecharger."))
 	if len(found) > LIMITS[fmt]:

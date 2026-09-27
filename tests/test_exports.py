@@ -63,9 +63,47 @@ def test_list_filters_are_used_without_checked_rows(listed):
 
 
 def test_count_reads_one_more_than_the_limit(listed, monkeypatch):
-	monkeypatch.setitem(exports.LIMITS, "pdf", 5)
-	assert exports.count_documents("Sales Invoice", "pdf") == {"count": 6, "limit": 5}
+	monkeypatch.setitem(exports.LIMITS, "docx", 5)
+	assert exports.count_documents("Sales Invoice", "docx") == {"count": 6, "limit": 5}
 	assert listed[0]["limit"] == 6
+
+
+def _print_settings(monkeypatch, submittable=True, cancelled=0, draft=1):
+	monkeypatch.setattr(frappe, "get_meta", lambda doctype: frappe._dict(is_submittable=submittable), raising=False)
+	monkeypatch.setattr(
+		frappe,
+		"get_single",
+		lambda doctype: frappe._dict(allow_print_for_cancelled=cancelled, allow_print_for_draft=draft),
+		raising=False,
+	)
+
+
+def test_pdf_leaves_out_what_erpnext_refuses_to_print(listed, monkeypatch):
+	"""Regression: one cancelled invoice in the list made the whole PDF fail
+	("Not allowed to print cancelled documents")."""
+	_print_settings(monkeypatch)
+	result = exports.count_documents("Sales Invoice", "pdf", filters='[["Sales Invoice", "status", "=", "Paid"]]')
+	assert listed[0]["filters"] == [["Sales Invoice", "status", "=", "Paid"], ["docstatus", "not in", [2]]]
+	assert "annul" in result["note"]
+
+
+def test_pdf_also_leaves_out_drafts_when_printing_them_is_off(listed, monkeypatch):
+	_print_settings(monkeypatch, draft=0)
+	exports.count_documents("Sales Invoice", "pdf", names='["A"]')
+	assert listed[0]["filters"] == [["name", "in", ["A"]], ["docstatus", "not in", [2, 0]]]
+
+
+def test_pdf_of_a_non_submittable_doctype_keeps_everything(listed, monkeypatch):
+	_print_settings(monkeypatch, submittable=False)
+	result = exports.count_documents("Item", "pdf")
+	assert listed[0]["filters"] == []
+	assert "note" not in result
+
+
+def test_other_formats_keep_cancelled_documents(listed, monkeypatch):
+	_print_settings(monkeypatch)
+	exports.count_documents("Sales Invoice", "xlsx")
+	assert listed[0]["filters"] == []
 
 
 def test_download_refuses_too_many_documents(listed, monkeypatch):
