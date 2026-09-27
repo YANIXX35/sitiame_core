@@ -58,8 +58,8 @@ def _verify_signup_captcha(token, answer):
 
 # Same provider/account PME360 already uses for its own OCR pipeline
 # (app/Services/OcrService.php) -- reused here instead of standing up a
-# second OCR integration.
-OCR_SPACE_API_KEY = "K87899142C88957"
+# second OCR integration. The API key lives in site_config.json
+# ("ocr_space_api_key"), never in this (public) repository.
 OCR_SPACE_ENDPOINT = "https://api.ocr.space/parse/image"
 
 
@@ -859,15 +859,37 @@ def ocr_extract_invoice(file_url):
 	return read_invoice_file(file_url)
 
 
+def get_readable_file(file_url):
+	"""The File record behind file_url, only if the caller may read it.
+
+	frappe.utils.file_manager.get_file reads any path on disk with no
+	permission check, so on its own it let any logged-in user OCR (and see
+	the text of) another company's private file, KYC scans included, just
+	by naming it. File.has_permission is Frappe's own rule: public file,
+	own upload, shared, or attached to a document the user can read."""
+	name = frappe.db.get_value("File", {"file_url": file_url}, "name")
+	if not name:
+		frappe.throw(_("Fichier introuvable."), frappe.DoesNotExistError)
+	file_doc = frappe.get_doc("File", name)
+	if not file_doc.has_permission("read"):
+		frappe.throw(_("Vous n'avez pas accès à ce fichier."), frappe.PermissionError)
+	return file_doc
+
+
 def read_invoice_file(file_url):
 	"""OCR + structured extraction, shared by ocr_extract_invoice (form
 	pre-fill) and sitiame_core.ocr_invoice (full draft invoice creation)."""
-	filename, content = frappe.utils.file_manager.get_file(file_url)
+	file_doc = get_readable_file(file_url)
+	filename, content = frappe.utils.file_manager.get_file(file_doc.file_url)
+
+	api_key = frappe.conf.get("ocr_space_api_key")
+	if not api_key:
+		frappe.throw(_("ocr_space_api_key n'est pas configuré dans site_config.json."))
 
 	response = requests.post(
 		OCR_SPACE_ENDPOINT,
 		data={
-			"apikey": OCR_SPACE_API_KEY,
+			"apikey": api_key,
 			"language": "fre",
 			"OCREngine": 2,
 			"isTable": "true",
@@ -1467,21 +1489,6 @@ def chat_with_assistant(message, history=None):
 	return chat(messages)
 
 
-# PIN gate for the Club Sportif workspace (company accounts only -- see
-# hide_club_sportif.js for the accompanying UI). This is a soft deterrent,
-# not a real access boundary: Club Sportif's own links (Customer/
-# Subscription/Event) stay reachable via direct URL for anyone who already
-# has the underlying role-based permission, same as before. The PIN is
-# only ever compared server-side (never shipped to the client) so it can't
-# be read from page source, but that's the limit of what this buys.
-@frappe.whitelist()
-def verify_club_sportif_pin(pin):
-	configured = frappe.conf.get("club_sportif_pin")
-	if not configured:
-		return {"ok": False}
-	return {"ok": str(pin).strip() == str(configured).strip()}
-
-
 # Inscription d'une nouvelle PME depuis le desk ERPNext (page "Inscrire une
 # PME" du module Sitiame Core). PME360 reste la seule source de vérité pour
 # les comptes PME (voir F-35) : cette fonction ne crée rien localement, elle
@@ -1654,6 +1661,9 @@ def get_company_signup_info(company):
 	scoring dossier instead of re-typing it -- the dossier's own fields stay
 	editable in case the signup record is missing or out of date.
 	"""
+	# frappe.db.get_value bypasses permissions: without this, any logged-in
+	# account could read another company's contact, phone, RCCM and address.
+	frappe.has_permission("Company", "read", company, throw=True)
 	signup = frappe.db.get_value(
 		"Company Signup",
 		{"company": company},

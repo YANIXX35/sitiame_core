@@ -212,6 +212,11 @@ def _attach_scan(file_url, invoice):
 	if not file_name:
 		return
 	file_doc = frappe.get_doc("File", file_name)
+	# Only the caller's own fresh upload is moved onto the draft: a file
+	# already attached elsewhere, or someone else's, must never be
+	# re-attached (that would hand it over to the caller).
+	if file_doc.attached_to_doctype or file_doc.owner != frappe.session.user:
+		return
 	file_doc.attached_to_doctype = invoice.doctype
 	file_doc.attached_to_name = invoice.name
 	file_doc.save(ignore_permissions=True)
