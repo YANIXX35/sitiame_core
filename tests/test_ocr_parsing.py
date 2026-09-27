@@ -28,6 +28,36 @@ REAL_OCR_TEXT = (
 )
 
 
+# Verbatim OCR.space output for facture-test.pdf (2026-09-27): no VAT,
+# "TOTAL A PAYER", "Description" header, and the "Qte" header cell lost by
+# the OCR (rows keep 4 cells under a 3-cell header).
+REAL_OCR_TEXT_NO_VAT = (
+	"SITIAME CAPITAL SARL\t\r\n"
+	"Facture N: FAC-2026-0042\t\r\n"
+	"Date: 17/09/2026\t\r\n"
+	"Client : Entreprise Kouassi et Fils\t\r\n"
+	"Adresse : Abidjan, Cocody Riviera\t\r\n"
+	"Description\tPrix unitaire\tMontant\t\r\n"
+	"Prestation de conseil comptable\t1\t250 000\t250 000\t\r\n"
+	"Licence logiciel annuelle\t1\t150 000\t150 000\t\r\n"
+	"TOTAL A PAYER : 400 000 FCFA"
+)
+
+
+@pytest.mark.parametrize(
+	"label", ["TOTAL A PAYER : 400 000", "Total à payer 400 000", "NET À PAYER : 400 000", "Net a payer 400 000"]
+)
+def test_amount_to_pay_is_the_grand_total(label):
+	fields, _ = api._extract_invoice_fields(label + " FCFA\n")
+	assert fields["grand_total"] == 400000.0
+
+
+def test_real_no_vat_invoice_reads_its_total():
+	fields, _ = api._extract_invoice_fields(REAL_OCR_TEXT_NO_VAT)
+	assert fields["grand_total"] == 400000.0
+	assert "subtotal" not in fields and "tax_amount" not in fields
+
+
 def test_real_scan_reads_all_nine_fields():
 	fields, confidence = api._extract_invoice_fields(REAL_OCR_TEXT)
 	assert fields == {
@@ -114,6 +144,22 @@ class TestLineItems:
 	def test_space_aligned_delivery_note(self):
 		text = "Designation  Reference  Qte  Unite\nCiment CPJ 45  CIM-45  20  sac\n\n"
 		assert api._extract_line_items(text) == [{"item_name": "Ciment CPJ 45", "qty": 20.0}]
+
+	def test_description_header_and_lost_header_cell(self):
+		"""The OCR dropped the "Qte" header cell: numbers are right-aligned,
+		so the unit price must not be read from the quantity column."""
+		assert api._extract_line_items(REAL_OCR_TEXT_NO_VAT) == [
+			{"item_name": "Prestation de conseil comptable", "qty": 1.0, "rate": 250000.0},
+			{"item_name": "Licence logiciel annuelle", "qty": 1.0, "rate": 150000.0},
+		]
+
+	def test_libelle_header(self):
+		text = "Libellé\tMontant\nLoyer septembre\t300 000\n\n"
+		assert api._extract_line_items(text) == [{"item_name": "Loyer septembre", "rate": 300000.0, "qty": 1}]
+
+	def test_trailing_currency_cell_keeps_the_unshifted_columns(self):
+		text = "Designation\tMontant\nLoyer septembre\t300 000\tFCFA\n\n"
+		assert api._extract_line_items(text) == [{"item_name": "Loyer septembre", "rate": 300000.0, "qty": 1}]
 
 	def test_no_table_header(self):
 		assert api._extract_line_items("juste du texte\nsans tableau") == []

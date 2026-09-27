@@ -617,7 +617,9 @@ _TAX_AMOUNT_PATTERNS = [
 ]
 _GRAND_TOTAL_PATTERNS = [
 	re.compile(r"(?:TOTAL|MONTANT)\s*T\.?T\.?C\.?\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
-	re.compile(r"NET\s*A\s*PAYER\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+	# "Net a payer" / "Total a payer", with or without the accent: invoices
+	# without VAT often print only this line (no HT/TTC at all).
+	re.compile(r"(?:NET|TOTAL)\s*[AÀ]\s*PAYER\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
 ]
 
 
@@ -796,7 +798,7 @@ def _extract_line_items(text: str) -> list:
 	header_idx = None
 	header_cells: list = []
 	for i, line in enumerate(lines):
-		if re.match(r"^\s*d[ée]signation\b", line, re.IGNORECASE):
+		if re.match(r"^\s*(?:d[ée]signation|description|libell[ée])\b", line, re.IGNORECASE):
 			header_idx = i
 			header_cells = [c.strip().lower() for c in _CELL_SPLIT_RE.split(line.strip()) if c.strip()]
 			break
@@ -813,10 +815,10 @@ def _extract_line_items(text: str) -> list:
 	rate_idx = col_index("prix", "p.u", "unitaire")
 	amount_idx = col_index("montant", "total")
 
-	def number_at(cells, idx):
-		if idx is None or idx >= len(cells):
+	def number_at(cells, idx, offset=0):
+		if idx is None or idx + offset >= len(cells):
 			return None
-		return _parse_amount(cells[idx])
+		return _parse_amount(cells[idx + offset])
 
 	items = []
 	for line in lines[header_idx + 1 :]:
@@ -829,9 +831,19 @@ def _extract_line_items(text: str) -> list:
 		if len(cells) < 2:
 			break
 		entry = {"item_name": cells[0]}
-		qty = number_at(cells, qty_idx)
-		rate = number_at(cells, rate_idx)
-		amount = number_at(cells, amount_idx)
+		# Numbers sit right of the label: when the OCR lost a header cell
+		# (more cells in the row than in the header), read them aligned on
+		# the right -- unless that finds nothing (an extra trailing cell such
+		# as "FCFA" instead), then keep the header positions.
+		shift = len(cells) - len(header_cells)
+		for offset in [shift, 0] if shift > 0 else [0]:
+			qty = number_at(cells, qty_idx, offset)
+			rate = number_at(cells, rate_idx, offset)
+			amount = number_at(cells, amount_idx, offset)
+			if rate is not None or amount is not None:
+				break
+		if qty is None and rate and amount:
+			qty = round(amount / rate, 2)
 		if qty is not None:
 			entry["qty"] = qty
 		# unit price printed, or derivable from the line amount
