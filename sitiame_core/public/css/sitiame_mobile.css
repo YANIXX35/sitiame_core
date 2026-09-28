@@ -1,0 +1,52 @@
+/* Phone-width adjustments for the screens Sitiame adds to the desk -- the
+   native ERPNext lists and forms are already responsive. The widgets set
+   inline styles from their JS, hence the !important. */
+
+@media (max-width: 575.98px) {
+	/* FR/EN switch (language_switcher.js) */
+	#sitiame-lang-switch {
+		margin-right: 6px !important;
+		gap: 2px !important;
+	}
+	#sitiame-lang-switch button {
+		padding: 2px 5px !important;
+		font-size: 10px !important;
+	}
+
+	/* AI assistant (ai_assistant.js): full-width sheet above its button */
+	#sitiame-ai-toggle {
+		width: 46px !important;
+		height: 46px !important;
+		right: 14px !important;
+		bottom: 14px !important;
+		font-size: 20px !important;
+	}
+	#sitiame-ai-panel {
+		left: 8px !important;
+		right: 8px !important;
+		width: auto !important;
+		max-width: none !important;
+		bottom: 70px !important;
+		height: 72vh !important;
+		max-height: none !important;
+	}
+	/* iOS zooms the page when an input under 16px gets focus */
+	#sitiame-ai-input {
+		font-size: 16px !important;
+	}
+
+	/* renewal banner (subscription_banner.js) */
+	#sitiame-subscription-banner {
+		font-size: 12px !important;
+		padding: 6px 10px !important;
+		gap: 6px !important;
+	}
+}
+
+/* keep the AI assistant above the install banner (pwa.js) */
+body.sitiame-install-banner-shown #sitiame-ai-toggle {
+	bottom: 84px !important;
+}
+body.sitiame-install-banner-shown #sitiame-ai-panel {
+	bottom: 140px !important;
+}

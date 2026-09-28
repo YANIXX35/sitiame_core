@@ -8,11 +8,17 @@ app_license = "MIT"
 required_apps = ["erpnext"]
 
 web_include_js = [
+	"/assets/sitiame_core/js/pwa.js",
 	"/assets/sitiame_core/js/login_signup_link.js",
 	"/assets/sitiame_core/js/sitiame_login.js",
 ]
 web_include_css = "/assets/sitiame_core/css/sitiame_login.css"
+
+# Installable app: serves /manifest.webmanifest and /sitiame-sw.js
+page_renderer = ["sitiame_core.pwa.PWARenderer"]
+
 app_include_js = [
+	"/assets/sitiame_core/js/pwa.js",
 	"/assets/sitiame_core/js/language_switcher.js",
 	"/assets/sitiame_core/js/sales_invoice_ocr_import.js",
 	"/assets/sitiame_core/js/scoring360_settings_test.js",
@@ -23,6 +29,7 @@ app_include_js = [
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
+	"/assets/sitiame_core/css/sitiame_mobile.css",
 ]
 
 doctype_list_js = {

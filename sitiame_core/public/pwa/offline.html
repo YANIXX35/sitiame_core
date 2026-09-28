@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#05157c">
+	<title>Hors ligne - Sitiame</title>
+	<style>
+		body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+			font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: #f8fafc; color: #0f172a; }
+		main { max-width: 360px; padding: 32px 24px; text-align: center; }
+		img { width: 96px; height: 96px; }
+		h1 { font-size: 20px; color: #05157c; margin: 16px 0 8px; }
+		p { font-size: 15px; line-height: 1.5; color: #475569; margin: 0 0 24px; }
+		button { font-size: 16px; padding: 12px 28px; border: none; border-radius: 8px; background: #05157c; color: #fff; }
+	</style>
+</head>
+<body>
+	<main>
+		<img src="/assets/sitiame_core/pwa/icon-192.png" alt="Sitiame">
+		<h1>Vous êtes hors ligne</h1>
+		<p>Sitiame a besoin d'une connexion pour afficher vos données à jour. Vérifiez votre réseau puis réessayez.</p>
+		<button type="button" onclick="location.reload()">Réessayer</button>
+	</main>
+</body>
+</html>
