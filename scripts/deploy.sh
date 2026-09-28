@@ -9,7 +9,7 @@
 # time they are recreated, so every deploy bakes the new code into a new
 # image and recreates all ERPNext services from it:
 #   1. pull sitiame_core in the backend container
-#   2. migrate + build assets
+#   2. migrate + build assets + clear cache
 #   3. commit the backend container as a new dated image, tag it :current
 #   4. recreate every ERPNext service from :current
 #   5. health check, and keep only the last 3 dated images
@@ -31,6 +31,11 @@ echo "   sitiame_core at $REV"
 echo "== 2. migrate + build"
 docker exec -w "$BENCH" "$BACKEND" bench --site "$SITE" migrate
 docker exec -w "$BENCH" "$BACKEND" bench build --app sitiame_core
+# hooks.py is cached in Redis ("app_hooks") and migrate does not drop it:
+# without this, a new hook (page_renderer, doctype_list_js...) stays
+# inactive after deploy (seen 2026-09-28), and 404s cached before the
+# deploy keep being served.
+docker exec -w "$BENCH" "$BACKEND" bench --site "$SITE" clear-cache
 
 echo "== 3. bake image"
 TAG="sitiame/erpnext:$(date -u +%Y%m%d-%H%M)-$REV"
