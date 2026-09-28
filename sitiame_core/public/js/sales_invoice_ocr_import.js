@@ -82,22 +82,179 @@ function upload_then_call(method, args, freeze_message, on_done) {
 	uploader.show();
 }
 
+// v5: invoices go through a review screen first. The scan is read without
+// creating anything (ocr_read_invoice_for_review), the image is shown next
+// to the fields read -- green when sure, orange when doubtful, red when not
+// read -- and the user corrects/completes them before the draft is built.
+// An unreadable supplier or total no longer blocks the import.
 function create_invoice_draft_from_scan(doctype, company) {
 	if (doctype === "Payment Entry") {
 		create_payment_draft_from_scan({ company: company || null });
 		return;
 	}
-	upload_then_call(
-		"sitiame_core.ocr_invoice.ocr_create_invoice_draft",
-		{ doctype: doctype, company: company || null },
-		__("Lecture de la facture et creation du brouillon..."),
-		function (res) {
-			show_draft_result(
-				res,
-				__("La facture {0} a ete creee avec le tiers, le montant HT et la TVA. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name])
-			);
+	var uploader = new frappe.ui.FileUploader({
+		folder: "Home",
+		on_success: function (file_doc) {
+			frappe
+				.call({
+					method: "sitiame_core.ocr_invoice.ocr_read_invoice_for_review",
+					args: { file_url: file_doc.file_url, doctype: doctype, company: company || null },
+					freeze: true,
+					freeze_message: __("Lecture de la facture..."),
+				})
+				.then(function (r) {
+					if (r.message) show_invoice_review(doctype, company, r.message);
+				});
+		},
+	});
+	uploader.show();
+}
+
+var REVIEW_DOUBTFUL = 0.5;
+
+function show_invoice_review(doctype, company, review) {
+	var fields = review.fields || {};
+	var confidence = review.confidence || {};
+	var is_purchase = doctype === "Purchase Invoice";
+	var party_key = review.party_key;
+	var other_key = is_purchase ? "customer_name" : "supplier_name";
+	var file_url = review.file_url;
+	var is_pdf = /\.pdf$/i.test(file_url);
+	var src = encodeURI(file_url);
+
+	var preview = is_pdf
+		? "<iframe src='" + src + "' style='width:100%;height:70vh;border:1px solid var(--border-color);border-radius:8px;'></iframe>"
+		: "<div class='sitiame-scan' style='max-height:70vh;overflow:auto;border:1px solid var(--border-color);border-radius:8px;cursor:zoom-in;'>" +
+		  "<img src='" + src + "' style='width:100%;display:block;'></div>" +
+		  "<div class='text-muted small' style='margin-top:4px;'>" + __("Cliquez sur l'image pour zoomer.") + "</div>";
+
+	var warnings = review.warnings || [];
+	var warnings_html = warnings.length
+		? "<div style='background:var(--bg-orange);color:var(--text-on-orange);padding:8px 12px;border-radius:8px;margin-bottom:8px;'><b>" +
+		  __("Points a verifier :") + "</b><ul style='margin:4px 0 0;padding-left:18px;'><li>" +
+		  warnings.map(frappe.utils.escape_html).join("</li><li>") + "</li></ul></div>"
+		: "";
+	var legend_html =
+		"<div class='text-muted small' style='margin-bottom:6px;'>" +
+		"<span style='color:var(--green-600);'>&#9679;</span> " + __("lu avec certitude") + " &nbsp; " +
+		"<span style='color:var(--orange-600);'>&#9679;</span> " + __("douteux, a verifier") + " &nbsp; " +
+		"<span style='color:var(--red-600);'>&#9679;</span> " + __("non lu, a saisir") + "</div>";
+
+	var party_label = is_purchase ? __("Fournisseur") : __("Client");
+	var dialog = new frappe.ui.Dialog({
+		title: __("Verifier la lecture de la facture"),
+		size: "extra-large",
+		fields: [
+			{ fieldtype: "HTML", fieldname: "scan", options: preview },
+			{ fieldtype: "Column Break" },
+			{ fieldtype: "HTML", fieldname: "alerts", options: warnings_html + legend_html },
+			{
+				fieldtype: "Data",
+				fieldname: party_key,
+				label: party_label,
+				reqd: 1,
+				description: review.existing_party
+					? __("Existant : {0}", [frappe.utils.escape_html(review.existing_party)])
+					: fields[party_key]
+					? __("Nouveau : sera cree a la validation")
+					: "",
+			},
+			{ fieldtype: "Data", fieldname: "invoice_number", label: __("Numero de facture") },
+			{ fieldtype: "Date", fieldname: "invoice_date", label: __("Date de facture") },
+			{ fieldtype: "Date", fieldname: "due_date", label: __("Date d'echeance") },
+			{ fieldtype: "Currency", fieldname: "subtotal", label: __("Montant HT") },
+			{ fieldtype: "Currency", fieldname: "tax_amount", label: __("TVA") },
+			{ fieldtype: "Currency", fieldname: "grand_total", label: __("Total TTC") },
+			{ fieldtype: "HTML", fieldname: "check" },
+			{ fieldtype: "Data", fieldname: other_key, label: is_purchase ? __("Client (votre societe)") : __("Emetteur (votre societe)"), read_only: 1 },
+		],
+		primary_action_label: __("Creer le brouillon"),
+		primary_action: function (values) {
+			if (!values.subtotal && !values.grand_total) {
+				frappe.msgprint(__("Saisissez au moins le montant HT ou le total TTC."));
+				return;
+			}
+			var corrections = {};
+			[party_key, "invoice_number", "invoice_date", "due_date", "subtotal", "tax_amount", "grand_total"].forEach(function (key) {
+				corrections[key] = values[key] === undefined ? null : values[key];
+			});
+			corrections[other_key] = fields[other_key] || null;
+			dialog.hide();
+			frappe
+				.call({
+					method: "sitiame_core.ocr_invoice.ocr_create_invoice_draft",
+					args: { file_url: file_url, doctype: doctype, company: company || null, corrections: corrections },
+					freeze: true,
+					freeze_message: __("Creation du brouillon..."),
+				})
+				.then(function (r) {
+					var res = r.message || {};
+					if (!res.name) return;
+					show_draft_result(
+						res,
+						__("La facture {0} a ete creee avec les valeurs validees. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name])
+					);
+				});
+		},
+	});
+
+	var values = {};
+	Object.keys(fields).forEach(function (key) {
+		if (fields[key] !== null && fields[key] !== undefined && dialog.fields_dict[key]) values[key] = fields[key];
+	});
+	dialog.set_values(values);
+
+	// colour each field by how sure the reading is
+	[party_key, "invoice_number", "invoice_date", "due_date", "subtotal", "tax_amount", "grand_total"].forEach(function (key) {
+		var control = dialog.fields_dict[key];
+		if (!control) return;
+		var read = fields[key] !== null && fields[key] !== undefined && fields[key] !== "";
+		var conf = confidence[key];
+		var colour = !read ? "var(--red-500)" : conf !== null && conf !== undefined && conf < REVIEW_DOUBTFUL ? "var(--orange-500)" : "var(--green-500)";
+		var note = !read
+			? __("non lu")
+			: conf !== null && conf !== undefined
+			? __("lu a {0}%", [Math.round(conf * 100)])
+			: __("lu");
+		control.$input && control.$input.css({ "border-left": "4px solid " + colour });
+		control.$wrapper.find(".control-label").append(
+			" <span class='text-muted small' style='font-weight:normal;'>(" + note + ")</span>"
+		);
+	});
+
+	// live HT + TVA = TTC check
+	function refresh_check() {
+		var ht = flt(dialog.get_value("subtotal"));
+		var tva = flt(dialog.get_value("tax_amount"));
+		var ttc = flt(dialog.get_value("grand_total"));
+		var html = "";
+		if (ht && ttc) {
+			var ok = Math.abs(ht + tva - ttc) <= 2;
+			var rate = ht ? Math.round((tva / ht) * 10000) / 100 : 0;
+			html =
+				"<div style='margin:-6px 0 10px;font-size:12px;color:" + (ok ? "var(--green-600)" : "var(--red-600)") + ";'>" +
+				(ok ? "&#10003; " : "&#9888; ") +
+				__("HT {0} + TVA {1} = {2} (TTC saisi : {3}) -- TVA a {4}%", [
+					format_currency(ht), format_currency(tva), format_currency(ht + tva), format_currency(ttc), rate,
+				]) +
+				"</div>";
 		}
-	);
+		dialog.fields_dict.check.$wrapper.html(html);
+	}
+	["subtotal", "tax_amount", "grand_total"].forEach(function (key) {
+		dialog.fields_dict[key].$input.on("input change", refresh_check);
+	});
+	refresh_check();
+
+	dialog.fields_dict.scan.$wrapper.find(".sitiame-scan").on("click", function () {
+		var img = $(this).find("img");
+		var zoomed = img.data("zoomed");
+		img.css("width", zoomed ? "100%" : "220%");
+		$(this).css("cursor", zoomed ? "zoom-in" : "zoom-out");
+		img.data("zoomed", !zoomed);
+	});
+
+	dialog.show();
 }
 
 function create_payment_draft_from_scan(args) {

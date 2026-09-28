@@ -68,17 +68,114 @@ def _check_direction(is_purchase, fields, company):
 		)
 
 
-@frappe.whitelist()
-def ocr_create_invoice_draft(file_url, doctype, company=None):
+# Fields shown, and correctable, on the review screen (ocr_read_invoice_for_review).
+REVIEW_FIELDS = (
+	"invoice_number",
+	"invoice_date",
+	"due_date",
+	"supplier_name",
+	"customer_name",
+	"subtotal",
+	"tax_amount",
+	"grand_total",
+)
+REVIEW_AMOUNT_FIELDS = ("subtotal", "tax_amount", "grand_total")
+REVIEW_CACHE_SECONDS = 60 * 60
+
+
+def _review_cache_key(file_url):
+	# per user: read_invoice_file checked this user's right to read the file
+	return f"sitiame:ocr_review:{frappe.session.user}:{file_url}"
+
+
+def _check_doctype_and_company(doctype, company):
 	if doctype not in SUPPORTED_DOCTYPES:
 		frappe.throw(_("Type de document non pris en charge : {0}").format(doctype))
-
 	company = company or _default_company()
 	if not company:
 		frappe.throw(_("Aucune societe selectionnee pour cette facture."))
+	return company
 
+
+@frappe.whitelist()
+def ocr_read_invoice_for_review(file_url, doctype, company=None):
+	"""Read the scan WITHOUT creating anything, for the review screen: the
+	user sees the image next to the fields read (with their confidence),
+	corrects or completes them, then ocr_create_invoice_draft(corrections=)
+	builds the draft. An unreadable party or total no longer blocks the
+	import: the user types it in."""
+	company = _check_doctype_and_company(doctype, company)
 	data = read_invoice_file(file_url)
+	frappe.cache().set_value(_review_cache_key(file_url), data, expires_in_sec=REVIEW_CACHE_SECONDS)
+
+	is_purchase = doctype == "Purchase Invoice"
+	fields = data.get("fields") or {}
+	_check_direction(is_purchase, fields, company)
+
+	warnings = list(data.get("warnings") or [])
 	if data.get("document_type") not in ("invoice", "unknown"):
+		warnings.insert(
+			0,
+			_("Ce document ne ressemble pas a une facture (type detecte : {0}) : verifiez avant de continuer.").format(
+				data.get("document_type")
+			),
+		)
+
+	party_key = "supplier_name" if is_purchase else "customer_name"
+	party_type = "Supplier" if is_purchase else "Customer"
+	return {
+		"file_url": file_url,
+		"source": data.get("source"),
+		"fields": {key: fields.get(key) for key in REVIEW_FIELDS},
+		"confidence": {key: (data.get("confidence") or {}).get(key) for key in REVIEW_FIELDS},
+		"warnings": warnings,
+		"line_count": len(data.get("line_items") or []),
+		"party_key": party_key,
+		"existing_party": _find_party(party_type, fields[party_key]) if fields.get(party_key) else None,
+	}
+
+
+def _apply_corrections(data, corrections):
+	"""The reviewed values replace the ones read; returns the corrected
+	field names. A value validated by the user is certain (confidence 1)."""
+	fields = data.setdefault("fields", {})
+	confidence = data.setdefault("confidence", {})
+	corrected = []
+	for key in REVIEW_FIELDS:
+		if key not in corrections:
+			continue
+		value = corrections[key]
+		if key in REVIEW_AMOUNT_FIELDS:
+			value = flt(value) or None
+		elif isinstance(value, str):
+			value = value.strip() or None
+		if value != fields.get(key):
+			corrected.append(key)
+		if value is None:
+			fields.pop(key, None)
+			confidence.pop(key, None)
+		else:
+			fields[key] = value
+			confidence[key] = 1.0
+	return corrected
+
+
+@frappe.whitelist()
+def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None):
+	"""corrections: the values validated on the review screen (JSON). Without
+	it (older callers), the reading is used as is, like before."""
+	company = _check_doctype_and_company(doctype, company)
+
+	reviewed = corrections is not None
+	data = None
+	if reviewed:
+		corrections = frappe.parse_json(corrections) or {}
+		data = frappe.cache().get_value(_review_cache_key(file_url))
+	if not data:
+		data = read_invoice_file(file_url)
+
+	corrected = _apply_corrections(data, corrections) if reviewed else []
+	if not reviewed and data.get("document_type") not in ("invoice", "unknown"):
 		frappe.throw(
 			_("Le document n'a pas ete reconnu comme une facture (type detecte : {0}).").format(
 				data.get("document_type")
@@ -87,7 +184,8 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 
 	fields = data.get("fields") or {}
 	is_purchase = doctype == "Purchase Invoice"
-	warnings = list(data.get("warnings") or [])
+	# once reviewed, the reading's own alerts have been seen and dealt with
+	warnings = [] if reviewed else list(data.get("warnings") or [])
 	_check_direction(is_purchase, fields, company)
 
 	party_name = fields.get("supplier_name") if is_purchase else fields.get("customer_name")
@@ -179,7 +277,25 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 
 	invoice.insert()
 	_attach_scan(file_url, invoice)
-	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings, proposals)
+	reviewed_note = None
+	if reviewed:
+		labels = {
+			"invoice_number": _("numero"),
+			"invoice_date": _("date"),
+			"due_date": _("echeance"),
+			"supplier_name": _("fournisseur"),
+			"customer_name": _("client"),
+			"subtotal": _("HT"),
+			"tax_amount": _("TVA"),
+			"grand_total": _("TTC"),
+		}
+		reviewed_note = _("Lecture relue et validee par {0} avant creation").format(frappe.session.user) + (
+			_(" -- corrige a la main : {0}").format(", ".join(labels[key] for key in corrected))
+			if corrected
+			else _(" -- aucune correction")
+		)
+	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings, proposals, reviewed_note)
+	frappe.cache().delete_value(_review_cache_key(file_url))
 
 	return {"doctype": doctype, "name": invoice.name, "warnings": warnings}
 
@@ -281,16 +397,22 @@ def _assert_not_already_imported(bill_no, party_name, company):
 		)
 
 
-def _get_or_create_party(party_type, party_name):
+def _find_party(party_type, party_name):
+	"""The existing Supplier/Customer: exact name, else a single partial match."""
 	name_field = "supplier_name" if party_type == "Supplier" else "customer_name"
 	exact = frappe.db.get_value(party_type, {name_field: party_name}, "name")
 	if exact:
-		return exact, False
-
+		return exact
 	matches = frappe.get_all(party_type, filters={name_field: ["like", f"%{party_name}%"]}, pluck="name", limit=2)
-	if len(matches) == 1:
-		return matches[0], False
+	return matches[0] if len(matches) == 1 else None
 
+
+def _get_or_create_party(party_type, party_name):
+	existing = _find_party(party_type, party_name)
+	if existing:
+		return existing, False
+
+	name_field = "supplier_name" if party_type == "Supplier" else "customer_name"
 	party = frappe.get_doc({"doctype": party_type, name_field: party_name})
 	party.insert()
 	return party.name, True
@@ -323,7 +445,7 @@ def _attach_scan(file_url, invoice):
 	file_doc.save(ignore_permissions=True)
 
 
-def _add_review_comment(invoice, fields, confidence, warnings, proposals=()):
+def _add_review_comment(invoice, fields, confidence, warnings, proposals=(), reviewed_note=None):
 	labels = {
 		"invoice_number": _("Numero"),
 		"invoice_date": _("Date"),
@@ -342,6 +464,8 @@ def _add_review_comment(invoice, fields, confidence, warnings, proposals=()):
 		if fields.get(key) not in (None, "")
 	]
 	html = "<b>" + _("Facture creee depuis le document scanne -- a verifier puis soumettre.") + "</b>"
+	if reviewed_note:
+		html += "<br>" + frappe.utils.escape_html(reviewed_note)
 	html += "<ul>" + "".join(lines) + "</ul>"
 	if proposals:
 		sources = {
