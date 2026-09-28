@@ -254,10 +254,13 @@ def _hidden_desktop_icon_labels_for_pme():
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=5, seconds=3600)
 def register_company(
-	contact_name,
-	email,
-	password,
-	company_name,
+	# Optional in the signature so a call missing them (bots hit this guest
+	# endpoint with no fields) reaches the validation message below instead
+	# of a TypeError logged as a technical error.
+	contact_name=None,
+	email=None,
+	password=None,
+	company_name=None,
 	phone=None,
 	company_sigle=None,
 	company_tax_id=None,
