@@ -594,9 +594,12 @@ _DUE_DATE_PATTERNS = [
 	),
 ]
 # Values stop at a tab: OCR.space isTable rows separate cells with tabs.
-_SUPPLIER_PATTERNS = [re.compile(r"Fournisseur\s*[:\-]\s*([^\t\r\n]+)", re.IGNORECASE)]
+# The value must be on the label's own line: "Message au client :" followed
+# by a line break took the next line ("CHERS CLIENTS, LE 30/10/17 ...",
+# CIE electricity bill) as the customer.
+_SUPPLIER_PATTERNS = [re.compile(r"Fournisseur[ ]*[:\-][ ]*([^\t\r\n]+)", re.IGNORECASE)]
 _CUSTOMER_PATTERNS = [
-	re.compile(r"Client\s*[:\-]\s*([^\t\r\n]+)", re.IGNORECASE),
+	re.compile(r"Client[ ]*[:\-][ ]*([^\t\r\n]+)", re.IGNORECASE),
 	# "Client SITIAME CAPITAL SARL" with no colon, at the start of a line
 	re.compile(r"^[ ]*Client[ ]+([^\t\r\n]{3,})", re.IGNORECASE | re.MULTILINE),
 ]
@@ -625,6 +628,12 @@ _GRAND_TOTAL_PATTERNS = [
 	# "Net a payer" / "Total a payer", with or without the accent: invoices
 	# without VAT often print only this line (no HT/TTC at all).
 	re.compile(r"(?:NET|TOTAL)\s*[AÀ]\s*PAYER\s*[:\-]?\s*" + _AMOUNT_VALUE, re.IGNORECASE),
+	# Utility bills (CIE, SODECI): "MONTANT A REGLER : 374 400", which OCR
+	# may glue into "MONTANTAREGLER: 374 400".
+	re.compile(
+		r"MONTANT\s*(?:TOTAL\s*)?[AÀ]\s*R[EÉ]GLER\s*(?:\(\s*F\s*cfa\s*\))?\s*[:\-]?\s*" + _AMOUNT_VALUE,
+		re.IGNORECASE,
+	),
 ]
 
 
@@ -720,6 +729,10 @@ def _guess_supplier_from_letterhead(text: str) -> str | None:
 		# OCR.space isTable rows put the "FACTURE" heading on the same line
 		# as the letterhead, in its own tab-separated cell: keep the first.
 		line = re.split(r"\t|\s{2,}", line)[0].strip()
+		# the legal mentions often share the letterhead's line: "COMPAGNIE
+		# IVOIRIENNE D'ELECTRICITE Societe Anonyme au capital de ..."
+		# (OCR garbles them: "Societe Anonyme" -> "Société Añonyme", "au" -> "ou")
+		line = re.split(r"\s+(?:soci[ée]t[ée]\s+a\S{0,2}onyme|[ao]u\s+capital)\b", line, flags=re.IGNORECASE)[0].strip()
 		if not line:
 			continue
 		return line[:120]
@@ -944,6 +957,10 @@ def read_invoice_file(file_url):
 	if data is None:
 		data = _read_with_ocr_space(filename, content)
 		data["source"] = "ocr"
+		if vision_invoice.mime_type(filename):
+			data["warnings"] = [
+				_("Lecture par IA indisponible (quota Gemini atteint ou service en panne) : lecture de secours, moins fiable -- verifiez chaque champ.")
+			]
 	else:
 		data["source"] = "vision"
 		fields = data["fields"]
