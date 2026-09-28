@@ -259,3 +259,30 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 		overflow-wrap: anywhere;
 	}
 }
+
+/* Sidebar on phones ---------------------------------------------------- */
+
+/* Frappe sizes the sidebar at 100vh: on a phone that is taller than the
+   visible area, so the end of long menus (Accounting, Selling, Stock...)
+   and the user block sat behind the browser's address bar, out of reach
+   even though the list scrolls. dvh follows the visible height. */
+@supports (height: 100dvh) {
+	.body-sidebar,
+	.body-sidebar-container .body-sidebar-placeholder {
+		height: 100dvh;
+	}
+	@media (max-width: 767.98px) {
+		.body-sidebar-container.expanded .body-sidebar,
+		.body-sidebar-container.expanded .overlay {
+			height: 100dvh !important;
+		}
+	}
+}
+@media (max-width: 767.98px) {
+	/* scrolling the menu never drags the page behind it */
+	.body-sidebar .body-sidebar-top {
+		min-height: 0;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
+	}
+}

@@ -141,3 +141,11 @@ def test_phone_layout_is_dense():
 	assert ':not(.col-sm-12):not(:has(table))' in css
 	# narrower form columns: rows inside HTML fields must follow (Scoring 360 panel overflowed)
 	assert re.search(r"\.form-layout \.frappe-control \.row\s*{\s*margin-left: -4px !important;", css)
+
+
+def test_sidebar_fits_the_visible_phone_screen():
+	"""2026-09-28: the sidebar is 100vh; on a phone the end of long menus
+	(Accounting...) and the user block sat behind the address bar."""
+	css = (PUBLIC / "css" / "sitiame_mobile.css").read_text(encoding="utf-8")
+	assert re.search(r"\.body-sidebar,\s*\.body-sidebar-container \.body-sidebar-placeholder\s*{\s*height: 100dvh;", css)
+	assert re.search(r"\.body-sidebar-container\.expanded \.body-sidebar,\s*\.body-sidebar-container\.expanded \.overlay\s*{\s*height: 100dvh !important;", css)
