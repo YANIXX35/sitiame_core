@@ -60,8 +60,18 @@ def test_service_worker_never_touches_business_data():
 	sw = pwa.SERVICE_WORKER
 	assert 'request.method !== "GET"' in sw
 	assert "url.origin !== self.location.origin" in sw
-	assert 'if (!url.pathname.startsWith("/assets/")) return;' in sw
 	assert "/api/" not in sw
+
+
+def test_unversioned_assets_are_left_to_the_browser_cache():
+	"""Measured 2026-09-28 (4G + phone CPU): routing the unversioned Sitiame
+	scripts through the worker network-first made the desk load slower
+	(median 6.4s vs 5.0s without the worker) -- the browser's own HTTP
+	cache served them without a round trip. Only navigations and versioned
+	assets are intercepted now."""
+	sw = pwa.SERVICE_WORKER
+	assert 'if (!url.pathname.startsWith("/assets/") || !VERSIONED.test(url.pathname)) return;' in sw
+	assert "network first" not in sw.lower()
 
 
 @pytest.mark.parametrize(
@@ -84,6 +94,17 @@ def test_only_versioned_assets_are_served_cache_first(path, cached_first):
 def test_offline_page_is_precached_and_exists():
 	assert pwa.OFFLINE_URL in pwa.SERVICE_WORKER
 	assert (PUBLIC / pwa.OFFLINE_URL.removeprefix("/assets/sitiame_core/")).is_file()
+
+
+def test_desk_home_scrolls_to_its_last_row_on_a_phone():
+	"""2026-09-28, reproduced in phone emulation: Frappe's desk scroller
+	(.main-section) is 100vh -- behind a phone's address bar, the last row
+	of tiles was unreachable -- and an open folder had a fixed height with
+	scrolling off."""
+	css = (PUBLIC / "css" / "sitiame_mobile.css").read_text(encoding="utf-8")
+	assert re.search(r"\.main-section\s*{\s*height:\s*100dvh;", css)
+	folder_rules = re.findall(r"\.desktop-modal-body\s*{([^}]*)}", css)
+	assert any("overflow-y: auto !important" in rule and "height: auto !important" in rule for rule in folder_rules)
 
 
 def test_hooks_wire_the_pwa():

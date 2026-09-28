@@ -50,3 +50,74 @@ body.sitiame-install-banner-shown #sitiame-ai-toggle {
 body.sitiame-install-banner-shown #sitiame-ai-panel {
 	bottom: 140px !important;
 }
+
+/* Desk home (/desk) and its folders ---------------------------------- */
+
+/* Frappe sizes the desk's scrolling box (.main-section) at 100vh. On a
+   phone that is the height with the address bar hidden -- and since only
+   this inner box scrolls, the bar never hides, so the bottom of the page
+   (last row of tiles) stayed behind it. dvh follows the visible height. */
+@supports (height: 100dvh) {
+	.main-section {
+		height: 100dvh;
+	}
+}
+
+@media (max-width: 570px) {
+	/* smaller tiles: 4 per row instead of 3 x 117px */
+	.desktop-wrapper,
+	.desktop-modal-body {
+		--desktop-icon-dimension: 44px;
+		--folder-thumbnail-icon-height: 13px;
+	}
+	.desktop-wrapper .desktop-container {
+		/* last row clear of the AI button and the install banner */
+		padding: 12px 8px 110px !important;
+	}
+	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons {
+		grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+		column-gap: 2px !important;
+		row-gap: 4px !important;
+	}
+	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons > .desktop-icon {
+		width: 100% !important;
+		height: auto !important;
+		padding: 8px 2px !important;
+		gap: 6px !important;
+	}
+	:is(.desktop-wrapper, .desktop-modal-body) .icon-caption {
+		height: auto;
+	}
+	/* full module names on up to 2 lines instead of "Subcontracti..." */
+	:is(.desktop-wrapper, .desktop-modal-body) .icon-title {
+		font-size: 11.5px;
+		line-height: 1.2;
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow-wrap: anywhere;
+	}
+	:is(.desktop-wrapper, .desktop-modal-body) .icon-subtitle {
+		display: none;
+	}
+
+	/* an open folder had a fixed 450px height with scrolling turned off:
+	   a folder of more than 9 modules could not be browsed */
+	.desktop-modal-body {
+		height: auto !important;
+		max-height: calc(100vh - 200px);
+		max-height: calc(100dvh - 200px);
+		overflow-y: auto !important;
+		padding: 16px 8px !important;
+	}
+	.desktop-modal-body > .icons-container {
+		overflow: visible !important;
+	}
+}
+
+@media (max-width: 340px) {
+	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons {
+		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	}
+}

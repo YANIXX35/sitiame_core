@@ -42,7 +42,7 @@ MANIFEST = {
 SERVICE_WORKER = (
 	"""// Sitiame Capital service worker (sitiame_core/pwa.py). Never caches
 // business data: pages and API calls always go to the network.
-const CACHE = "sitiame-v1";
+const CACHE = "sitiame-v2";
 const OFFLINE_URL = "%(offline)s";
 // Files whose URL changes with their content -- Frappe's bundles carry an
 // UPPERCASE hash (frappe-web.bundle.B64X257C.js), hence no "i" flag: a
@@ -75,34 +75,22 @@ self.addEventListener("fetch", (event) => {
 		event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
 		return;
 	}
-	if (!url.pathname.startsWith("/assets/")) return;
+	// Anything else (API, unversioned scripts and images) is left to the
+	// browser: its own HTTP cache serves unversioned assets without a round
+	// trip, which routing them through here made slower on a phone.
+	if (!url.pathname.startsWith("/assets/") || !VERSIONED.test(url.pathname)) return;
 
-	if (VERSIONED.test(url.pathname)) {
-		event.respondWith(
-			caches.open(CACHE).then((cache) =>
-				cache.match(request).then(
-					(hit) =>
-						hit ||
-						fetch(request).then((response) => {
-							if (response.ok) cache.put(request, response.clone());
-							return response;
-						})
-				)
-			)
-		);
-		return;
-	}
-	// unversioned (Sitiame scripts, images): network first, cache offline
 	event.respondWith(
-		fetch(request)
-			.then((response) => {
-				if (response.ok) {
-					const copy = response.clone();
-					caches.open(CACHE).then((cache) => cache.put(request, copy));
-				}
-				return response;
-			})
-			.catch(() => caches.match(request))
+		caches.open(CACHE).then((cache) =>
+			cache.match(request).then(
+				(hit) =>
+					hit ||
+					fetch(request).then((response) => {
+						if (response.ok) cache.put(request, response.clone());
+						return response;
+					})
+			)
+		)
 	);
 });
 """
