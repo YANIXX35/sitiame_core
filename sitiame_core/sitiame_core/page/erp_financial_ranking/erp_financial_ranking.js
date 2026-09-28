@@ -7,12 +7,12 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 
 	var $filters = $(
 		"<div class='row' style='padding:0 15px;margin-top:10px;'>" +
-			"<div class='col-sm-3'><label class='control-label'>" + __("Periode du") + "</label>" +
+			"<div class='col-12 col-sm-4' style='margin-bottom:8px;'><label class='control-label'>" + __("Periode du") + "</label>" +
 			"<input type='date' class='form-control erp-fr-from'></div>" +
-			"<div class='col-sm-3'><label class='control-label'>" + __("au") + "</label>" +
+			"<div class='col-12 col-sm-4' style='margin-bottom:8px;'><label class='control-label'>" + __("au") + "</label>" +
 			"<input type='date' class='form-control erp-fr-to'></div>" +
-			"<div class='col-sm-3' style='align-self:flex-end;'>" +
-			"<button class='btn btn-primary erp-fr-refresh' style='margin-top:22px;'>" + __("Actualiser le classement") + "</button>" +
+			"<div class='col-12 col-sm-4' style='align-self:flex-end;margin-bottom:8px;'>" +
+			"<button class='btn btn-primary erp-fr-refresh'>" + __("Actualiser le classement") + "</button>" +
 			"</div></div>"
 	).appendTo(page.body);
 
@@ -20,7 +20,8 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 
 	function statCard(label, value, colorClass) {
 		return (
-			"<div class='col-sm-3' style='margin-bottom:15px;'>" +
+			// 2 cards per row on a phone, 4 from tablet width
+			"<div class='col-6 col-md-3' style='margin-bottom:15px;'>" +
 			"<div class='card' style='padding:15px;border-left:4px solid " + colorClass + ";'>" +
 			"<div class='text-muted' style='font-size:12px;'>" + label + "</div>" +
 			"<div style='font-size:24px;font-weight:600;'>" + value + "</div>" +
@@ -53,7 +54,8 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 				html += "<p class='text-muted'>" + __("Aucune societe a classer.") + "</p>";
 			} else {
 				html +=
-					"<table class='table table-bordered bg-white'><thead><tr>" +
+					// 7 columns: scroll sideways on a phone instead of overflowing the page
+					"<div class='table-responsive'><table class='table table-bordered bg-white'><thead><tr>" +
 					"<th>" + __("Societe") + "</th>" +
 					"<th class='text-end'>" + __("Ecritures") + "</th>" +
 					"<th class='text-end'>" + __("Score composite") + "</th>" +
@@ -85,7 +87,7 @@ frappe.pages["erp-financial-ranking"].on_page_load = function (wrapper) {
 						"</tr>";
 				});
 
-				html += "</tbody></table>";
+				html += "</tbody></table></div>";
 			}
 
 			$body.html(html);

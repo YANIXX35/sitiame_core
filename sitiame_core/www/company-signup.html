@@ -14,6 +14,10 @@
 	.signup-field input, .signup-field select {
 		width: 100%; padding: .55rem .7rem; border: 1px solid #ccc; border-radius: 6px; font-size: .95rem;
 	}
+	/* iOS zooms the page when an input under 16px gets focus */
+	@media (max-width: 575.98px) {
+		.signup-field input, .signup-field select { font-size: 16px; }
+	}
 	#signup-submit {
 		background: #05157c; color: #fff; border: none; padding: .7rem 1.5rem; border-radius: 6px;
 		font-size: 1rem; cursor: pointer; margin-top: .5rem;
