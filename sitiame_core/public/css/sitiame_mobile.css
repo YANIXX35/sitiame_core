@@ -238,6 +238,12 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 		padding-left: 4px !important;
 		padding-right: 4px !important;
 	}
+	/* rows inside form HTML fields (e.g. the Scoring 360 panel) keep Bootstrap's
+	   15px negative margins, which the narrower columns no longer absorb */
+	.form-layout .frappe-control .row {
+		margin-left: -4px !important;
+		margin-right: -4px !important;
+	}
 
 	/* --- Sitiame pages (erp-*): filters and totals 2 per row --- */
 	.page-container[data-page-route^="erp-"] .layout-main-section .row > [class*="col-sm-"]:not(.col-sm-12):not(:has(table)) {

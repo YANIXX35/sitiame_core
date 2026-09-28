@@ -139,3 +139,5 @@ def test_phone_layout_is_dense():
 	assert re.search(r"\.ce-block:has\(\.number-widget-box\)[^{]*{\s*flex: 0 0 50% !important;", css)
 	assert re.search(r"\.form-layout \.form-group\s*{\s*margin-bottom: 10px !important;", css)
 	assert ':not(.col-sm-12):not(:has(table))' in css
+	# narrower form columns: rows inside HTML fields must follow (Scoring 360 panel overflowed)
+	assert re.search(r"\.form-layout \.frappe-control \.row\s*{\s*margin-left: -4px !important;", css)
