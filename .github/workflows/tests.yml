@@ -12,5 +12,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"  # same as the production bench
-      - run: pip install pytest requests openpyxl python-docx werkzeug
+      - run: pip install pytest requests openpyxl python-docx werkzeug pillow
       - run: python -m pytest tests -q
