@@ -32,8 +32,20 @@ BENCH=/home/frappe/frappe-bench
 SERVICES="backend frontend websocket scheduler queue-short queue-long"
 
 echo "== 1. git pull"
+# The repository is private (2026-09-28): GitHub is read here on the host
+# with a read-only deploy key, then handed to the container as a git
+# bundle -- the container has no ssh client and holds no credential.
+MIRROR=/root/sitiame_core.git
+DEPLOY_KEY=/root/.ssh/sitiame_core_deploy_key
+export GIT_SSH_COMMAND="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+[ -d "$MIRROR" ] || git clone --bare -q git@github.com:YANIXX35/sitiame_core.git "$MIRROR"
+git --git-dir="$MIRROR" fetch -q origin +refs/heads/master:refs/heads/master
+git --git-dir="$MIRROR" bundle create -q /tmp/sitiame_core.bundle master
+docker cp /tmp/sitiame_core.bundle "$BACKEND":/tmp/sitiame_core.bundle
+rm -f /tmp/sitiame_core.bundle
 docker exec -w "$BENCH/apps/sitiame_core" "$BACKEND" bash -c \
-	'm=$(git ls-files -m | grep "\.pyc$" || true); [ -n "$m" ] && git checkout -- $m; git pull --ff-only origin master'
+	'm=$(git ls-files -m | grep "\.pyc$" || true); [ -n "$m" ] && git checkout -- $m; git pull --ff-only /tmp/sitiame_core.bundle master'
+docker exec -u root "$BACKEND" rm -f /tmp/sitiame_core.bundle
 REV=$(docker exec -w "$BENCH/apps/sitiame_core" "$BACKEND" git rev-parse --short HEAD)
 echo "   sitiame_core at $REV"
 
