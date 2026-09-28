@@ -129,3 +129,13 @@ def test_download_dialog_ignores_the_empty_format_of_its_first_onchange():
 	dialog used to pop "Format non pris en charge" on every opening."""
 	js = (PUBLIC / "js" / "list_download.js").read_text(encoding="utf-8")
 	assert "if (!fmt) return;" in js
+
+
+def test_phone_layout_is_dense():
+	"""2026-09-28: Frappe's desktop spacing wasted a phone screen -- one KPI
+	per full-width 98px card, 16px gaps between form fields, Sitiame page
+	filters and totals stacked one per row."""
+	css = (PUBLIC / "css" / "sitiame_mobile.css").read_text(encoding="utf-8")
+	assert re.search(r"\.ce-block:has\(\.number-widget-box\)[^{]*{\s*flex: 0 0 50% !important;", css)
+	assert re.search(r"\.form-layout \.form-group\s*{\s*margin-bottom: 10px !important;", css)
+	assert ':not(.col-sm-12):not(:has(table))' in css

@@ -167,3 +167,89 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 #sitiame-ai-panel {
 	z-index: 1040 !important;
 }
+
+/* Denser phone layout: Frappe's desktop spacing wasted most of a phone
+   screen (one KPI per full-width card, 300px charts, 16px gaps between
+   form fields...) ----------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+	/* --- Workspaces (module pages) --- */
+	.layout-main-section:has(> .editor-js-container),
+	.editor-js-container {
+		margin-top: 2px !important;
+	}
+	/* KPI and shortcut cards: 2 per row instead of 1 */
+	.codex-editor__redactor > .ce-block:has(.number-widget-box),
+	.codex-editor__redactor > .ce-block:has(.shortcut-widget-box) {
+		flex: 0 0 50% !important;
+		max-width: 50% !important;
+	}
+	.widget.number-widget-box {
+		padding: 8px 10px !important;
+		min-height: 0 !important;
+		height: auto !important;
+	}
+	.widget.number-widget-box .widget-title {
+		font-size: 12px;
+		white-space: normal;
+	}
+	.widget.number-widget-box .number {
+		font-size: 16px !important;
+		overflow-wrap: anywhere;
+	}
+	/* 7px around every block -> 4px */
+	.codex-editor__redactor > .ce-block > .ce-block__content {
+		padding: 4px !important;
+	}
+	.widget.dashboard-widget-box,
+	.widget.links-widget-box,
+	.widget.shortcut-widget-box {
+		padding: 8px 10px !important;
+	}
+	.links-widget-box .link-item {
+		margin-top: 0 !important;
+		padding: 3px 4px !important;
+	}
+	/* section titles ("Rapports et Pages principales"): 16px -> 14px */
+	.codex-editor__redactor .ce-header .h4,
+	.codex-editor__redactor .ce-header b {
+		font-size: 14px !important;
+	}
+
+	/* --- Forms --- */
+	.form-layout .form-group {
+		margin-bottom: 10px !important;
+	}
+	.form-layout .control-label {
+		margin-bottom: 3px !important;
+	}
+	.form-layout .frappe-control[data-fieldtype="Check"] {
+		margin-bottom: 2px !important;
+	}
+	.form-layout .form-section .section-body {
+		padding-top: 6px !important;
+	}
+	/* fields ran 30px in from each screen edge (section + column padding) */
+	.form-layout .form-section {
+		padding-left: 8px !important;
+		padding-right: 8px !important;
+	}
+	.form-layout .form-section .form-column {
+		padding-left: 4px !important;
+		padding-right: 4px !important;
+	}
+
+	/* --- Sitiame pages (erp-*): filters and totals 2 per row --- */
+	.page-container[data-page-route^="erp-"] .layout-main-section .row > [class*="col-sm-"]:not(.col-sm-12):not(:has(table)) {
+		flex: 0 0 50%;
+		max-width: 50%;
+	}
+	.page-container[data-page-route^="erp-"] .card[style*="padding:15px"] {
+		padding: 10px !important;
+	}
+	.page-container[data-page-route^="erp-"] .card [style*="font-size:22px"],
+	.page-container[data-page-route^="erp-"] .card [style*="font-size:24px"] {
+		font-size: 16px !important;
+		overflow-wrap: anywhere;
+	}
+}
