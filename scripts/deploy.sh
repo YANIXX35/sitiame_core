@@ -15,6 +15,15 @@
 #   5. health check, and keep only the last 3 dated images
 set -euo pipefail
 
+# One deploy at a time: two runs started together (2026-09-28) crossed at
+# `docker commit` ("snapshot does not exist") and baked a mixed image. A
+# second run now waits for the first one (up to 15 min) instead.
+exec 9>/var/lock/sitiame_core_deploy.lock
+if ! flock -w 900 9; then
+	echo "Another deploy has been running for 15 min - aborting." >&2
+	exit 1
+fi
+
 PROJECT=sitiame-prod
 COMPOSE=/root/sitiame-prod-compose.yml
 SITE=erp.sitiame-capital.com

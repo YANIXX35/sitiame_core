@@ -2,3 +2,4 @@
 
 [post_model_sync]
 sitiame_core.patches.map_mobile_money_modes
+sitiame_core.patches.default_company_for_pme_accounts

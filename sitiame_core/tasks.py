@@ -91,17 +91,43 @@ def run_scheduled_backup():
 		)
 
 
+def run_daily_files_backup():
+	"""Cron job (daily, see hooks.py): the 4-hourly job above saves the
+	database only -- the uploaded files (invoice scans, KYC documents,
+	attachments) were never backed up. A full backup (database + public
+	and private files) once a day."""
+	try:
+		from frappe.utils.backups import new_backup
+
+		new_backup(ignore_files=False, compress=True, force=True)
+		_prune_old_backups()
+	except Exception:
+		frappe.log_error(
+			title="sitiame_core.tasks.run_daily_files_backup",
+			message=frappe.get_traceback(),
+		)
+
+
+# Frappe deletes every backup older than keep_backups_for_hours (23h when
+# unset) on each new backup: without it in site_config, only a day of
+# history was ever kept, whatever the counts below.
+FILES_BACKUP_KEEP_COUNT = 10
+
+
 def _prune_old_backups():
 	backups_dir = get_backups_path()
 	if not os.path.isdir(backups_dir):
 		return
 
-	files = [
-		os.path.join(backups_dir, fname)
-		for fname in os.listdir(backups_dir)
-		if fname.endswith((".sql.gz", ".sql"))
-	]
-	files.sort(key=os.path.getmtime, reverse=True)
+	def newest_first(suffixes):
+		paths = [os.path.join(backups_dir, fname) for fname in os.listdir(backups_dir) if fname.endswith(suffixes)]
+		return sorted(paths, key=os.path.getmtime, reverse=True)
 
-	for path in files[BACKUP_KEEP_COUNT:]:
+	for path in newest_first((".sql.gz", ".sql"))[BACKUP_KEEP_COUNT:]:
 		os.remove(path)
+	for kind in ("-private-files", "-files"):
+		archives = [p for p in newest_first((".tar", ".tgz", ".tar.gz")) if kind in os.path.basename(p)]
+		if kind == "-files":
+			archives = [p for p in archives if "-private-files" not in os.path.basename(p)]
+		for path in archives[FILES_BACKUP_KEEP_COUNT:]:
+			os.remove(path)

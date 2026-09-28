@@ -110,6 +110,8 @@ function create_invoice_draft_from_scan(doctype, company) {
 	uploader.show();
 }
 
+// 0.5 and under is doubtful: a supplier guessed from the letterhead, or
+// anything read on a photo the AI itself rated poor, is capped at 0.5.
 var REVIEW_DOUBTFUL = 0.5;
 
 function show_invoice_review(doctype, company, review) {
@@ -210,7 +212,7 @@ function show_invoice_review(doctype, company, review) {
 		if (!control) return;
 		var read = fields[key] !== null && fields[key] !== undefined && fields[key] !== "";
 		var conf = confidence[key];
-		var colour = !read ? "var(--red-500)" : conf !== null && conf !== undefined && conf < REVIEW_DOUBTFUL ? "var(--orange-500)" : "var(--green-500)";
+		var colour = !read ? "var(--red-500)" : conf !== null && conf !== undefined && conf <= REVIEW_DOUBTFUL ? "var(--orange-500)" : "var(--green-500)";
 		var note = !read
 			? __("non lu")
 			: conf !== null && conf !== undefined
@@ -710,7 +712,7 @@ function handle_ocr_result(frm, data) {
 				? " <span style='color:#94a3b8;font-size:11px;'>(" + __("confiance") + " " + Math.round(conf * 100) + "%)</span>"
 				: "";
 			// under 50%: probably misread (blurry photo, amounts that don't add up)
-			var doubtful = conf !== undefined && conf !== null && conf < 0.5;
+			var doubtful = conf !== undefined && conf !== null && conf <= REVIEW_DOUBTFUL;
 			return (
 				(doubtful ? "<span style='color:#b45309;'>" : "<span>") +
 				"<b>" + summaryLabels[key] + "</b> : " + frappe.utils.escape_html(String(fields[key])) + confSuffix +

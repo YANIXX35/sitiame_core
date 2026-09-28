@@ -469,6 +469,10 @@ def _provision_company_signup(
 				"user": email,
 				"allow": "Company",
 				"for_value": company.name,
+				# the user's default company: reports with a mandatory
+				# Company filter (Sales/Purchase Order Trends...) failed
+				# with "Societe est obligatoire" without it
+				"is_default": 1,
 			}
 		).insert(ignore_permissions=True)
 
