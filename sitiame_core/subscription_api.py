@@ -2,6 +2,7 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
+import datetime
 import hmac
 
 import frappe
@@ -15,6 +16,10 @@ from sitiame_core.tasks import TRIAL_ROLES
 # ERPNext is the only source of truth for a PME's subscription: the
 # subscription is active while this date is today or later.
 SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
+
+# A payment CinetPay still reports as undecided after this many days is an
+# abandoned checkout (see reconcile_pending_payments).
+PENDING_EXPIRES_AFTER_DAYS = 7
 
 
 def get_user_company(user=None):
@@ -424,18 +429,24 @@ def reconcile_pending_payments():
 	attente" by asking CinetPay directly. The webhook is the fast path, but
 	it can be lost or delayed (sandbox batches them, a restart can drop
 	one); without this, a paid subscription stayed inactive unless the
-	customer happened to come back to the Abonnement page."""
-	since = frappe.utils.add_days(frappe.utils.now_datetime(), -3)
-	for name in frappe.get_all(
+	customer happened to come back to the Abonnement page.
+
+	Every pending payment is checked, whatever its age: a 3-day window left
+	6 payments "En attente" for good although CinetPay answered FAILED.
+	One CinetPay still hasn't decided after PENDING_EXPIRES_AFTER_DAYS is
+	an abandoned checkout, closed as failed so it stops being polled."""
+	expire_before = frappe.utils.now_datetime() - datetime.timedelta(days=PENDING_EXPIRES_AFTER_DAYS)
+	for row in frappe.get_all(
 		"Subscription Payment",
-		filters={"status": "En attente", "creation": [">=", since], "transaction_id": ["is", "set"]},
-		pluck="name",
+		filters={"status": "En attente", "transaction_id": ["is", "set"]},
+		fields=["name", "creation"],
 	):
+		name = row.name
 		try:
 			status = (get_payment_status(name).get("status") or "").upper()
 			if status in ("SUCCESS", "ACCEPTED"):
 				_mark_paid(name)
-			elif status in ("FAILED", "CANCELLED", "REFUSED"):
+			elif status in ("FAILED", "CANCELLED", "REFUSED") or row.creation < expire_before:
 				frappe.db.set_value("Subscription Payment", name, "status", "Échoué")
 				frappe.db.commit()
 		except Exception:
