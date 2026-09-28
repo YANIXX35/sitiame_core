@@ -475,6 +475,10 @@ def _provision_company_signup(
 				"is_default": 1,
 			}
 		).insert(ignore_permissions=True)
+		# is_default alone is not enough: the site-wide default company
+		# (SITIAME) wins over it and, not being allowed, resolves to none.
+		# A per-user default does win.
+		frappe.defaults.set_user_default("company", company.name, email)
 
 		frappe.get_doc(
 			{
