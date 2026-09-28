@@ -112,3 +112,20 @@ def test_hooks_wire_the_pwa():
 	assert "/assets/sitiame_core/js/pwa.js" in hooks.app_include_js
 	assert "/assets/sitiame_core/js/pwa.js" in hooks.web_include_js
 	assert "/assets/sitiame_core/css/sitiame_mobile.css" in hooks.app_include_css
+
+
+def test_sitiame_pages_fit_a_phone_screen():
+	"""2026-09-28 phone audit: the erp-* pages' tables and filter rows were
+	up to 712px wide on a 390px screen, cut off with no sideways scroll."""
+	css = (PUBLIC / "css" / "sitiame_mobile.css").read_text(encoding="utf-8")
+	tables = re.search(r'\[data-page-route\^="erp-"\] \.layout-main-section table\.table\s*{([^}]*)}', css).group(1)
+	assert "display: block" in tables and "overflow-x: auto" in tables
+	assert re.search(r'\[data-page-route\^="erp-"\] \.layout-main-section > \.row\s*{[^}]*margin-left: 0 !important', css)
+	assert re.search(r"body:has\(\.body-sidebar-container\.expanded\) #sitiame-install-banner\s*{\s*display: none !important;", css)
+
+
+def test_download_dialog_ignores_the_empty_format_of_its_first_onchange():
+	"""Frappe fires the Select's onchange before its default is set: the
+	dialog used to pop "Format non pris en charge" on every opening."""
+	js = (PUBLIC / "js" / "list_download.js").read_text(encoding="utf-8")
+	assert "if (!fmt) return;" in js

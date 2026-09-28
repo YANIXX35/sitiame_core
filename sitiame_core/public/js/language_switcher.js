@@ -1,8 +1,15 @@
-// Adds a small FR/EN button to the desk navbar. Clicking it saves the
-// choice on the current User's "language" field (persists across
-// reload/logout, since it's stored on the account, not just the browser)
-// and reloads the page so the new language takes effect immediately.
+// Adds a small FR/EN button to the desk. Clicking it saves the choice on
+// the current User's "language" field (persists across reload/logout,
+// since it's stored on the account, not just the browser) and reloads the
+// page so the new language takes effect immediately.
+//
+// Placement: the desk home's top bar, and on every other page the bottom
+// of the sidebar, just above the user block. It used to go into the first
+// <header> found, which on a list page is the list's column header -- the
+// switch ended up among the column titles.
 (function () {
+	var SWITCH_ID = "sitiame-lang-switch";
+
 	function currentLang() {
 		return (window.frappe && frappe.boot && frappe.boot.lang) || "en";
 	}
@@ -27,18 +34,12 @@
 		});
 	}
 
-	function addButton() {
-		if (document.getElementById("sitiame-lang-switch")) return;
-		var navbar = document.querySelector(".navbar-right, .navbar-collapse, header");
-		if (!navbar) return;
-
+	function buildSwitch() {
 		var wrap = document.createElement("div");
-		wrap.id = "sitiame-lang-switch";
+		wrap.id = SWITCH_ID;
 		wrap.style.display = "flex";
 		wrap.style.alignItems = "center";
 		wrap.style.gap = "4px";
-		wrap.style.marginRight = "10px";
-		wrap.style.order = "-1";
 
 		["fr", "en"].forEach(function (lang) {
 			var btn = document.createElement("button");
@@ -58,16 +59,42 @@
 			});
 			wrap.appendChild(btn);
 		});
-
-		navbar.insertBefore(wrap, navbar.firstChild);
+		return wrap;
 	}
 
-	if (window.frappe && frappe.ready) {
-		frappe.ready(function () {
-			setTimeout(addButton, 800);
+	function visible(el) {
+		return !!(el && el.offsetParent);
+	}
+
+	function place() {
+		if (!window.frappe || !frappe.session || frappe.session.user === "Guest") return;
+		var wrap = document.getElementById(SWITCH_ID) || buildSwitch();
+
+		var homeBar = document.querySelector(".desktop-wrapper .desktop-navbar");
+		if (visible(homeBar)) {
+			if (wrap.parentElement !== homeBar) homeBar.insertBefore(wrap, homeBar.firstChild);
+			wrap.style.margin = "0 10px 0 0";
+			return;
+		}
+
+		var userBlock = document.querySelector(".body-sidebar .body-sidebar-bottom");
+		if (userBlock && userBlock.parentElement) {
+			if (wrap.nextElementSibling !== userBlock) userBlock.parentElement.insertBefore(wrap, userBlock);
+			wrap.style.margin = "0 0 8px 12px";
+		}
+	}
+
+	function placeSoon() {
+		setTimeout(place, 300);
+	}
+
+	if (window.jQuery) {
+		window.jQuery(document).on("app_ready", function () {
+			placeSoon();
+			if (frappe.router && frappe.router.on) frappe.router.on("change", placeSoon);
 		});
 	}
 	document.addEventListener("DOMContentLoaded", function () {
-		setTimeout(addButton, 1200);
+		setTimeout(place, 1200);
 	});
 })();

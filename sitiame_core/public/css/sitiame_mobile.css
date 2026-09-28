@@ -121,3 +121,49 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
 	}
 }
+
+/* Sitiame's own desk pages (erp-*), forms and sidebar on phones ------- */
+
+@media (max-width: 767.98px) {
+	/* wide tables scroll sideways inside the page instead of being cut
+	   off (Frappe's .main-section hides horizontal overflow) */
+	.page-container[data-page-route^="erp-"] .layout-main-section table.table {
+		display: block;
+		max-width: 100%;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+	/* filter rows added straight into the page body: Bootstrap's negative
+	   row margins stuck out 15px on each side */
+	.page-container[data-page-route^="erp-"] .layout-main-section > .row {
+		margin-left: 0 !important;
+		margin-right: 0 !important;
+		padding-left: 0 !important;
+		padding-right: 0 !important;
+	}
+	/* comment cards in a form's timeline were 100% wide plus a 20px left
+	   margin: their right edge was cut off */
+	.timeline-item .timeline-content.frappe-card {
+		width: auto;
+	}
+	/* no AI button on top of the open sidebar */
+	body:has(.body-sidebar-container.expanded) #sitiame-ai-toggle {
+		display: none !important;
+	}
+	/* the install banner (pwa.js) would cover the sidebar's user block and
+	   FR/EN switch: hidden while the sidebar is open */
+	body:has(.body-sidebar-container.expanded) #sitiame-install-banner {
+		display: none !important;
+	}
+	/* and the end of a page stays reachable above it */
+	body.sitiame-install-banner-shown .main-section {
+		padding-bottom: 90px;
+	}
+}
+
+/* the AI assistant floats over the page but stays under Frappe's dialogs
+   (z-index 1050), which it used to cover */
+#sitiame-ai-toggle,
+#sitiame-ai-panel {
+	z-index: 1040 !important;
+}

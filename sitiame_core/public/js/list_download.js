@@ -68,7 +68,11 @@ window.sitiame_open_download_dialog = function (listview) {
 	});
 
 	function refresh_count() {
-		var fmt = dialog.get_value("fmt");
+		// Frappe fires the Select's onchange while building the dialog,
+		// before the field holds its default: counting then sent an empty
+		// format and popped "Format non pris en charge" on every opening.
+		var fmt = dialog && dialog.get_value("fmt");
+		if (!fmt) return;
 		dialog.sitiame_count = null;
 		dialog.fields_dict.info.$wrapper.html("<p class='text-muted'>" + __("Comptage en cours...") + "</p>");
 		frappe.call({

@@ -71,8 +71,9 @@
 		if (banner || dismissed() || standalone() || !loggedIn()) return;
 		banner = document.createElement("div");
 		banner.id = "sitiame-install-banner";
+		// z-index under Frappe's dialogs (1050): it used to cover their buttons
 		banner.style.cssText =
-			"position:fixed;left:0;right:0;bottom:0;z-index:10000;display:flex;align-items:center;gap:10px;" +
+			"position:fixed;left:0;right:0;bottom:0;z-index:1041;display:flex;align-items:center;gap:10px;" +
 			"padding:12px 14px;background:#05157c;color:#fff;font-size:14px;line-height:1.35;" +
 			"box-shadow:0 -4px 14px rgba(0,0,0,.18);";
 
