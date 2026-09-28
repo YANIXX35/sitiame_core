@@ -552,13 +552,25 @@ function handle_ocr_result(frm, data) {
 			var confSuffix = conf
 				? " <span style='color:#94a3b8;font-size:11px;'>(" + __("confiance") + " " + Math.round(conf * 100) + "%)</span>"
 				: "";
-			return "<b>" + summaryLabels[key] + "</b> : " + fields[key] + confSuffix;
+			// under 50%: probably misread (blurry photo, amounts that don't add up)
+			var doubtful = conf !== undefined && conf !== null && conf < 0.5;
+			return (
+				(doubtful ? "<span style='color:#b45309;'>" : "<span>") +
+				"<b>" + summaryLabels[key] + "</b> : " + frappe.utils.escape_html(String(fields[key])) + confSuffix +
+				"</span>"
+			);
 		});
+	var warnings = data.warnings || [];
 
 	frappe.msgprint({
 		title: __("Donnees extraites du document"),
-		indicator: summaryLines.length ? "blue" : "orange",
+		indicator: warnings.length ? "orange" : summaryLines.length ? "blue" : "orange",
 		message:
+			(warnings.length
+				? "<div style='margin-bottom:10px;color:#b45309;'><b>" + __("Points a verifier :") + "</b><ul><li>" +
+				  warnings.map(frappe.utils.escape_html).join("</li><li>") +
+				  "</li></ul></div>"
+				: "") +
 			(summaryLines.length
 				? "<div style='margin-bottom:10px;line-height:1.6;'>" + summaryLines.join("<br>") + "</div>"
 				: "<div style='margin-bottom:10px;color:#b45309;'>" +

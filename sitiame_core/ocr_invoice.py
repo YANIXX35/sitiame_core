@@ -87,7 +87,7 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 
 	fields = data.get("fields") or {}
 	is_purchase = doctype == "Purchase Invoice"
-	warnings = []
+	warnings = list(data.get("warnings") or [])
 	_check_direction(is_purchase, fields, company)
 
 	party_name = fields.get("supplier_name") if is_purchase else fields.get("customer_name")

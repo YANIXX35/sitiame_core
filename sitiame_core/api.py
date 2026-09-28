@@ -922,12 +922,68 @@ def get_readable_file(file_url):
 	return file_doc
 
 
+# Without these, a reading can't make a draft (party) or a payment (total):
+# OCR.space is then run too, to fill whatever the vision model missed.
+_KEY_FIELDS = (("supplier_name", "customer_name"), ("grand_total", "subtotal"))
+
+
 def read_invoice_file(file_url):
-	"""OCR + structured extraction, shared by ocr_extract_invoice (form
-	pre-fill) and sitiame_core.ocr_invoice (full draft invoice creation)."""
+	"""Read an invoice/receipt, shared by ocr_extract_invoice (form
+	pre-fill), sitiame_core.ocr_invoice (draft invoice) and ocr_payment.
+
+	The vision model (vision_invoice.py) reads the image first -- far
+	better than OCR on blurry or damaged scans. OCR.space + the label
+	regexes remain the fallback when it is unavailable, and fill any key
+	field it could not read."""
+	from sitiame_core import vision_invoice
+
 	file_doc = get_readable_file(file_url)
 	filename, content = frappe.utils.file_manager.get_file(file_doc.file_url)
 
+	data = vision_invoice.read_document(filename, content)
+	if data is None:
+		data = _read_with_ocr_space(filename, content)
+		data["source"] = "ocr"
+	else:
+		data["source"] = "vision"
+		fields = data["fields"]
+		if not all(any(fields.get(key) for key in group) for group in _KEY_FIELDS):
+			try:
+				ocr = _read_with_ocr_space(filename, content)
+			except Exception:
+				ocr = None
+			if ocr:
+				data["source"] = "vision+ocr"
+				for key, value in ocr["fields"].items():
+					if key not in fields:
+						fields[key] = value
+						data["confidence"][key] = ocr["confidence"].get(key)
+				data["line_items"] = data["line_items"] or ocr["line_items"]
+				data["text"] = data["text"] or ocr["text"]
+
+	text = data["text"]
+	fields = data["fields"]
+	frappe.logger("sitiame_core.ocr").info(
+		f"[OCR] source={data['source']} document_type={data['document_type']} fields={fields} "
+		f"confidence={data['confidence']} line_items={data['line_items']}"
+	)
+
+	return {
+		"text": text,
+		# legacy keys, kept for older form scripts
+		"amount": fields.get("grand_total") or _best_guess_amount(text),
+		"date": fields.get("invoice_date") or _best_guess_date(text),
+		"client_name": fields.get("customer_name") or _best_guess_client(text),
+		"document_type": data["document_type"],
+		"fields": fields,
+		"confidence": data["confidence"],
+		"line_items": data["line_items"],
+		"source": data["source"],
+		"warnings": data.get("warnings") or [],
+	}
+
+
+def _read_with_ocr_space(filename, content):
 	api_key = frappe.conf.get("ocr_space_api_key")
 	if not api_key:
 		frappe.throw(_("ocr_space_api_key n'est pas configuré dans site_config.json."))
@@ -954,23 +1010,12 @@ def read_invoice_file(file_url):
 	text = "\n".join(p.get("ParsedText", "") for p in parsed).strip()
 
 	fields, confidence = _extract_invoice_fields(text)
-	document_type = _detect_document_type(text, fields)
-	line_items = _extract_line_items(text)
-
-	frappe.logger("sitiame_core.ocr").info(
-		f"[OCR] document_type={document_type} fields={fields} confidence={confidence} "
-		f"line_items={line_items}"
-	)
-
 	return {
 		"text": text,
-		"amount": _best_guess_amount(text),
-		"date": _best_guess_date(text),
-		"client_name": _best_guess_client(text),
-		"document_type": document_type,
+		"document_type": _detect_document_type(text, fields),
 		"fields": fields,
 		"confidence": confidence,
-		"line_items": line_items,
+		"line_items": _extract_line_items(text),
 	}
 
 

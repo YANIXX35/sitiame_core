@@ -55,7 +55,7 @@ def ocr_create_payment_draft(file_url, company=None, invoice_doctype=None, invoi
 	data = read_invoice_file(file_url)
 	text = data.get("text") or ""
 	fields = data.get("fields") or {}
-	warnings = []
+	warnings = list(data.get("warnings") or [])
 
 	if invoice_doctype and invoice_name:
 		if invoice_doctype not in INVOICE_DOCTYPES:

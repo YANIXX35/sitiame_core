@@ -69,20 +69,6 @@ def chat(messages):
 	"""messages: list of {"role": "system"|"user"|"assistant", "content": str}
 	Returns {"ok": bool, "answer": str, "error": str|None}."""
 
-	available_keys = _available_keys()
-	if not available_keys:
-		all_keys = _api_keys()
-		if not all_keys:
-			return {"ok": False, "answer": "", "error": "Aucune cle GEMINI configuree."}
-		for k in all_keys:
-			frappe.cache().delete_value(_key_lockout_cache_key(k))
-		available_keys = all_keys
-
-	cache_key = "gemini:chat:" + hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest()
-	cached = frappe.cache().get_value(cache_key)
-	if cached is not None:
-		return {"ok": True, "answer": cached, "error": None}
-
 	contents = []
 	system_parts = []
 	for msg in messages:
@@ -100,6 +86,36 @@ def chat(messages):
 	if system_parts:
 		payload["systemInstruction"] = {"parts": system_parts}
 
+	cache_key = "gemini:chat:" + hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest()
+	result = generate(payload, cache_key)
+	if result["ok"]:
+		return {"ok": True, "answer": result["text"], "error": None}
+	if not _api_keys():
+		return {"ok": False, "answer": "", "error": result["error"]}
+	return {
+		"ok": False,
+		"answer": "",
+		"error": "Le service de l'assistant IA est momentanement tres sollicite. Veuillez reessayer.",
+	}
+
+
+def generate(payload, cache_key=None, timeout=TIMEOUT):
+	"""One generateContent call with key rotation, model fallback, retry and
+	caching. Returns {"ok": bool, "text": str, "error": str|None}."""
+
+	available_keys = _available_keys()
+	if not available_keys:
+		all_keys = _api_keys()
+		if not all_keys:
+			return {"ok": False, "text": "", "error": "Aucune cle GEMINI configuree."}
+		for k in all_keys:
+			frappe.cache().delete_value(_key_lockout_cache_key(k))
+
+	if cache_key:
+		cached = frappe.cache().get_value(cache_key)
+		if cached is not None:
+			return {"ok": True, "text": cached, "error": None}
+
 	models_to_try = list(dict.fromkeys([DEFAULT_MODEL, *FALLBACK_MODELS]))
 	last_error = ""
 
@@ -114,19 +130,20 @@ def chat(messages):
 				url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
 				try:
-					response = requests.post(url, json=payload, timeout=TIMEOUT)
+					response = requests.post(url, json=payload, timeout=timeout)
 					data = response.json() if response.content else {}
 
 					if response.status_code == 200:
-						answer = (
-							(data.get("candidates") or [{}])[0]
-							.get("content", {})
-							.get("parts", [{}])[0]
-							.get("text", "")
-						)
+						# thinking models may put their thought summary first:
+						# the answer is the non-thought text parts
+						candidate = (data.get("candidates") or [{}])[0]
+						parts = candidate.get("content", {}).get("parts") or []
+						answer = "".join(p.get("text", "") for p in parts if not p.get("thought"))
 						if answer:
-							frappe.cache().set_value(cache_key, answer.strip(), expires_in_sec=CACHE_TTL_SECONDS)
-							return {"ok": True, "answer": answer.strip(), "error": None}
+							# never cache a cut-off answer: the next call must retry
+							if cache_key and candidate.get("finishReason") in (None, "STOP"):
+								frappe.cache().set_value(cache_key, answer.strip(), expires_in_sec=CACHE_TTL_SECONDS)
+							return {"ok": True, "text": answer.strip(), "error": None}
 
 					last_error = (data.get("error") or {}).get("message", f"HTTP {response.status_code}")
 
@@ -149,8 +166,4 @@ def chat(messages):
 						_register_failure(model)
 						break
 
-	return {
-		"ok": False,
-		"answer": "",
-		"error": "Le service de l'assistant IA est momentanement tres sollicite. Veuillez reessayer.",
-	}
+	return {"ok": False, "text": "", "error": last_error or "Aucun modele Gemini disponible."}
