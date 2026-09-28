@@ -45,7 +45,18 @@ doctype_list_js = {
 	"Item": "public/js/list_download.js",
 }
 
-extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
+# Staff accounts don't see each other's business documents (staff_isolation.py)
+from sitiame_core.staff_isolation import ISOLATED_DOCTYPES as _ISOLATED_DOCTYPES
+
+permission_query_conditions = {
+	doctype: "sitiame_core.staff_isolation.get_permission_query_conditions"
+	for doctype in _ISOLATED_DOCTYPES
+}
+has_permission = {
+	doctype: "sitiame_core.staff_isolation.has_permission" for doctype in _ISOLATED_DOCTYPES
+}
+
+extend_bootinfo ="sitiame_core.boot.extend_bootinfo"
 
 after_migrate = "sitiame_core.setup.after_migrate"
 
