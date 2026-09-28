@@ -821,7 +821,8 @@ def _extract_line_items(text: str) -> list:
 	amount_idx = col_index("montant", "total")
 
 	def number_at(cells, idx, offset=0):
-		if idx is None or idx + offset >= len(cells):
+		# cell 0 is the label, never a number of the row
+		if idx is None or not 1 <= idx + offset < len(cells):
 			return None
 		return _parse_amount(cells[idx + offset])
 
@@ -836,16 +837,19 @@ def _extract_line_items(text: str) -> list:
 		if len(cells) < 2:
 			break
 		entry = {"item_name": cells[0]}
-		# Numbers sit right of the label: when the OCR lost a header cell
-		# (more cells in the row than in the header), read them aligned on
-		# the right -- unless that finds nothing (an extra trailing cell such
-		# as "FCFA" instead), then keep the header positions.
+		# Numbers sit right of the label: when the OCR lost a cell -- in the
+		# header (row longer than the header) or in the row (a "1" quantity
+		# dropped, row shorter) -- read them aligned on the right. A reading
+		# that finds no price/amount (an extra trailing "FCFA" cell), or whose
+		# qty x price contradicts the amount, falls back to the header
+		# positions.
 		shift = len(cells) - len(header_cells)
-		for offset in [shift, 0] if shift > 0 else [0]:
+		for offset in [shift, 0] if shift else [0]:
 			qty = number_at(cells, qty_idx, offset)
 			rate = number_at(cells, rate_idx, offset)
 			amount = number_at(cells, amount_idx, offset)
-			if rate is not None or amount is not None:
+			misaligned = qty and rate and amount and abs(qty * rate - amount) > 1
+			if (rate is not None or amount is not None) and not misaligned:
 				break
 		if qty is None and rate and amount:
 			qty = round(amount / rate, 2)

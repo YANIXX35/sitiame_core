@@ -153,6 +153,21 @@ class TestLineItems:
 			{"item_name": "Licence logiciel annuelle", "qty": 1.0, "rate": 150000.0},
 		]
 
+	def test_lost_row_cell_under_a_full_header(self):
+		"""Same facture-test.pdf, other OCR run (2026-09-28): the header kept
+		"Qte" but the rows lost their "1" cell -- the unit price was read as
+		the quantity (250 000 x 250 000)."""
+		text = (
+			"Description\tQte\tPrix unitaire\tMontant\t\r\n"
+			"Prestation de conseil comptable\t250 000\t250 000\t\r\n"
+			"Licence logiciel annuelle\t150 000\t150 000\t\r\n"
+			"TOTAL A PAYER : 400 000 FCFA"
+		)
+		assert api._extract_line_items(text) == [
+			{"item_name": "Prestation de conseil comptable", "qty": 1.0, "rate": 250000.0},
+			{"item_name": "Licence logiciel annuelle", "qty": 1.0, "rate": 150000.0},
+		]
+
 	def test_libelle_header(self):
 		text = "Libellé\tMontant\nLoyer septembre\t300 000\n\n"
 		assert api._extract_line_items(text) == [{"item_name": "Loyer septembre", "rate": 300000.0, "qty": 1}]

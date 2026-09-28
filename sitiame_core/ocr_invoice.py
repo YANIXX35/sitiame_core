@@ -13,17 +13,59 @@ and ERPNext's own GL engine then books charge/produit + TVA + tiers into
 the journal, general ledger and trial balance.
 """
 
+import re
+
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, today
 
 from sitiame_core.api import read_invoice_file
-from sitiame_core.ocr_accounts import choose_account, remembered_account
+from sitiame_core.ocr_accounts import _fold, choose_account, remembered_account
 
 SUPPORTED_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
 
 # A HT + TVA vs TTC gap above this (XOF) is flagged for the accountant.
 AMOUNT_TOLERANCE = 1.0
+
+# Legal forms left out when comparing a printed party name with the
+# company's own name ("SITIAME CAPITAL SARL" vs Company "SITIAME").
+_LEGAL_FORMS = {"sarl", "sa", "sas", "sasu", "suarl", "sci", "eurl", "gie", "ets", "ste", "societe", "cie"}
+
+
+def _name_tokens(name):
+	return set(re.findall(r"[a-z0-9]+", _fold(name))) - _LEGAL_FORMS
+
+
+def _is_own_company(name, company):
+	printed = _name_tokens(name)
+	for own in (company, frappe.get_cached_value("Company", company, "company_name")):
+		tokens = _name_tokens(own)
+		if printed and tokens and tokens <= printed:
+			return True
+	return False
+
+
+def _check_direction(is_purchase, fields, company):
+	"""A purchase invoice is issued TO the company, a sales invoice BY it.
+	When the document's issuer is the company and its customer someone
+	else, it is one of the company's own sales invoices imported as a
+	purchase (and vice versa): refuse, rather than create the company as
+	its own supplier/customer. Only both parties read and disagreeing
+	counts -- a supplier merely sharing a word with the company (company
+	"yao" buying from "Yao Transport") is still billed to the company."""
+	issuer, customer = fields.get("supplier_name"), fields.get("customer_name")
+	if not issuer or not customer:
+		return
+	if is_purchase and _is_own_company(issuer, company) and not _is_own_company(customer, company):
+		frappe.throw(
+			_("Ce document est une facture emise par votre societe (client : {0}) : importez-la depuis Factures de vente.").format(
+				customer
+			)
+		)
+	if not is_purchase and _is_own_company(customer, company) and not _is_own_company(issuer, company):
+		frappe.throw(
+			_("Ce document est une facture recue de {0} : importez-la depuis Factures d'achat.").format(issuer)
+		)
 
 
 @frappe.whitelist()
@@ -46,6 +88,7 @@ def ocr_create_invoice_draft(file_url, doctype, company=None):
 	fields = data.get("fields") or {}
 	is_purchase = doctype == "Purchase Invoice"
 	warnings = []
+	_check_direction(is_purchase, fields, company)
 
 	party_name = fields.get("supplier_name") if is_purchase else fields.get("customer_name")
 	if not party_name:
