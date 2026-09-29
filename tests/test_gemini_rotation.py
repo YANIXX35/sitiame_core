@@ -95,10 +95,10 @@ def test_a_timeout_skips_to_the_next_model_not_the_next_key(api):
 
 def test_an_overloaded_model_skips_to_the_next_model(api):
 	overloaded = Response(503, {"error": {"message": "This model is currently experiencing high demand."}})
-	api["responses"] = [overloaded] * g.MAX_ATTEMPTS + [ok()]
+	api["responses"] = [overloaded, ok()]
 	assert g.generate({}, models=["m1", "m2"])["ok"]
-	assert api["calls"][-1] == ("m2", "k1")
-	assert ("m1", "k2") not in api["calls"]
+	# no retry of the overloaded model, with this key or another
+	assert api["calls"] == [("m1", "k1"), ("m2", "k1")]
 
 
 def test_default_models_are_unchanged_for_the_assistant(api):

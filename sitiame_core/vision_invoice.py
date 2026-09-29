@@ -27,19 +27,22 @@ from sitiame_core import gemini_assistant, mistral_ocr
 # Bump when the prompt or schema changes, so cached readings are redone.
 PROMPT_VERSION = 3
 # each model has its own free daily quota (20 requests/day/model on the
-# free tier, 2026-09): the more models, the more invoices read. Best
-# readers first; all answered a JSON-schema request on 2026-09-29.
+# free tier, 2026-09): the more models, the more invoices read. Fastest
+# first: on real invoices (2026-09-29) gemini-3.5-flash-lite read photos in
+# 2-3 s with the same totals, numbers and suppliers as gemini-3-flash-preview
+# (8-17 s, and often overloaded).
 GEMINI_MODELS = (
-	"gemini-2.5-flash",
-	"gemini-3-flash-preview",
 	"gemini-3.5-flash-lite",
 	"gemini-3.1-flash-lite",
 	"gemini-flash-lite-latest",
+	"gemini-3-flash-preview",
+	"gemini-2.5-flash",
 	"gemini-2.5-flash-lite",
 	"gemini-flash-latest",
 )
-# a model this slow is overloaded: the next one answers sooner
-TIMEOUT = 60
+# a model this slow is overloaded: the next one answers sooner (a PDF can
+# take ~30 s)
+TIMEOUT = 45
 MAX_BYTES = 15 * 1024 * 1024  # Gemini inline data limit is ~20 MB per request
 
 MIME_TYPES = {
@@ -222,7 +225,9 @@ def _read_with_gemini(mime, content):
 			"maxOutputTokens": 16384,
 			# Uncapped, gemini-2.5-flash spent ~7900 tokens thinking on a
 			# plain invoice and the JSON was cut off (finishReason MAX_TOKENS).
-			"thinkingConfig": {"thinkingBudget": 2048},
+			# 512 reads as well as 2048 on real invoices, several times
+			# faster; a blurry photo is still caught by _check_amounts.
+			"thinkingConfig": {"thinkingBudget": 512},
 			"responseMimeType": "application/json",
 			"responseSchema": RESPONSE_SCHEMA,
 		},

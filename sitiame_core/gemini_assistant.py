@@ -170,13 +170,11 @@ def generate(payload, cache_key=None, timeout=TIMEOUT, models=None):
 						_lockout_key(api_key, model, _quota_lockout_seconds(data))
 						break
 
-					is_transient = response.status_code == 503 or "overloaded" in last_error.lower()
-					if is_transient and attempts < MAX_ATTEMPTS:
-						time.sleep(BASE_DELAY_SECONDS * (2 ** (attempts - 1)))
-					else:
-						_register_failure(model)
-						skip_model = is_transient
-						break
+					# overloaded: Google takes ~10 s to say so, and says it again
+					# on a retry -- the next model answers sooner
+					_register_failure(model)
+					skip_model = response.status_code == 503 or "overloaded" in last_error.lower()
+					break
 
 				except requests.Timeout as e:
 					last_error = str(e)
