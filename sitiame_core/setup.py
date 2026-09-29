@@ -97,7 +97,6 @@ CHARGE_AFFAIRES_PAGE = "erp-charge-affaires"
 # (label, link_type, link_to)
 CHARGE_AFFAIRES_ITEMS = (
 	("Mon portefeuille", "Page", CHARGE_AFFAIRES_PAGE),
-	("Inscrire une PME", "Page", "erp-inscrire-pme"),
 	("Prospects", "DocType", "Lead"),
 	("Opportunités", "DocType", "Opportunity"),
 	("Dossiers de scoring", "DocType", "Credit Scoring Dossier"),
@@ -132,27 +131,50 @@ def ensure_charge_affaires_workspace():
 	else:
 		sidebar.save()
 
-	if not frappe.db.exists("Desktop Icon", CHARGE_AFFAIRES_SIDEBAR):
-		icon = frappe.get_doc(
-			{
-				"doctype": "Desktop Icon",
-				"label": CHARGE_AFFAIRES_SIDEBAR,
-				"icon_type": "Link",
-				"link_type": "Workspace Sidebar",
-				"link_to": CHARGE_AFFAIRES_SIDEBAR,
-				"icon": "users",
-				"icon_image": "/assets/erpnext/icons/desktop_icons/solid/crm.svg",
-				# "green" is refused here: the tiles are turned green by
-				# public/css/green_desktop_icons.css
-				"bg_color": "blue",
-				"app": "sitiame_core",
-				# not a tile for the rest of the team
-				"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
-			}
-		)
-		icon.insert(ignore_permissions=True)
+	_ensure_charge_affaires_icon(
+		CHARGE_AFFAIRES_SIDEBAR,
+		"users",
+		"/assets/erpnext/icons/desktop_icons/solid/crm.svg",
+		link_type="Workspace Sidebar",
+		link_to=CHARGE_AFFAIRES_SIDEBAR,
+	)
+	# a tile of its own on the home screen, not a sidebar entry (asked
+	# 2026-09-29)
+	_ensure_charge_affaires_icon(
+		REGISTER_PME_ICON,
+		"add",
+		"/assets/hrms/icons/desktop_icons/solid/recruitment.svg",
+		link_type="External",
+		link="/desk/erp-inscrire-pme",
+	)
 	frappe.db.commit()
 	frappe.clear_cache()
+
+
+REGISTER_PME_ICON = "Inscrire une PME"
+
+
+def _ensure_charge_affaires_icon(label, icon, image, link_type, link_to=None, link=None):
+	if frappe.db.exists("Desktop Icon", label):
+		return
+	frappe.get_doc(
+		{
+			"doctype": "Desktop Icon",
+			"label": label,
+			"icon_type": "Link",
+			"link_type": link_type,
+			"link_to": link_to,
+			"link": link,
+			"icon": icon,
+			"icon_image": image,
+			# "green" is refused here: the tiles are turned green by
+			# public/css/green_desktop_icons.css
+			"bg_color": "blue",
+			"app": "sitiame_core",
+			# not a tile for the rest of the team
+			"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
+		}
+	).insert(ignore_permissions=True)
 
 
 def _ensure_role(role):

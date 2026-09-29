@@ -220,7 +220,7 @@ def assign_pending_pme(doc, method=None):
 
 
 # Home tiles a chargé d'affaires keeps; every other one is hidden for him.
-CHARGE_AFFAIRES_ICONS = ("Chargé d'affaires", "CRM", "Scoring", "Financement")
+CHARGE_AFFAIRES_ICONS = ("Chargé d'affaires", "Inscrire une PME", "CRM", "Scoring", "Financement")
 
 
 @frappe.whitelist()
