@@ -1,0 +1,1221 @@
+% of Component Cost,% du coût du composant
+Absent Buffer (Days),Marge d'absence (jours)
+Account Category Name,Nom de la catégorie de compte
+Account Data,Données du compte
+Accounting Dimension Filter,Filtre de dimension analytique
+Accounting Onboarding,Prise en main de la comptabilité
+Accounts Receivable / Payable remarks length,Longueur des remarques créances / dettes
+Accounts Receivable / Payable Report,Rapport créances / dettes
+Accounts Setup,Paramétrage comptable
+Action / Route,Action / Route
+Action for Expired Unverified Appointments,Action pour les rendez-vous non vérifiés expirés
+Action if Accumulative Monthly Budget Exceeded on Cumulative Expense,Action si le budget mensuel cumulé est dépassé sur les dépenses cumulées
+Action if Anual Budget Exceeded on Cumulative Expense,Action si le budget annuel est dépassé sur les dépenses cumulées
+Action if Quality Inspection is not submitted,Action si le contrôle qualité n'est pas validé
+Action if Quality Inspection is rejected,Action si le contrôle qualité est rejeté
+Action if same rate is not maintained,Action si le même prix n'est pas maintenu
+Action if same rate is not maintained throughout internal transaction,Action si le même prix n'est pas maintenu sur la transaction interne
+Action if same rate is not maintained throughout sales cycle,Action si le même prix n'est pas maintenu sur le cycle de vente
+Activate Serial / Batch No for Item,Activer le n° de série / lot pour l'article
+Add Schedule,Ajouter un calendrier
+Additional Finished Good,Produit fini supplémentaire
+Advance Paid,Acompte versé
+Advance Paid (Company Currency),Acompte versé (devise de la société)
+Advance Payment Ledger Entry,Écriture du grand livre des acomptes
+Advance Voucher No,N° de pièce d'acompte
+Advance Voucher Type,Type de pièce d'acompte
+Advanced Features,Fonctionnalités avancées
+Advanced Filtering,Filtrage avancé
+Advances,Acomptes
+Against Finished Good,Contre le produit fini
+Against Pick List,Contre la liste de prélèvement
+Against Voucher No,Contre la pièce n°
+Agents,Agents
+Alias,Alias
+Allocate Full Amount to Stock Items,Affecter tout le montant aux articles stockés
+Allocated Entries,Écritures affectées
+Allocation,Affectation
+Allocations,Affectations
+Allow delivery of overproduced quantity,Autoriser la livraison de la quantité surproduite
+Allow editing Price List rate in transactions,Autoriser la modification du prix de la liste de prix dans les transactions
+Allow existing Serial No to be Manufactured/Received again,Autoriser un n° de série existant à être refabriqué / reçu
+Allow Implicit Pegged Currency Conversion,Autoriser la conversion implicite des devises arrimées
+Allow internal transfers at user-defined rate,Autoriser les transferts internes à un prix défini par l'utilisateur
+Allow Item to be added multiple times in a transaction,Autoriser un article plusieurs fois dans une transaction
+Allow multiple Sales Orders against a customer's Purchase Order,Autoriser plusieurs commandes clients pour un même bon de commande client
+Allow negative rates for Items,Autoriser les prix négatifs pour les articles
+Allow negative stock,Autoriser le stock négatif
+Allow negative stock for Batch,Autoriser le stock négatif par lot
+Allow Or Restrict Dimension,Autoriser ou restreindre la dimension
+Allow Partial Payment,Autoriser le paiement partiel
+Allow partial reservation,Autoriser la réservation partielle
+Allow purchase invoice creation without purchase order,Autoriser la facture d'achat sans bon de commande
+Allow purchase invoice creation without purchase receipt,Autoriser la facture d'achat sans bon de réception
+Allow Quotation with zero quantity,Autoriser les devis à quantité nulle
+Allow sales invoice creation without delivery note,Autoriser la facture de vente sans bon de livraison
+Allow sales invoice creation without sales order,Autoriser la facture de vente sans commande client
+Allow Sales Order creation for expired Quotation,Autoriser la commande client sur un devis expiré
+Allow Sales Order with zero quantity,Autoriser les commandes clients à quantité nulle
+Allow same Item to be added multiple times in a transaction,Autoriser le même article plusieurs fois dans une transaction
+Allow to edit stock UOM qty for Stock Entry,Autoriser la modification de la quantité en unité de stock pour les mouvements de stock
+Allow to make Quality Inspection after Purchase / Delivery,Autoriser le contrôle qualité après achat / livraison
+Allow UOM with conversion rate defined in Item,Autoriser l'unité avec le taux de conversion défini dans l'article
+Allow User to Edit Discount,Autoriser l'utilisateur à modifier la remise
+Allow User to Edit Rate,Autoriser l'utilisateur à modifier le prix
+Allow Variant UOM to be different from Template UOM,Autoriser une unité de variante différente de celle du modèle
+Allowed DocTypes,Types de documents autorisés
+Allowed Doctypes for Guest Uploads,Types de documents autorisés pour les envois des invités
+Allowed to transact with,Autorisé à traiter avec
+"Amount column has ""CR""/""DR"" values",La colonne montant contient des valeurs « CR » / « DR »
+Amount column has positive/negative values,La colonne montant contient des valeurs positives / négatives
+Amount Difference with Purchase Invoice,Écart de montant avec la facture d'achat
+Analytical Accounting,Comptabilité analytique
+Annual Gross Earning,Rémunération brute annuelle
+Any,Tous
+AP Summary,Synthèse fournisseurs
+Applicable Dimension,Dimension applicable
+Applicable On Account,Applicable sur le compte
+Applicable on Cumulative Expense,Applicable sur les dépenses cumulées
+Apply Recursion Over (As Per Transaction UOM),Appliquer la récursivité sur (selon l'unité de la transaction)
+Apply restriction on dimension values,Appliquer une restriction sur les valeurs de dimension
+Appointment Booking Portal Settings,Paramètres du portail de prise de rendez-vous
+Appointment Scheduling,Planification des rendez-vous
+Apps Involved,Applications concernées
+AR Summary,Synthèse clients
+Arguments,Arguments
+Asset Capitalization Asset Item,Immobilisation capitalisée - article d'actif
+Asset Capitalization Service Item,Immobilisation capitalisée - article de service
+Asset Capitalization Stock Item,Immobilisation capitalisée - article de stock
+Asset Disposal,Cession d'immobilisation
+Asset Repair Consumed Item,Article consommé pour réparation d'immobilisation
+Asset Repair Purchase Invoice,Facture d'achat de réparation d'immobilisation
+Asset Shift Allocation,Affectation des équipes d'immobilisation
+Asset Shift Factor,Coefficient d'équipe d'immobilisation
+Asset Type,Type d'immobilisation
+Assets Setup,Paramétrage des immobilisations
+Attachment Gallery,Galerie des pièces jointes
+Attending,Participe
+Auto create assets on purchase,Créer automatiquement les immobilisations à l'achat
+Auto Create Exchange Rate Revaluation,Créer automatiquement la réévaluation des taux de change
+Auto create Purchase Receipt,Créer automatiquement le bon de réception
+Auto create Serial and Batch Bundle for outward,Créer automatiquement l'ensemble série et lot en sortie
+Auto create Subcontracting Order,Créer automatiquement l'ordre de sous-traitance
+Auto Created (Reorder),Créé automatiquement (réapprovisionnement)
+Auto Created Serial and Batch Bundle,Ensemble série et lot créé automatiquement
+Auto insert Item Price if missing,Insérer automatiquement le prix de l'article s'il manque
+Auto reconcile Payments,Rapprocher automatiquement les paiements
+Auto Reconciliation job trigger,Déclenchement du rapprochement automatique
+Auto Repost Incorrect Valuation Entries (Weekly),Recomptabiliser automatiquement les valorisations incorrectes (hebdomadaire)
+Auto Reposting of Incorrect Valuation,Recomptabilisation automatique des valorisations incorrectes
+Auto reserve Serial and Batch Nos,Réserver automatiquement les n° de série et de lot
+Auto reserve stock,Réserver automatiquement le stock
+Auto reserve Stock for Sales Order on Purchase,Réserver automatiquement le stock pour la commande client à l'achat
+Automatically Add Filtered Item To Cart,Ajouter automatiquement l'article filtré au panier
+Automatically add Taxes and Charges from Item Tax Template,Ajouter automatiquement les taxes du modèle de taxe de l'article
+Automatically add taxes from Taxes and Charges Template,Ajouter automatiquement les taxes du modèle de taxes et frais
+Automatically fetch Payment Terms from Order/Quotation,Reprendre automatiquement les conditions de paiement de la commande / du devis
+Automatically post balancing accounting entry,Passer automatiquement l'écriture d'équilibrage
+Automatically process deferred Accounting entry,Traiter automatiquement les écritures comptables différées
+Automatically run rules on unreconciled transactions,Appliquer automatiquement les règles aux transactions non rapprochées
+Available / Future Inventory,Stock disponible / futur
+Available for Use Date,Date de mise en service
+Available Qty at Company,Quantité disponible dans la société
+Available Qty at Target Warehouse,Quantité disponible dans l'entrepôt cible
+Available Qty For Consumption,Quantité disponible pour consommation
+Available Qty to Reserve,Quantité disponible à réserver
+Available Serial No,N° de série disponibles
+Avg Rate,Prix moyen
+Backflush raw materials of subcontract based on,Consommer les matières premières de sous-traitance selon
+Balance,Solde
+Balance Sheet Closing Balance,Solde de clôture du bilan
+Balance Sheet Summary,Synthèse du bilan
+Balance Stock Value,Valeur du stock restant
+Balance Type,Type de solde
+Bank Account Balance,Solde du compte bancaire
+Bank Entry Type,Type d'écriture bancaire
+Bank Reconciliation,Rapprochement bancaire
+Bank Statement Import Log,Journal d'import des relevés bancaires
+Bank Statement Import Log Column Map,Correspondance des colonnes d'import des relevés
+Bank Transaction Rule,Règle de transaction bancaire
+Bank Transaction Rule Accounts,Comptes de la règle de transaction bancaire
+Bank Transaction Rule Description Conditions,Conditions de libellé de la règle bancaire
+Base Tax Withheld,Retenue d'impôt de base
+Base Taxable Amount,Montant imposable de base
+Basic,De base
+Batch Item settings,Paramètres des articles par lot
+Bill for rejected quantity in Purchase Invoice,Facturer la quantité rejetée dans la facture d'achat
+"Billed, Received & Returned","Facturé, reçu et retourné"
+Bisect Accounting Statements,Bissection des états comptables
+Bisect Nodes,Nœuds de bissection
+Bisecting From,Bissection depuis
+Bisecting To,Bissection jusqu'à
+Biweekly,Toutes les deux semaines
+Blank Line,Ligne vide
+Blanket Order Allowance (%),Tolérance de commande cadre (%)
+Blanket Orders,Commandes cadres
+Body,Corps
+Bold Text,Texte en gras
+Book Advance Payments in Separate Party Account,Comptabiliser les acomptes sur un compte de tiers séparé
+Book Asset Depreciation entry automatically,Comptabiliser automatiquement les amortissements
+Book Deferred entries based on,Comptabiliser les écritures différées selon
+Book deferred entries via Journal Entry,Comptabiliser les écritures différées par écriture de journal
+Book Stock Expense GL Entries,Comptabiliser les charges de stock au grand livre
+Book tax loss on early payment discount,Comptabiliser la perte de taxe sur l'escompte
+Bot,Robot
+Budget Distribution,Répartition du budget
+Budget Distribution Total,Total de la répartition du budget
+Budget Variance,Écart budgétaire
+Buffer Time,Temps de marge
+Buffered Cursor,Curseur tamponné
+Bulk Actions,Actions groupées
+Bundle Items,Articles du lot
+Buying & Selling Settings,Paramètres achats et ventes
+Buying Setup,Paramétrage des achats
+By-Product,Sous-produit
+Bypass credit limit check at sales order,Ignorer le contrôle de plafond de crédit à la commande client
+Cache,Cache
+Calculate daily depreciation using total days in depreciation period,Calculer l'amortissement journalier sur le nombre total de jours de la période
+Calculate Product Bundle price based on child Item's rates,Calculer le prix du lot selon les prix des articles qui le composent
+Calculated Amount,Montant calculé
+Calculated Discount Mismatch,Écart de remise calculée
+Campaign Item,Élément de campagne
+Capitalize Repair Cost,Immobiliser le coût de réparation
+Capitalized,Immobilisé
+Carrier Service,Service du transporteur
+Categorize by Voucher,Regrouper par pièce
+Categorize by Voucher (Consolidated),Regrouper par pièce (consolidé)
+Category Details,Détails de la catégorie
+Change in Stock Value,Variation de la valeur du stock
+Check Availability in Warehouse,Vérifier la disponibilité en entrepôt
+Check Supplier invoice number uniqueness,Vérifier l'unicité du numéro de facture fournisseur
+Checked On,Vérifié le
+Cheques and Deposits Incorrectly cleared,Chèques et dépôts mal rapprochés
+Child DocTypes,Types de documents enfants
+Claimed Landed Cost Amount (Company Currency),Frais d'approche réclamés (devise de la société)
+Classify As,Classer comme
+Client,Client
+Co-Product,Coproduit
+COA Importer,Import du plan comptable
+COGS By Item Group,Coût des ventes par groupe d'articles
+Column Mapping,Correspondance des colonnes
+Commerce & Retail,Commerce et distribution
+Common Code,Code commun
+Communication Channel,Canal de communication
+Company Address Display,Affichage de l'adresse de la société
+Company Contact Person,Contact de la société
+Company Field,Champ société
+Company Signup,Inscription de société
+Composite,Composite
+Composite Asset,Immobilisation composite
+Composite Component,Composant composite
+Condition,Condition
+Conditional Rule,Règle conditionnelle
+Conditional Rule Examples,Exemples de règles conditionnelles
+Conditions,Conditions
+Configuration,Configuration
+Configure Chart of Accounts,Configurer le plan comptable
+Confirm before resetting posting date,Confirmer avant de réinitialiser la date de comptabilisation
+Connection,Connexion
+Consider for Tax Withholding,Soumis à la retenue à la source
+Consider for Tax Withholding ,Soumis à la retenue à la source
+Consider Rejected Warehouses,Prendre en compte les entrepôts de rebut
+Considered In Paid Amount,Pris en compte dans le montant payé
+Console,Console
+Consolidated Report,Rapport consolidé
+Consolidated Trial Balance,Balance consolidée
+Consumed Asset Total Value,Valeur totale des immobilisations consommées
+Consumed Assets,Immobilisations consommées
+Consumed Items Cost,Coût des articles consommés
+Consumed Stock Items,Articles de stock consommés
+Consumed Stock Total Value,Valeur totale du stock consommé
+Contains,Contient
+Contribution (%),Contribution (%)
+Control Action for Cumulative Expense,Action de contrôle des dépenses cumulées
+Convert Item description to clean HTML in transactions,Convertir la description de l'article en HTML propre dans les transactions
+Copy Attachments to Transaction,Copier les pièces jointes dans la transaction
+Cost Center Allocation Percentage,Pourcentage d'affectation au centre de coûts
+Cost Center Allocation Percentages,Pourcentages d'affectation aux centres de coûts
+Cost to Company (CTC),Coût employeur (CTC)
+Create Asset Category,Créer une catégorie d'immobilisation
+Create Asset Item,Créer un article d'immobilisation
+Create Asset Location,Créer un emplacement d'immobilisation
+Create Bill of Materials,Créer une nomenclature
+Create Existing Asset,Créer une immobilisation existante
+Create Finished Good,Créer un produit fini
+Create Finished Goods,Créer des produits finis
+Create Grouped Asset,Créer une immobilisation groupée
+Create Operation,Créer une opération
+Create Operations,Créer des opérations
+Create payment requests in Draft status,Créer les demandes de paiement au statut brouillon
+Create Raw Material,Créer une matière première
+Create Raw Materials,Créer des matières premières
+Create Service Item,Créer un article de service
+Create Subcontracted Item,Créer un article sous-traité
+Create Subcontracting Order,Créer un ordre de sous-traitance
+Create Subcontracting PO,Créer un bon de commande de sous-traitance
+Create Subcontracting Purchase Order,Créer un bon de commande de sous-traitance
+Create Tasks,Créer des tâches
+Create Transfer Entry,Créer un mouvement de transfert
+Create User Automatically,Créer l'utilisateur automatiquement
+Create Work Order,Créer un ordre de fabrication
+Created through Portal,Créé via le portail
+Credit & Overdue Limits,Plafonds de crédit et d'impayés
+Credit Amount in Reporting Currency,Montant au crédit en devise de reporting
+Credit Amount in Transaction Currency,Montant au crédit en devise de transaction
+CRM Note,Note CRM
+Cumulative Threshold,Seuil cumulé
+Currency Exchange Settings Details,Détails des paramètres de change
+Currency Exchange Settings Result,Résultat des paramètres de change
+Current Asset,Actif circulant
+Current Invoice End Date,Date de fin de la facture en cours
+Current Invoice Start Date,Date de début de la facture en cours
+Current Liability,Passif circulant
+Current Node,Nœud actuel
+Current Serial / Batch Bundle,Ensemble série / lot actuel
+Custom API,API personnalisée
+Custom delimiters,Séparateurs personnalisés
+Custom Remark,Remarque personnalisée
+Customer / Item / Item Group,Client / article / groupe d'articles
+Customer Group Item,Groupe de clients
+Customer Ledger,Grand livre client
+Customer Number At Supplier,Numéro client chez le fournisseur
+Customer Numbers,Numéros client
+Customer Portal Users,Utilisateurs du portail client
+Customer POS ID,Identifiant client PDV
+Customer Provided Item Cost,Coût de l'article fourni par le client
+Cyan,Cyan
+Daily Yield (%),Rendement journalier (%)
+Danger,Danger
+Data fetch method,Méthode de récupération des données
+Data Source,Source de données
+Date of Birth,Date de naissance
+Date of Joining,Date d'embauche
+Dates,Dates
+Dates to Process,Dates à traiter
+DB Tables,Tables de la base
+Debit / Credit Note Posting Date,Date de comptabilisation de la note de débit / crédit
+Debit Amount in Reporting Currency,Montant au débit en devise de reporting
+Debit Amount in Transaction Currency,Montant au débit en devise de transaction
+Debit-Credit Mismatch,Écart débit-crédit
+Debit-Credit mismatch,Écart débit-crédit
+Debit/Credit,Débit / crédit
+Deduct Tax On Basis,Retenir la taxe sur la base
+Deducted From,Déduit de
+Deduction Certificate,Attestation de retenue
+Default Advance Account,Compte d'acompte par défaut
+Default Advance Paid Account,Compte d'acomptes versés par défaut
+Default Advance Received Account,Compte d'acomptes reçus par défaut
+Default Ageing Range,Tranches d'ancienneté par défaut
+Default Buying Cost Center,Centre de coûts d'achat par défaut
+Default Expense Account,Compte de charges par défaut
+Default In-Transit Warehouse,Entrepôt de transit par défaut
+Default Operating Cost Account,Compte des coûts d'exploitation par défaut
+Default Provisional Account,Compte provisoire par défaut
+Default Sales Contact,Contact commercial par défaut
+Default Selling Cost Center,Centre de coûts de vente par défaut
+Default Stock Valuation Method,Méthode de valorisation du stock par défaut
+Default Supplier,Fournisseur par défaut
+Deferred Expense Account,Compte de charges constatées d'avance
+Deferred Revenue and Expense,Produits et charges différés
+Delete Accounting and Stock Ledger entries on deletion of transaction,Supprimer les écritures comptables et de stock à la suppression de la transaction
+Delete Bins,Supprimer les casiers
+Delete Cancelled Ledger Entries,Supprimer les écritures annulées
+Delete Leads and Addresses,Supprimer les prospects et adresses
+Delete Permanently,Supprimer définitivement
+DeLinked,Délié
+Deliver secondary Items,Livrer les articles secondaires
+Delivered,Livré
+Delivered Qty (in Stock UOM),Quantité livrée (en unité de stock)
+Delivery Schedule Item,Ligne du calendrier de livraison
+Dependant SLE Voucher Detail No,N° de ligne de la pièce de stock dépendante
+Deposit,Dépôt
+Depreciate based on daily pro-rata,Amortir au prorata journalier
+Depreciate based on shifts,Amortir selon les équipes
+Depreciation Details,Détails de l'amortissement
+Depth,Profondeur
+Description Rules,Règles de libellé
+Detected Amount Format,Format de montant détecté
+Detected Date Format,Format de date détecté
+Detected Header Index,Ligne d'en-tête détectée
+Detected Transaction Ending Index,Dernière ligne de transaction détectée
+Detected Transaction Starting Index,Première ligne de transaction détectée
+Determine Address Tax Category from,Déterminer la catégorie fiscale de l'adresse depuis
+Diesel,Diesel
+Difference Posting Date,Date de comptabilisation de l'écart
+Dimension-wise Accounts Balance Report,Soldes des comptes par dimension
+Dimensions,Dimensions
+Direct Expense,Charge directe
+Disable,Désactiver
+"Disable ""Consider Accounting Dimension"" Filter",Désactiver le filtre « Prendre en compte la dimension analytique »
+Disable Cumulative Threshold,Désactiver le seuil cumulé
+Disable last purchase rate,Désactiver le dernier prix d'achat
+Disable Prepared Report Automation,Désactiver l'automatisation des rapports préparés
+Disable Serial No and Batch selector,Désactiver le sélecteur de n° de série et de lot
+Disable Transaction Threshold,Désactiver le seuil par transaction
+Discard Changes and Load New Invoice,Abandonner les modifications et charger une nouvelle facture
+Discount (%) on Price List Rate with Margin,Remise (%) sur le prix de liste avec marge
+Discount Account,Compte de remise
+Discount on Price List Rate (%),Remise sur le prix de liste (%)
+Discount Validity Based On,Validité de la remise basée sur
+Discrepancy between General and Payment Ledger,Écart entre le grand livre et le journal des paiements
+Discretionary Reason,Motif discrétionnaire
+Dispatch Address,Adresse d'expédition
+Dispatch Address Details,Détails de l'adresse d'expédition
+Dispatch Address Template,Modèle d'adresse d'expédition
+Display & Data Formatting,Affichage et format des données
+Display Name,Nom affiché
+Distance,Distance
+Distance UOM,Unité de distance
+Distribute Equally,Répartir équitablement
+Distribute Manually,Répartir manuellement
+Distributed Discount Amount,Montant de remise réparti
+Distribution Frequency,Fréquence de répartition
+Do not fetch incoming rate from Serial No,Ne pas reprendre le prix d'entrée depuis le n° de série
+Do not import,Ne pas importer
+Do not update Serial / Batch on creation of auto bundle,Ne pas mettre à jour série / lot à la création automatique de l'ensemble
+Do not use Batch-wise Valuation,Ne pas valoriser par lot
+Doctype To Sync,Type de document à synchroniser
+DocTypes To Delete,Types de documents à supprimer
+Document,Document
+Document Count,Nombre de documents
+Document Naming,Numérotation des documents
+Don't Create Loyalty Points,Ne pas créer de points de fidélité
+Don't Enforce Free Item Qty,Ne pas imposer la quantité d'article gratuit
+Don't reserve Sales Order qty on sales return,Ne pas réserver la quantité de commande client sur retour de vente
+Donut,Anneau
+Dunning Amount (Company Currency),Montant de relance (devise de la société)
+Dunning Level,Niveau de relance
+Duration (ms),Durée (ms)
+Edit Tax Withholding Entries,Modifier les écritures de retenue à la source
+Email Digest Recipient,Destinataire du résumé par e-mail
+Email Verified,E-mail vérifié
+Employee Number,Matricule
+Employer Contribution,Cotisation patronale
+Employer Contributions,Cotisations patronales
+Enable Accounting Dimensions,Activer les dimensions analytiques
+Enable Appointment Booking Through Portal,Activer la prise de rendez-vous via le portail
+Enable Automatic Party Matching,Activer l'identification automatique des tiers
+Enable cut-off date on creating bulk Delivery Notes,Activer la date limite pour la création groupée de bons de livraison
+Enable discount accounting for selling,Activer la comptabilisation des remises sur ventes
+Enable Discounts and Margin,Activer les remises et marges
+Enable Frappe CRM Data Synchronization,Activer la synchronisation avec Frappe CRM
+Enable Fuzzy Matching,Activer la correspondance approximative
+Enable Health Monitor,Activer le contrôle de santé
+Enable Immutable Ledger,Activer le grand livre inaltérable
+Enable Item-wise Inventory Account,Activer le compte de stock par article
+Enable Loyalty Point Program,Activer le programme de fidélité
+Enable Multi-Currency Expense Claims,Activer les notes de frais multidevises
+Enable Opportunity Creation from Contact Us,Créer une opportunité depuis le formulaire de contact
+Enable Parallel Reposting,Activer la recomptabilisation en parallèle
+Enable Rate Limit,Activer la limite de requêtes
+Enable Separate Reposting for GL,Activer la recomptabilisation séparée du grand livre
+Enable Snapshot Reports,Activer les rapports instantanés
+Enable stock reservation,Activer la réservation de stock
+Enable Subscription,Activer l'abonnement
+Enable tracking sales commissions,Activer le suivi des commissions sur ventes
+Enable UTM,Activer le suivi UTM
+Encashment Date,Date d'encaissement
+Ends With,Se termine par
+ERP Month Closure,Clôture mensuelle ERP
+Errors Notification,Notification des erreurs
+Example URL,Exemple d'URL
+Excel,Excel
+Exception,Exception
+Exchange Gain / Loss,Gain / perte de change
+Exchange Gain Or Loss,Gain ou perte de change
+Exchange Rate Revaluation Settings,Paramètres de réévaluation des taux de change
+Excluded DocTypes,Types de documents exclus
+Excluded Fee,Frais exclus
+Exempted Role,Rôle exempté
+Existing Asset,Immobilisation existante
+Expenses Added To Stock Account,Charges ajoutées au compte de stock
+Expenses Added To Stock Contra Account,Contrepartie des charges ajoutées au stock
+Expiry,Expiration
+Expression,Expression
+Extended Bank Statement,Relevé bancaire détaillé
+Failure Description,Description de l'échec
+Fax,Fax
+Feedback Template,Modèle de retour
+Fetch Payment Schedule in Payment Request,Reprendre l'échéancier dans la demande de paiement
+Fetch valuation rate for internal Transaction,Reprendre le prix de valorisation pour les transactions internes
+Fetch Value From,Reprendre la valeur de
+FIFO Queue,File FIFO
+FIFO Queue vs Qty After Transaction Comparison,Comparaison file FIFO / quantité après transaction
+"FIFO Stock Queue (qty, rate)","File de stock FIFO (quantité, prix)"
+Filename,Nom du fichier
+Filter by Reference Date,Filtrer par date de référence
+Filter on Invoice,Filtrer sur la facture
+Filter on Payment,Filtrer sur le paiement
+Financial Ratios,Ratios financiers
+Financial Report Row,Ligne de rapport financier
+Finished Good Qty,Quantité de produit fini
+Finished Good Quantity ,Quantité de produit fini
+Fixed Asset Defaults,Valeurs par défaut des immobilisations
+Fixed Outgoing Email Account,Compte e-mail sortant fixe
+For All Stock Asset Accounts,Pour tous les comptes de stock
+Forecasting,Prévisions
+Format,Format
+Formula Based Criteria,Critères basés sur une formule
+Formula or Account Filter,Formule ou filtre de compte
+Frappe CRM Allowed User,Utilisateur autorisé Frappe CRM
+Free Item Rate,Prix de l'article gratuit
+Freeze stocks older than (days),Figer les stocks plus anciens que (jours)
+From External Ecomm Platform,Depuis une plateforme e-commerce externe
+From Payment Date,Depuis la date de paiement
+From Reference Date,Depuis la date de référence
+From Voucher Detail No,Depuis la ligne de pièce n°
+From Voucher Type,Depuis le type de pièce
+Full and Final Statement,Solde de tout compte
+FX Revaluation,Réévaluation de change
+Gain/Loss already booked,Gain / perte déjà comptabilisé
+Gain/Loss from Revaluation,Gain / perte de réévaluation
+General and Payment Ledger Comparison,Comparaison grand livre / journal des paiements
+General and Payment Ledger mismatch,Écart grand livre / journal des paiements
+General Ledger remarks length,Longueur des remarques du grand livre
+General Ledger Report,Rapport du grand livre
+Generate Invoice At,Générer la facture à
+Generate New Invoices Past Due Date,Générer de nouvelles factures après l'échéance
+Generated,Généré
+Get Allocations,Obtenir les affectations
+Get Balance,Obtenir le solde
+Get Outstanding Orders,Obtenir les commandes en cours
+GL Entry Processing Status,Statut de traitement des écritures
+Goals,Objectifs
+Goods,Biens
+Google Calender,Google Agenda
+Gross Total,Total brut
+Group Name,Nom du groupe
+Group Same Items,Regrouper les articles identiques
+Handlers,Gestionnaires
+Has Corrective Cost,A un coût correctif
+Has Item Scanned,Article scanné
+Has Operating Cost,A un coût d'exploitation
+Has Priority,Prioritaire
+Have default Naming Series for Batch ID?,Série de numérotation par défaut pour les lots ?
+Header Text,Texte d'en-tête
+Hidden Line (Internal Use Only),Ligne masquée (usage interne)
+Hide Customer's Tax ID from sales transactions,Masquer le n° fiscal du client dans les ventes
+Hide If Zero,Masquer si zéro
+Hide Images,Masquer les images
+Hiring Pipeline,Suivi des recrutements
+Holidays,Jours fériés
+Hour Rate,Taux horaire
+How often should project be updated of Total Purchase Cost ?,Fréquence de mise à jour du coût d'achat total des projets
+How often should sales data be updated in Company/Project?,Fréquence de mise à jour des ventes dans la société / le projet
+HR Telemetry Milestone,Étape de télémétrie RH
+Idx,Index
+Ignore Account closing balance,Ignorer le solde de clôture du compte
+Ignore Exchange Rate Revaluation and Gain / Loss Journals,Ignorer les écritures de réévaluation et de gain / perte de change
+Ignore Is Opening check for reporting,Ignorer l'indicateur d'ouverture dans les rapports
+Ignore System Generated Credit / Debit Notes,Ignorer les avoirs / notes de débit générés par le système
+Ignore Tax Withholding Threshold,Ignorer le seuil de retenue à la source
+Image,Image
+In Process,En cours
+Include in Charts,Inclure dans les graphiques
+Included Fee,Frais inclus
+Income and Expense,Produits et charges
+Incoming Rate (Costing),Prix d'entrée (coût)
+Incorrect Serial and Batch Bundle,Ensembles série et lot incorrects
+Incorrect Stock Value Report,Rapport des valeurs de stock incorrectes
+Incoterm,Incoterm
+Increase In Asset Life (Months),Allongement de la durée de vie (mois)
+Increase In Asset Life(Months),Allongement de la durée de vie (mois)
+Indent Level,Niveau de retrait
+Index,Index
+Indirect Expense,Charge indirecte
+Info,Info
+Initialize Summary Table,Initialiser le tableau de synthèse
+Instructions,Instructions
+Insurance,Assurance
+Interest,Intérêts
+Internal Customer Accounting,Comptabilité client interne
+Internal Supplier Details,Détails du fournisseur interne
+Internal Transfer Rules,Règles de transfert interne
+Interval,Intervalle
+Introduction,Introduction
+Invalid Ledger Entries,Écritures invalides
+Inventory Account Currency,Devise du compte de stock
+Inventory Dimension key,Clé de dimension de stock
+Inventory Valuation,Valorisation du stock
+Invoice Limit,Limite de facture
+Invoice Portion (%),Part de la facture (%)
+Invoice Type Created via POS Screen,Type de facture créée via l'écran PDV
+Inward Order,Commande entrante
+Is Adjustment Entry,Écriture d'ajustement
+Is Alternative,Alternative
+Is Cash or Non Trade Discount,Remise en espèces ou hors commerce
+Is Credit Card,Carte de crédit
+Is Delivery Note required to create Sales Invoice?,Bon de livraison obligatoire pour la facture de vente ?
+Is Exchange Gain / Loss?,Gain / perte de change ?
+Is Finished Item,Produit fini
+Is Fully Depreciated,Entièrement amorti
+Is Group Warehouse,Entrepôt de regroupement
+Is Half Day,Demi-journée
+Is Packed,Emballé
+Is Period Closing Voucher Entry,Écriture de clôture d'exercice
+Is Purchase Order required for Purchase Invoice & Receipt creation?,Bon de commande obligatoire pour la facture et la réception d'achat ?
+Is Purchase Receipt required for Purchase Invoice creation?,Bon de réception obligatoire pour la facture d'achat ?
+Is Rejected,Rejeté
+Is Rejected Warehouse,Entrepôt de rebut
+Is Rule Evaluated,Règle évaluée
+Is Sales Order required to create Sales Invoice/Delivery Note?,Commande client obligatoire pour la facture / le bon de livraison ?
+Is Short/Long Year,Exercice court / long
+Is Subcontracted Item,Article sous-traité
+Is Tax Withholding Account,Compte de retenue à la source
+Italic Text,Texte en italique
+Item and Warehouse,Article et entrepôt
+Item Attributes,Attributs de l'article
+Item Group wise Discount,Remise par groupe d'articles
+Item Information,Informations sur l'article
+Item Row,Ligne d'article
+Item Where Used,Utilisation de l'article
+Item-wise sales Register,Registre des ventes par article
+Items & Pricing,Articles et prix
+Items To Be Received,Articles à recevoir
+Joining,Embauche
+Landed Cost,Frais d'approche
+Landed Cost Report,Rapport des frais d'approche
+Landed Cost Vendor Invoice,Facture fournisseur de frais d'approche
+Last Scanned Warehouse,Dernier entrepôt scanné
+Latitude,Latitude
+Lead Conversion Time,Délai de conversion des prospects
+Leads,Prospects
+Learn Asset,Découvrir les immobilisations
+Learn Subcontracting,Découvrir la sous-traitance
+Leave Policy Name,Nom de la politique de congés
+Ledger Health,Santé du grand livre
+Ledger Health Monitor,Contrôle de santé du grand livre
+Ledger Health Monitor Company,Société du contrôle de santé du grand livre
+Ledger Merge,Fusion de comptes
+Ledger Merge Accounts,Comptes à fusionner
+Ledgers,Comptes
+Ledgers Posted,Comptes comptabilisés
+Left Child,Enfant gauche
+Legacy Fields,Anciens champs
+Liability Account,Compte de passif
+LIFO,LIFO
+Limit timeslot for Stock Reposting,Limiter le créneau de recomptabilisation du stock
+Limits don't apply on,Les limites ne s'appliquent pas à
+Line Reference,Référence de ligne
+Locked,Verrouillé
+Logo,Logo
+Longitude,Longitude
+Lost Quotations,Devis perdus
+Main Cost Center,Centre de coûts principal
+Maintain same rate throughout internal Transaction,Maintenir le même prix sur toute la transaction interne
+Maintain same rate throughout sales cycle,Maintenir le même prix sur tout le cycle de vente
+Maintain same rate throughout the purchase  cycle,Maintenir le même prix sur tout le cycle d'achat
+Maintenance Details,Détails de maintenance
+Make Attachment Public (by default),Rendre les pièces jointes publiques (par défaut)
+Mandatory Depends On (Backend),Obligatoire selon (serveur)
+Mandatory Section,Section obligatoire
+Manual Inspection,Contrôle manuel
+Manufacturing Setup,Paramétrage de la production
+Manufacturing Time,Temps de fabrication
+Maps To,Correspond à
+Margin,Marge
+Mark as Closed,Marquer comme clôturé
+Match transfers within 'N' days,Rapprocher les virements dans un délai de N jours
+Matched,Rapproché
+Matched Transaction Rule,Règle de transaction appliquée
+Material Planning,Planification des matières
+Materials To Be Transferred,Matières à transférer
+Max Discount (%),Remise max. (%)
+Max Qty (As Per Stock UOM),Quantité max. (en unité de stock)
+Max Zip Extract Size (MB),Taille max. d'extraction ZIP (Mo)
+Maximum,Maximum
+Maximum Net Rate,Prix net maximum
+Maximum Payment Amount,Montant de paiement maximum
+Maximum Value,Valeur maximale
+Merge Invoices Based On,Fusionner les factures selon
+Merge similar Account Heads,Fusionner les comptes similaires
+Merged,Fusionné
+Message,Message
+Messages,Messages
+Min Qty (As Per Stock UOM),Quantité min. (en unité de stock)
+Minimum,Minimum
+Minimum Net Rate,Prix net minimum
+Minimum Payment Amount,Montant de paiement minimum
+Minimum Value,Valeur minimale
+Miscellaneous,Divers
+Mobile,Mobile
+Module,Module
+Module (for Export),Module (pour l'export)
+Monitor for Last 'X' days,Surveiller les X derniers jours
+MPS,Plan directeur de production
+Multiple Accounts,Plusieurs comptes
+Named Place,Lieu convenu
+Naming Series,Série de numérotation
+Navigation Buttons,Boutons de navigation
+Negative Batch Report,Rapport des lots négatifs
+Negative Stock,Stock négatif
+Net Purchase Amount,Montant net d'achat
+New Balance In Account Currency,Nouveau solde en devise du compte
+No of Docs,Nombre de documents
+No of Items to Repost,Nombre d'articles à recomptabiliser
+No of Months (Expense),Nombre de mois (charges)
+No of Months (Revenue),Nombre de mois (produits)
+No of Parallel Reposting (Per Item),Nombre de recomptabilisations parallèles (par article)
+No of Shift,Nombre d'équipes
+No of Units Produced,Nombre d'unités produites
+No of Workstations,Nombre de postes de travail
+Non Depreciable Category,Catégorie non amortissable
+Normal Balances,Soldes normaux
+Notification Type,Type de notification
+Notification Type Preference,Préférence de type de notification
+Notifications,Notifications
+Notify by email on creation of automatic Material Request,Notifier par e-mail la création automatique d'une demande de matériel
+Notify Reposting Error to Role,Notifier les erreurs de recomptabilisation au rôle
+Number of Days,Nombre de jours
+Number of Events,Nombre d'événements
+Number of Transactions,Nombre de transactions
+Numeric,Numérique
+Numeric Inspection,Contrôle numérique
+Occurrences,Occurrences
+Offer Date,Date de l'offre
+Offsetting Account,Compte de contrepartie
+Oldest Of Invoice Or Advance,La plus ancienne entre facture et acompte
+On Paid Amount,Sur le montant payé
+Only Deduct Tax On Excess Amount ,Retenir la taxe uniquement sur l'excédent
+Opening & Closing,Ouverture et clôture
+Opening Balances,Soldes d'ouverture
+Opening Invoice Tool,Outil des factures d'ouverture
+Opening Number of Booked Depreciations,Nombre d'amortissements déjà comptabilisés à l'ouverture
+Opportunity Amount (Company Currency),Montant de l'opportunité (devise de la société)
+Opportunity Owner,Responsable de l'opportunité
+Opportunity Value,Valeur de l'opportunité
+Options,Options
+Orange,Orange
+Orientation,Orientation
+Other Info,Autres informations
+Others,Autres
+Outstanding (Company Currency),Reste dû (devise de la société)
+Outward Order,Commande sortante
+Over Billing Allowance (%),Tolérance de surfacturation (%)
+Over Delivery/Receipt Allowance (%),Tolérance de surlivraison / surréception (%)
+Over Order Allowance (%),Tolérance de surcommande (%)
+Over Transfer Allowance (%),Tolérance de surtransfert (%)
+Over Withheld,Retenue excédentaire
+Overdue Payment,Paiement en retard
+Overdue Payments,Paiements en retard
+Owned,Détenu
+Ownership,Propriété
+P&L Closing Balance,Solde de clôture du compte de résultat
+Packed Qty,Quantité emballée
+Page Break After Each SoA,Saut de page après chaque relevé de compte
+Pallets,Palettes
+Parameter Group Name,Nom du groupe de paramètres
+Parent Document,Document parent
+Partially Billed,Partiellement facturé
+Partially Delivered,Partiellement livré
+Partially Reconciled,Partiellement rapproché
+Partially Reposted,Partiellement recomptabilisé
+Partially Reserved,Partiellement réservé
+Partially Used,Partiellement utilisé
+Partly Paid,Partiellement payé
+Partly Paid and Discounted,Partiellement payé et escompté
+Partnership,Partenariat
+Party Account No.,N° de compte du tiers
+Party Account No. (Bank Statement),N° de compte du tiers (relevé bancaire)
+Party Full Name,Nom complet du tiers
+Party IBAN,IBAN du tiers
+Party IBAN (Bank Statement),IBAN du tiers (relevé bancaire)
+Party ID,Identifiant du tiers
+Party Link,Lien entre tiers
+Party Name/Account Holder,Nom du tiers / titulaire du compte
+Passport Details,Détails du passeport
+Paused,En pause
+Pay via Payment Entry,Payer par écriture de paiement
+Payment Account,Compte de paiement
+Payment Amount (Company Currency),Montant du paiement (devise de la société)
+Payment Ledger,Journal des paiements
+Payment Ledger Entry,Écriture du journal des paiements
+Payment Limit,Limite de paiement
+Payment Options,Options de paiement
+Payment Reconciliation Allocation,Affectation du rapprochement des paiements
+Payment Reconciliation Settings,Paramètres du rapprochement des paiements
+Payment Request Outstanding,Reste dû de la demande de paiement
+Payment Term Outstanding,Reste dû de l'échéance
+Payment Terms Status for Sales Order,Statut des échéances de la commande client
+Payment URL,Lien de paiement
+PCV Job Timeout (seconds),Délai de la tâche de clôture (secondes)
+PDF Name,Nom du PDF
+PDF Tables,Tableaux PDF
+Pegged Against,Arrimée à
+Pegged Currencies,Devises arrimées
+Pegged Currency Details,Détails de la devise arrimée
+Per-Company Accounts,Comptes par société
+Percentage (%),Pourcentage (%)
+Period Details,Détails de la période
+Period Movement (Debits - Credits),Mouvement de la période (débits - crédits)
+Period To Date,Période à date
+Period_from_date,Date de début de période
+Periodic Accounting,Comptabilité périodique
+Periodic Accounting Entry,Écriture comptable périodique
+Periodic Entry Difference Account,Compte d'écart des écritures périodiques
+Permanent,Permanent
+Permission Manager,Gestionnaire des autorisations
+Personal Details,Informations personnelles
+Phone Ext.,Poste
+Pick Serial / Batch,Choisir série / lot
+Pick Serial / Batch Based On,Choisir série / lot selon
+Pickup,Enlèvement
+Pickup Contact Person,Contact pour l'enlèvement
+Pickup Date,Date d'enlèvement
+Pickup from,Enlèvement à partir de
+Pickup to,Enlèvement jusqu'à
+Pickup Type,Type d'enlèvement
+Plan,Plan
+Plans,Plans
+Portal User,Utilisateur du portail
+Portal Users,Utilisateurs du portail
+Portrait,Portrait
+POS Additional Fields,Champs supplémentaires PDV
+POS Configurations,Configurations PDV
+POS Item Details,Détails des articles PDV
+POS Item Selector,Sélecteur d'articles PDV
+POS Search Fields,Champs de recherche PDV
+Position,Position
+Postal,Postal
+Posting Date inheritance for exchange gain / loss,Date de comptabilisation reprise pour le gain / perte de change
+Posting Datetime,Date et heure de comptabilisation
+Preferred Contact Email,E-mail de contact préféré
+Preferred Email,E-mail préféré
+Prevent Duplicate Applications,Empêcher les candidatures en double
+Prevent Sales Invoice when Customer is Overdue,Bloquer la facture de vente si le client a des impayés
+Price List & Currency,Liste de prix et devise
+Price List Defaults,Valeurs par défaut des listes de prix
+Primary Address Preview,Aperçu de l'adresse principale
+Primary Party,Tiers principal
+Primary Role,Rôle principal
+Print Receipt on Order Complete,Imprimer le reçu à la fin de la commande
+Probability (%),Probabilité (%)
+Process Loss,Perte de fabrication
+Process Payment Reconciliation Log,Journal du traitement du rapprochement des paiements
+Process Payment Reconciliation Log Allocations,Affectations du journal de rapprochement des paiements
+Process Period Closing Voucher,Traiter la clôture d'exercice
+Process Period Closing Voucher Detail,Détail du traitement de la clôture d'exercice
+Process Statement Of Accounts CC,Copie du relevé de compte
+Process Subscription,Traiter l'abonnement
+Processing Date,Date de traitement
+Product Price ID,Identifiant du prix du produit
+Profit and Loss Summary,Synthèse du compte de résultat
+Projected On Hand,Stock prévisionnel
+Projects Setup,Paramétrage des projets
+Prompt Qty,Demander la quantité
+Prospect Lead,Prospect - piste
+Prospect Opportunity,Prospect - opportunité
+Prospects,Prospects
+Provisional Expense Account,Compte de charges provisoires
+Public,Public
+Purchase Expense,Charge d'achat
+Purchase Expense Account,Compte de charges d'achat
+Purchase Expense Contra Account,Contrepartie des charges d'achat
+Purchase Invoice Settings,Paramètres des factures d'achat
+Purchase Order Item Supplied,Article fourni du bon de commande
+Purchase Tax Withholding Category,Catégorie de retenue à la source sur achats
+Purchase Time,Heure d'achat
+Qty (Company),Quantité (société)
+Qty (in Stock UOM),Quantité (en unité de stock)
+Qty (Warehouse),Quantité (entrepôt)
+Qty After Transaction,Quantité après transaction
+Qty and Rate,Quantité et prix
+Qty as Per Stock UOM,Quantité en unité de stock
+Qty Change,Variation de quantité
+Qty in Stock UOM,Quantité en unité de stock
+Qty to Be Consumed,Quantité à consommer
+Qualification,Qualification
+Qualification Status,Statut de qualification
+Qualified,Qualifié
+Quality Inspection Parameter Group,Groupe de paramètres de contrôle qualité
+Quantity Tolerance,Tolérance de quantité
+Queries,Requêtes
+Quotation Number,Numéro de devis
+Raise Material Request when stock reaches re-order level,Créer une demande de matériel quand le stock atteint le seuil de réapprovisionnement
+Raised By,Signalé par
+Rate limit for email link login,Limite de connexions par lien e-mail
+Rate Limiting,Limitation des requêtes
+Rate of Interest (%) Yearly,Taux d'intérêt annuel (%)
+Rate of Stock UOM,Prix par unité de stock
+Raw Method,Méthode brute
+Reading 3,Lecture 3
+Reading 4,Lecture 4
+Reading 5,Lecture 5
+Reading Value,Valeur lue
+Recalculate Incoming/Outgoing Rate,Recalculer le prix d'entrée / de sortie
+Recalculate Valuation Rate,Recalculer le prix de valorisation
+Receipt Items,Articles reçus
+Receivable/Payable Account,Compte client / fournisseur
+Receive from Customer,Recevoir du client
+Received Qty in Stock UOM,Quantité reçue en unité de stock
+Recipient & Status,Destinataire et statut
+Reconcile All Serial Nos / Batches,Rapprocher tous les n° de série / lots
+Reconcile Effect On,Rapprochement effectif le
+Reconciled Entries,Écritures rapprochées
+Reconciliation Date,Date de rapprochement
+Reconciliation Error Log,Journal des erreurs de rapprochement
+Reconciliation queue size,Taille de la file de rapprochement
+Reconciliation Statement,État de rapprochement
+Reconciliation Takes Effect On,Le rapprochement prend effet le
+Reconciliation Type,Type de rapprochement
+Recorder Event,Événement enregistré
+Recreate Stock Ledgers,Recréer les écritures de stock
+Recurse Every (As Per Transaction UOM),Répéter tous les (selon l'unité de la transaction)
+Reference Exchange Rate,Taux de change de référence
+Reference No,N° de référence
+Regex,Expression régulière
+Registers,Registres
+Rejected Serial and Batch Bundle,Ensemble série et lot rejeté
+Relation,Relation
+Relieving Date,Date de départ
+Repair Purchase Invoices,Factures d'achat de réparation
+Report Line Items,Lignes du rapport
+Reporting Currency,Devise de reporting
+Reporting Currency Exchange Rate,Taux de change de la devise de reporting
+Repost,Recomptabiliser
+Repost Accounting Ledger Items,Pièces à recomptabiliser
+Repost Allowed Types,Types autorisés à la recomptabilisation
+Repost Error Log,Journal des erreurs de recomptabilisation
+Repost Only Accounting Ledgers,Recomptabiliser uniquement le grand livre
+Repost Payment Ledger Items,Pièces du journal des paiements à recomptabiliser
+Repost Status,Statut de la recomptabilisation
+Reposted,Recomptabilisé
+Reposting Data File,Fichier de données de recomptabilisation
+Reposting Item and Warehouse,Article et entrepôt à recomptabiliser
+Reposting Reference,Référence de recomptabilisation
+Reposting Status,Statut de recomptabilisation
+Request Parameters,Paramètres de la requête
+Reservation Based On,Réservation selon
+Reserve Stock,Réserver le stock
+Reserved Inventory,Stock réservé
+Reserved Qty for Subcontract,Quantité réservée pour la sous-traitance
+Reset Company Default Values,Réinitialiser les valeurs par défaut de la société
+Resignation Letter Date,Date de la lettre de démission
+Restrict,Restreindre
+Result Key,Clé de résultat
+Return Against,Retour contre
+Return Issued,Retour émis
+Return Qty from Rejected Warehouse,Quantité retournée depuis l'entrepôt de rebut
+Return Raw Material to Customer,Retourner les matières premières au client
+Returned,Retourné
+Returned Against,Retourné contre
+Returned Qty in Stock UOM,Quantité retournée en unité de stock
+Reversal Of,Contre-passation de
+Reverse Sign,Inverser le signe
+Review Accounts Settings,Vérifier les paramètres comptables
+Review Buying Settings,Vérifier les paramètres d'achat
+Review Chart of Accounts,Vérifier le plan comptable
+Review Manufacturing Settings,Vérifier les paramètres de production
+Review Selling Settings,Vérifier les paramètres de vente
+Review Stock Settings,Vérifier les paramètres de stock
+Review System Settings,Vérifier les paramètres système
+Revision Of,Révision de
+Right Child,Enfant droit
+Role allowed to bypass credit limit,Rôle autorisé à passer outre le plafond de crédit
+Role Allowed to Bypass Over Billing Restriction,Rôle autorisé à passer outre la limite de surfacturation
+Role allowed to create/edit back-dated transactions,Rôle autorisé à créer / modifier des transactions antidatées
+Role allowed to edit frozen stock,Rôle autorisé à modifier le stock figé
+Role Allowed to over bill ,Rôle autorisé à surfacturer
+Role allowed to override stop action,Rôle autorisé à passer outre le blocage
+Role to Notify on Depreciation Failure,Rôle à notifier en cas d'échec d'amortissement
+Roles Allowed to Set and Edit Frozen Account Entries,Rôles autorisés à saisir et modifier les écritures figées
+Root,Racine
+Round Free Qty,Arrondir la quantité gratuite
+Round Off for Opening,Arrondi pour l'ouverture
+Round Off Tax Amount,Arrondir le montant de la taxe
+Round tax amount row-wise,Arrondir la taxe ligne par ligne
+Rounded Total (Company Currency),Total arrondi (devise de la société)
+Rounding Loss Allowance,Tolérance de perte d'arrondi
+Route,Route
+Running,En cours
+Salary Currency,Devise du salaire
+Sales Invoice Reference,Référence de la facture de vente
+Sales Invoice Transactions,Transactions des factures de vente
+Sales Order Schedule,Calendrier de la commande client
+Sales Partner Item,Partenaire commercial
+Sales Partner Target Variance Based On Item Group,Écart d'objectif des partenaires commerciaux par groupe d'articles
+Sales Tax Withholding Category,Catégorie de retenue à la source sur ventes
+Sales Taxes,Taxes sur les ventes
+Salvage Value,Valeur résiduelle
+Salvage Value Percentage,Pourcentage de valeur résiduelle
+Sante,Santé
+Save Changes and Load New Invoice,Enregistrer et charger une nouvelle facture
+Scan Mode,Mode scan
+Scheduling,Planification
+Score,Score
+Score / 100,Score / 100
+Scrap,Rebut
+Script,Script
+Search Bar,Barre de recherche
+Secondary Party,Tiers secondaire
+Secondary Role,Rôle secondaire
+Select Dispatch Address ,Sélectionner l'adresse d'expédition
+Selected Vouchers,Pièces sélectionnées
+Self delivery,Livraison par nos soins
+Selling Setup,Paramétrage des ventes
+Send Attached Files,Envoyer les pièces jointes
+Send Document Print,Envoyer l'impression du document
+Separate columns for withdrawal and deposit,Colonnes séparées pour retraits et dépôts
+Sequence,Séquence
+Serial / Batch Bundle,Ensemble série / lot
+Serial / Batch No,N° de série / lot
+Serial and Batch,Série et lot
+Serial and Batch Entry,Saisie série et lot
+Serial and Batch No,N° de série et de lot
+Serial and Batch Reservation,Réservation série et lot
+Serial and Batch Summary,Synthèse série et lot
+Serial Item settings,Paramètres des articles sérialisés
+Serial Nos / Batches,N° de série / lots
+Service,Service
+Service Expense Account,Compte de charges de services
+Service Expense Total Amount,Montant total des charges de services
+Service Expenses,Charges de services
+Service Item,Article de service
+Service Provider,Prestataire de services
+Services,Services
+Sessions,Sessions
+Set From Warehouse,Définir l'entrepôt source
+Set Grand Total to Default Payment Method,Affecter le total au moyen de paiement par défaut
+Set incoming rate as zero for expired Batch,Mettre à zéro le prix d'entrée des lots expirés
+Set Landed Cost Based on Purchase Invoice Rate,Calculer les frais d'approche sur le prix de la facture d'achat
+Set Serial and Batch Bundle Naming Based on Naming Series,Numéroter les ensembles série et lot selon la série
+Set valuation rate for rejected Materials,Définir le prix de valorisation des matières rejetées
+Setup Company,Configurer la société
+Setup Organization,Configurer l'organisation
+Setup Role Permissions,Configurer les autorisations des rôles
+Setup Sales Taxes,Configurer les taxes sur les ventes
+Setup Sales taxes,Configurer les taxes sur les ventes
+Setup Warehouse,Configurer l'entrepôt
+Shift,Équipe
+Shift Factor,Coefficient d'équipe
+Shift Name,Nom de l'équipe
+Shift Time (In Hours),Durée de l'équipe (heures)
+Shipment,Expédition
+Shipment Amount,Montant de l'expédition
+Shipment Delivery Note,Bon de livraison de l'expédition
+Shipment details,Détails de l'expédition
+Shipment ID,Identifiant de l'expédition
+Shipment Information,Informations d'expédition
+Shipment Type,Type d'expédition
+Shipping Address Template,Modèle d'adresse de livraison
+Show balances in Chart of Accounts,Afficher les soldes dans le plan comptable
+Show barcode field in stock transactions,Afficher le code-barres dans les mouvements de stock
+Show inclusive tax in print,Afficher la taxe incluse à l'impression
+Show Net Values in Party Account,Afficher les valeurs nettes dans le compte du tiers
+Show pay button in Purchase Order portal,Afficher le bouton de paiement sur le portail des bons de commande
+Show Payment Schedule in print,Afficher l'échéancier à l'impression
+Show Remarks,Afficher les remarques
+Show taxes as table in print,Afficher les taxes en tableau à l'impression
+Single Account,Compte unique
+Snapshot Report,Rapport instantané
+Snapshot Reports,Rapports instantanés
+Source,Source
+Source Document,Document source
+Source Exchange Rate,Taux de change source
+Source Fieldname,Champ source
+Source Stock Entry (Manufacture),Mouvement de stock source (fabrication)
+Source Warehouse Address Link,Adresse de l'entrepôt source
+South Africa VAT Account,Compte de TVA Afrique du Sud
+South Africa VAT Settings,Paramètres de TVA Afrique du Sud
+Spam,Spam
+Split From,Scindé depuis
+Stage,Étape
+Standard,Standard
+Starts With,Commence par
+Statement Format,Format du relevé
+Statement PDF Password,Mot de passe du relevé PDF
+Stock,Stock
+Stock and Manufacturing,Stock et production
+Stock Asset Account,Compte de stock (actif)
+Stock Closing,Clôture du stock
+Stock Closing Balance,Solde de clôture du stock
+Stock Closing Entry,Écriture de clôture du stock
+Stock Entry Item,Ligne de mouvement de stock
+Stock Expense,Charge de stock
+Stock Expense Accounting,Comptabilisation des charges de stock
+Stock frozen up to,Stock figé jusqu'au
+Stock Ledger Invariant Check,Contrôle de cohérence du grand livre des stocks
+Stock Ledger Variance,Écarts du grand livre des stocks
+Stock Planning,Planification du stock
+Stock Qty vs Batch Qty,Quantité en stock / quantité par lot
+Stock Reservation Entry,Réservation de stock
+Stock Setup,Paramétrage du stock
+Stock Validations,Contrôles de stock
+Subcontracted Quantity,Quantité sous-traitée
+Subcontracting,Sous-traitance
+Subcontracting Delivery,Livraison de sous-traitance
+Subcontracting Inward,Réception de sous-traitance
+Subcontracting Return,Retour de sous-traitance
+Subcontracting Setup,Paramétrage de la sous-traitance
+Subdivision,Subdivision
+Submit ERR Journals?,Valider les écritures de réévaluation ?
+Submit Generated Invoices,Valider les factures générées
+Submit Journal entries,Valider les écritures de journal
+Suggestions,Suggestions
+Supplier Defaults,Valeurs par défaut du fournisseur
+Supplier Group Item,Groupe de fournisseurs
+Supplier Info,Informations fournisseur
+Supplier Invoice,Facture fournisseur
+Supplier Item,Article fournisseur
+Supplier Ledger,Grand livre fournisseur
+Supplier Number,Numéro fournisseur
+Supplier Number At Customer,Numéro fournisseur chez le client
+Supplier Numbers,Numéros fournisseur
+Supplier Portal Users,Utilisateurs du portail fournisseur
+Sync In Batches,Synchroniser par lots
+Sync Timeout (Seconds),Délai de synchronisation (secondes)
+Target Asset,Immobilisation cible
+Target Exchange Rate,Taux de change cible
+Target Fieldname (Stock Ledger Entry),Champ cible (écriture de stock)
+Target Fixed Asset Account,Compte d'immobilisation cible
+Target Incoming Rate,Prix d'entrée cible
+Target Warehouse Address Link,Adresse de l'entrepôt cible
+Task Assignee Email,E-mail de la personne assignée
+Task Name,Nom de la tâche
+Task Weight,Poids de la tâche
+Tax Amount,Montant de la taxe
+Tax Identification,Identification fiscale
+Tax Row,Ligne de taxe
+Tax Settings,Paramètres fiscaux
+Tax Template,Modèle de taxe
+Tax Withholding Entries,Écritures de retenue à la source
+Tax Withholding Entry,Écriture de retenue à la source
+Taxable Date,Date d'imposition
+Taxable Document Name,Document imposable
+Taxable Document Type,Type de document imposable
+Taxes,Taxes
+Team,Équipe
+Technologies & IT,Technologies et informatique
+Telephone,Téléphone
+Template Name,Nom du modèle
+Terms,Conditions
+Terms & Conditions,Conditions générales
+Terms Template,Modèle de conditions
+Territory Item,Territoire
+Threshold Exemption,Exonération de seuil
+Threshold for Suggestion (In Percentage),Seuil de suggestion (en pourcentage)
+Timeline,Chronologie
+To be Delivered to Customer,À livrer au client
+To Pay,À payer
+To Payment Date,Jusqu'à la date de paiement
+To Reference Date,Jusqu'à la date de référence
+Tools,Outils
+Total Allocations,Total des affectations
+Total Asset Cost,Coût total de l'immobilisation
+Total Billing Hours,Total des heures facturées
+Total Cost To Company (CTC),Coût employeur total (CTC)
+Total Credit Transactions,Nombre de transactions au crédit
+Total Credits,Total des crédits
+Total Debit Transactions,Nombre de transactions au débit
+Total Debits,Total des débits
+Total Incoming Value (Receipt),Valeur totale entrée (réception)
+Total Interest,Total des intérêts
+Total Landed Cost (Company Currency),Total des frais d'approche (devise de la société)
+Total Ledgers,Nombre de comptes
+Total Number of Booked Depreciations ,Nombre total d'amortissements comptabilisés
+Total Outgoing Value (Consumption),Valeur totale sortie (consommation)
+Total Repair Cost,Coût total de réparation
+Total Value,Valeur totale
+Total Value Difference (Incoming - Outgoing),Écart de valeur total (entrées - sorties)
+Total Vendor Invoices Cost (Company Currency),Coût total des factures fournisseurs (devise de la société)
+Total Weight (kg),Poids total (kg)
+Total Workstation Time (In Hours),Temps total des postes de travail (heures)
+Totals (Company Currency),Totaux (devise de la société)
+Tracking Status,Statut du suivi
+Tracking Status Info,Informations de suivi
+Transaction,Transaction
+Transaction Deletion Record,Suppression de transactions
+Transaction Deletion Record Details,Détails de la suppression de transactions
+Transaction Deletion Record Item,Élément de la suppression de transactions
+Transaction Deletion Record To Delete,Éléments à supprimer
+Transaction Exchange Rate,Taux de change de la transaction
+Transaction Information,Informations sur la transaction
+Transaction Name,Nom de la transaction
+Transaction Threshold,Seuil par transaction
+"Transaction type column has ""C""/""D"" values",La colonne type contient des valeurs « C » / « D »
+"Transaction type column has ""CR""/""DR"" values",La colonne type contient des valeurs « CR » / « DR »
+"Transaction type column has ""Deposit""/""Withdrawal"" values",La colonne type contient des valeurs « Dépôt » / « Retrait »
+Transfer and Issue,Transfert et sortie
+Transferred Qty (in Stock UOM),Quantité transférée (en unité de stock)
+Transit,Transit
+Trialing,En essai
+Type,Type
+Type Name,Nom du type
+Type of Transaction,Type de transaction
+UAE VAT Account,Compte de TVA Émirats arabes unis
+UAE VAT Accounts,Comptes de TVA Émirats arabes unis
+UAE VAT Settings,Paramètres de TVA Émirats arabes unis
+Under Withheld,Retenue insuffisante
+Under Withheld Reason,Motif de retenue insuffisante
+Unique,Unique
+Unlink Advance Payment on cancellation of order,Délier l'acompte à l'annulation de la commande
+Unlink Payment on cancellation of invoice,Délier le paiement à l'annulation de la facture
+Unlinked,Délié
+Unqualified,Non qualifié
+Unreconcile Payment Entries,Annuler le rapprochement des paiements
+Unreconciled Entries,Écritures non rapprochées
+UOM Defaults,Unités par défaut
+Update Billed Amount in Delivery Note,Mettre à jour le montant facturé dans le bon de livraison
+Update Billed Amount in Purchase Order,Mettre à jour le montant facturé dans le bon de commande
+Update Billed Amount in Purchase Receipt,Mettre à jour le montant facturé dans le bon de réception
+Update existing Price List Rate,Mettre à jour le prix existant de la liste
+Update Outstanding for Self,Mettre à jour son propre reste dû
+Update Price List based on,Mettre à jour la liste de prix selon
+Update timestamp on new communication,Mettre à jour l'horodatage à chaque nouvelle communication
+Use Batch-wise Valuation,Valoriser par lot
+Use Company default Cost Center for Round off,Utiliser le centre de coûts par défaut de la société pour l'arrondi
+Use Company Default Round Off Cost Center,Utiliser le centre de coûts d'arrondi par défaut de la société
+Use HTTP Protocol,Utiliser le protocole HTTP
+Use Item based reposting,Recomptabiliser par article
+Use Legacy (Client side) Reactivity,Utiliser l'ancienne réactivité (côté client)
+Use legacy Budget Controller,Utiliser l'ancien contrôle budgétaire
+Use legacy controller for Period Closing Voucher,Utiliser l'ancien traitement de clôture d'exercice
+Use Number Format from Currency,Utiliser le format de nombre de la devise
+Use prices from Default Price List as fallback,Utiliser les prix de la liste par défaut en secours
+Use Serial / Batch fields,Utiliser les champs série / lot
+Use Transaction Date Exchange Rate,Utiliser le taux de change de la date de transaction
+UTM Analytics,Analyse UTM
+Valid Up To,Valable jusqu'au
+Validate consumed quantity (as per BOM),Contrôler la quantité consommée (selon la nomenclature)
+Validate Material Transfer warehouses,Contrôler les entrepôts des transferts de matières
+Validate Negative Stock,Contrôler le stock négatif
+Validate Pricing Rule,Contrôler la règle de prix
+Validate selling price for Item against purchase or valuation rate,Contrôler le prix de vente par rapport au prix d'achat ou de valorisation
+Validate Stock on Save,Contrôler le stock à l'enregistrement
+Valuation Type,Type de valorisation
+Value Based Inspection,Contrôle par valeur
+Value Details,Détails de la valeur
+Value of Goods,Valeur des marchandises
+Value Type,Type de valeur
+Variables,Variables
+Variants,Variantes
+VAT Accounts,Comptes de TVA
+VAT Audit Report,Rapport d'audit de TVA
+Vendor Invoice,Facture fournisseur
+Vendor Invoices,Factures fournisseurs
+Verification Link Expiry Duration,Durée de validité du lien de vérification
+Version,Version
+Via Landed Cost Voucher,Via la pièce de frais d'approche
+View Balance Sheet,Voir le bilan
+View Project Summary,Voir la synthèse du projet
+View Purchase Order Analysis,Voir l'analyse des bons de commande
+View Sales Order Analysis,Voir l'analyse des commandes clients
+View Stock Balance,Voir l'état des stocks
+View Stock Balance Report,Voir le rapport d'état des stocks
+View Switcher,Sélecteur de vue
+View Work Order Summary,Voir la synthèse des ordres de fabrication
+View Work Order Summary Report,Voir le rapport de synthèse des ordres de fabrication
+Voucher Created,Pièce créée
+Voucher Qty,Quantité de la pièce
+Voucher Subtype,Sous-type de pièce
+Voucher-wise Balance,Solde par pièce
+Warehouse Defaults,Valeurs par défaut de l'entrepôt
+Warehouse Settings,Paramètres de l'entrepôt
+WIP Composite Asset,Immobilisation composite en cours
+Withdrawal,Retrait
+Withholding Date,Date de retenue
+Withholding Document Name,Document de retenue
+Withholding Document Type,Type de document de retenue
+Write Off Limit,Limite de passage en perte
+Zero Balance,Solde nul
+Zero-Quantity Line Items,Lignes à quantité nulle
