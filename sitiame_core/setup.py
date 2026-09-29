@@ -112,15 +112,37 @@ def ensure_charge_affaires_workspace():
 	"""Sidebar + home icon of the chargé d'affaires space, built like the
 	"Scoring" ones. Rewritten on every migrate so the list stays the one
 	above."""
-	if frappe.db.exists("Workspace Sidebar", CHARGE_AFFAIRES_SIDEBAR):
-		sidebar = frappe.get_doc("Workspace Sidebar", CHARGE_AFFAIRES_SIDEBAR)
+	_ensure_sidebar(CHARGE_AFFAIRES_SIDEBAR, CHARGE_AFFAIRES_ITEMS)
+	_ensure_charge_affaires_icon(
+		CHARGE_AFFAIRES_SIDEBAR, "users", "/assets/erpnext/icons/desktop_icons/solid/crm.svg"
+	)
+	# "Inscrire une PME" is a home tile of its own, not an entry of the
+	# sidebar above (asked 2026-09-29). A desk tile is only shown when a
+	# sidebar of the same name exists, and opens its first link; a tile
+	# pointing to a URL instead is dropped, or opens a new browser tab.
+	_ensure_sidebar(REGISTER_PME_ICON, ((REGISTER_PME_ICON, "Page", "erp-inscrire-pme"),))
+	_ensure_charge_affaires_icon(
+		REGISTER_PME_ICON, "add", "/assets/hrms/icons/desktop_icons/solid/recruitment.svg"
+	)
+	frappe.db.commit()
+	# per-user tile lists are cached (frappe get_desktop_icons)
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
+
+
+REGISTER_PME_ICON = "Inscrire une PME"
+
+
+def _ensure_sidebar(title, items):
+	if frappe.db.exists("Workspace Sidebar", title):
+		sidebar = frappe.get_doc("Workspace Sidebar", title)
 		sidebar.items = []
 	else:
 		sidebar = frappe.new_doc("Workspace Sidebar")
-		sidebar.title = CHARGE_AFFAIRES_SIDEBAR
+		sidebar.title = title
 	sidebar.header_icon = "users"
 	sidebar.module = "Sitiame Core"
-	for label, link_type, link_to in CHARGE_AFFAIRES_ITEMS:
+	for label, link_type, link_to in items:
 		sidebar.append(
 			"items", {"label": label, "type": "Link", "link_type": link_type, "link_to": link_to, "icon": "users"}
 		)
@@ -131,46 +153,28 @@ def ensure_charge_affaires_workspace():
 	else:
 		sidebar.save()
 
-	_ensure_charge_affaires_icon(
-		CHARGE_AFFAIRES_SIDEBAR,
-		"users",
-		"/assets/erpnext/icons/desktop_icons/solid/crm.svg",
-		link_type="Workspace Sidebar",
-		link_to=CHARGE_AFFAIRES_SIDEBAR,
-	)
-	# a tile of its own on the home screen, not a sidebar entry (asked
-	# 2026-09-29)
-	_ensure_charge_affaires_icon(
-		REGISTER_PME_ICON,
-		"add",
-		"/assets/hrms/icons/desktop_icons/solid/recruitment.svg",
-		link_type="External",
-		link="/desk/erp-inscrire-pme",
-	)
-	frappe.db.commit()
-	frappe.clear_cache()
 
-
-REGISTER_PME_ICON = "Inscrire une PME"
-
-
-def _ensure_charge_affaires_icon(label, icon, image, link_type, link_to=None, link=None):
+def _ensure_charge_affaires_icon(label, icon, image):
+	values = {
+		"label": label,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": label,
+		"link": None,
+		"icon": icon,
+		"icon_image": image,
+		# "green" is refused here: the tiles are turned green by
+		# public/css/green_desktop_icons.css
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
 	if frappe.db.exists("Desktop Icon", label):
+		frappe.db.set_value("Desktop Icon", label, values)
 		return
 	frappe.get_doc(
 		{
 			"doctype": "Desktop Icon",
-			"label": label,
-			"icon_type": "Link",
-			"link_type": link_type,
-			"link_to": link_to,
-			"link": link,
-			"icon": icon,
-			"icon_image": image,
-			# "green" is refused here: the tiles are turned green by
-			# public/css/green_desktop_icons.css
-			"bg_color": "blue",
-			"app": "sitiame_core",
+			**values,
 			# not a tile for the rest of the team
 			"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
 		}
