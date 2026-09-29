@@ -161,9 +161,11 @@ def _apply_corrections(data, corrections):
 
 
 @frappe.whitelist()
-def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None):
+def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None, paid_mode=None):
 	"""corrections: the values validated on the review screen (JSON). Without
-	it (older callers), the reading is used as is, like before."""
+	it (older callers), the reading is used as is, like before.
+	paid_mode: the invoice is already paid, by this Mode of Payment -- its
+	Payment Entry is created when the draft is validated (pay_on_submit)."""
 	company = _check_doctype_and_company(doctype, company)
 
 	reviewed = corrections is not None
@@ -275,6 +277,7 @@ def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None):
 				)
 			)
 
+	_apply_payment(invoice, paid_mode)
 	invoice.insert()
 	_attach_scan(file_url, invoice)
 	reviewed_note = None
@@ -298,6 +301,17 @@ def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None):
 	frappe.cache().delete_value(_review_cache_key(file_url))
 
 	return {"doctype": doctype, "name": invoice.name, "warnings": warnings}
+
+
+def _apply_payment(invoice, paid_mode):
+	"""Ticked "Facture deja payee" on the review screen: pay_on_submit
+	creates the invoice's Payment Entry when the draft is validated."""
+	if not paid_mode:
+		return
+	if not frappe.db.exists("Mode of Payment", paid_mode):
+		frappe.throw(_("Moyen de paiement inconnu : {0}").format(paid_mode))
+	invoice.sitiame_pay_on_submit = 1
+	invoice.sitiame_payment_mode = paid_mode
 
 
 def _default_company():

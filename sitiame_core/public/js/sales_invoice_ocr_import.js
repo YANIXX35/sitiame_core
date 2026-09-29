@@ -168,6 +168,17 @@ function show_invoice_review(doctype, company, review) {
 			{ fieldtype: "Currency", fieldname: "tax_amount", label: __("TVA") },
 			{ fieldtype: "Currency", fieldname: "grand_total", label: __("Total TTC") },
 			{ fieldtype: "HTML", fieldname: "check" },
+			// Already paid (cash purchase, paid by Wave...): the Payment Entry
+			// is created with the invoice when it is validated (pay_on_submit.py)
+			{ fieldtype: "Check", fieldname: "already_paid", label: __("Facture deja payee") },
+			{
+				fieldtype: "Link",
+				fieldname: "paid_mode",
+				label: __("Moyen de paiement"),
+				options: "Mode of Payment",
+				depends_on: "eval:doc.already_paid",
+				mandatory_depends_on: "eval:doc.already_paid",
+			},
 			{ fieldtype: "Data", fieldname: other_key, label: is_purchase ? __("Client (votre societe)") : __("Emetteur (votre societe)"), read_only: 1 },
 		],
 		primary_action_label: __("Creer le brouillon"),
@@ -181,11 +192,16 @@ function show_invoice_review(doctype, company, review) {
 				corrections[key] = values[key] === undefined ? null : values[key];
 			});
 			corrections[other_key] = fields[other_key] || null;
+			var paid_mode = values.already_paid ? values.paid_mode : null;
+			if (values.already_paid && !paid_mode) {
+				frappe.msgprint(__("Choisissez le moyen de paiement de la facture payee."));
+				return;
+			}
 			dialog.hide();
 			frappe
 				.call({
 					method: "sitiame_core.ocr_invoice.ocr_create_invoice_draft",
-					args: { file_url: file_url, doctype: doctype, company: company || null, corrections: corrections },
+					args: { file_url: file_url, doctype: doctype, company: company || null, corrections: corrections, paid_mode: paid_mode },
 					freeze: true,
 					freeze_message: __("Creation du brouillon..."),
 				})
@@ -194,7 +210,9 @@ function show_invoice_review(doctype, company, review) {
 					if (!res.name) return;
 					show_draft_result(
 						res,
-						__("La facture {0} a ete creee avec les valeurs validees. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name])
+						paid_mode
+							? __("La facture {0} a ete creee avec les valeurs validees. Verifiez-la puis cliquez sur Soumettre : les ecritures et le paiement ({1}) seront passes en meme temps.", [res.name, frappe.utils.escape_html(paid_mode)])
+							: __("La facture {0} a ete creee avec les valeurs validees. Verifiez-la puis cliquez sur Soumettre pour passer les ecritures.", [res.name])
 					);
 				});
 		},
