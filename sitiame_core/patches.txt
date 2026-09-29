@@ -1,4 +1,5 @@
 [pre_model_sync]
+sitiame_core.patches.create_credit_analyst_role
 
 [post_model_sync]
 sitiame_core.patches.map_mobile_money_modes

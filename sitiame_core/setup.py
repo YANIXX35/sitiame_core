@@ -6,6 +6,8 @@ import json
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+from sitiame_core.roles import CREDIT_ANALYST_ROLE
+
 
 def after_migrate():
 	_create_subscription_fields()
@@ -14,6 +16,7 @@ def after_migrate():
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
 	_ensure_platform_admin_role()
+	ensure_credit_analyst_role()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -22,10 +25,16 @@ PLATFORM_ADMIN_ROLE = "Administrateur Plateforme Sitiame"
 
 
 def _ensure_platform_admin_role():
-	if not frappe.db.exists("Role", PLATFORM_ADMIN_ROLE):
-		frappe.get_doc(
-			{"doctype": "Role", "role_name": PLATFORM_ADMIN_ROLE, "desk_access": 1}
-		).insert(ignore_permissions=True)
+	_ensure_role(PLATFORM_ADMIN_ROLE)
+
+
+def ensure_credit_analyst_role():
+	_ensure_role(CREDIT_ANALYST_ROLE)
+
+
+def _ensure_role(role):
+	if not frappe.db.exists("Role", role):
+		frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 1}).insert(ignore_permissions=True)
 		frappe.db.commit()
 
 

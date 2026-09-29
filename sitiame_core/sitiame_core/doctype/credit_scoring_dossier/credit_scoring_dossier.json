@@ -685,7 +685,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-27 00:00:00.000000",
+ "modified": "2026-09-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Credit Scoring Dossier",
@@ -714,6 +714,18 @@
    "role": "PME Client",
    "share": 0,
    "write": 0
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Analyste Credit Sitiame",
+   "share": 0,
+   "write": 1
   }
  ],
  "sort_field": "modified",

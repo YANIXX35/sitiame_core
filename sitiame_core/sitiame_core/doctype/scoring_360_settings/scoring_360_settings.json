@@ -591,7 +591,7 @@
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-18 00:00:00.000000",
+ "modified": "2026-09-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Scoring 360 Settings",
@@ -606,6 +606,16 @@
    "role": "System Manager",
    "share": 0,
    "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "print": 0,
+   "read": 1,
+   "role": "Analyste Credit Sitiame",
+   "share": 0,
+   "write": 0
   }
  ],
  "sort_field": "modified",
