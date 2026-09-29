@@ -45,7 +45,7 @@ frappe.pages["erp-kyc"].on_page_load = function (wrapper) {
 							"<td>" + frappe.utils.escape_html(doc.file_name) + "</td>" +
 							"<td>" + doc.size_kb + " Ko</td>" +
 							"<td>" + doc.created_at + "</td>" +
-							"<td><a class='btn btn-xs btn-default' target='_blank' href='" + doc.file_url + "'>" +
+							"<td><a class='btn btn-xs btn-default' target='_blank' href='" + String(doc.file_url).replace(/'/g, "%27") + "'>" +
 							__("Ouvrir") + "</a></td>" +
 							"</tr>";
 					});

@@ -122,7 +122,9 @@ function show_invoice_review(doctype, company, review) {
 	var other_key = is_purchase ? "customer_name" : "supplier_name";
 	var file_url = review.file_url;
 	var is_pdf = /\.pdf$/i.test(file_url);
-	var src = encodeURI(file_url);
+	// encodeURI leaves the apostrophe, which closed the src='...' attribute
+	// on files like "Capture d'écran ....png": the image never showed
+	var src = encodeURI(file_url).replace(/'/g, "%27");
 
 	var preview = is_pdf
 		? "<iframe src='" + src + "' style='width:100%;height:70vh;border:1px solid var(--border-color);border-radius:8px;'></iframe>"
