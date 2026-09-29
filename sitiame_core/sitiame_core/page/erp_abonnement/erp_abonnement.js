@@ -12,37 +12,24 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		"<div style='max-width: 580px; margin: 30px auto; padding: 35px 25px; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); text-align: center; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>" +
 			"<div style='font-size: 46px; margin-bottom: 12px;'>\uD83D\uDCB3</div>" +
 			"<h3 style='font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 22px;'>" + __("Abonnement SITIAME CAPITAL") + "</h3>" +
-			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;'>" + __("Pack Premium Enterprise : <strong>15 000 FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money : Wave, Orange Money, MTN, Moov, Djamo</span>") + "</p>" +
+			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;'>" + __("Pack Premium Enterprise : <strong>15 000 FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money (Wave, Orange, MTN, Moov) &amp; Cartes bancaires</span>") + "</p>" +
 
-			// State: Loading
+			// State: Loading & Redirecting
 			"<div id='abonnement-state-loading' style='padding: 20px 0;'>" +
 				"<div class='spinner-border text-primary' role='status' style='width: 3rem; height: 3rem; margin-bottom: 15px;'></div>" +
-				"<div id='abonnement-loading-text' style='font-size: 16px; font-weight: 600; color: #1e293b;'>" + __("Chargement...") + "</div>" +
-			"</div>" +
-
-			// State: pick the operator (J\u00e8ko needs it before the payment)
-			"<div id='abonnement-state-choose' style='display: none; padding: 6px 0;'>" +
-				"<div style='font-size: 15px; font-weight: 600; color: #1e293b; margin-bottom: 14px;'>" + __("Choisissez votre moyen de paiement") + "</div>" +
-				"<div class='abonnement-methods' style='display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;'></div>" +
-				"<div style='font-size: 12px; color: #94a3b8; margin-top: 14px;'>" + __("Vous serez redirig\u00e9 vers votre application de paiement, puis ramen\u00e9 ici.") + "</div>" +
+				"<div style='font-size: 16px; font-weight: 600; color: #1e293b;'>" + __("Connexion au guichet CinetPay...") + "</div>" +
+				"<div style='font-size: 13px; color: #94a3b8; margin-top: 6px;'>" + __("Vous allez \u00eatre redirig\u00e9 vers la page de paiement s\u00e9curis\u00e9e.") + "</div>" +
 			"</div>" +
 
 			// State: Direct Link Ready
 			"<div id='abonnement-state-ready' style='display: none; margin-top: 20px;'>" +
-				"<a id='btn-payment-direct' href='#' target='_self' class='btn btn-primary btn-lg' style='padding: 12px 32px; font-size: 15px; font-weight: 600; border-radius: 8px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(37,99,235,0.25);'>" +
-					__("Continuer vers le paiement") +
+				"<a id='btn-cinetpay-direct' href='#' target='_self' class='btn btn-primary btn-lg' style='padding: 12px 32px; font-size: 15px; font-weight: 600; border-radius: 8px; text-decoration: none; display: inline-block; box-shadow: 0 4px 12px rgba(37,99,235,0.25);'>" +
+					__("Acc\u00e9der \u00e0 CinetPay maintenant") +
 				"</a>" +
 				"<div style='font-size: 12px; color: #94a3b8; margin-top: 12px;'>" + __("Si la redirection automatique ne d\u00e9marre pas, cliquez sur le bouton ci-dessus.") + "</div>" +
 			"</div>" +
 
-			// State: back from the operator, not confirmed yet
-			"<div id='abonnement-state-pending' style='display: none; padding: 20px 0;'>" +
-				"<div style='font-size: 18px; font-weight: 700; color: #b45309; margin-bottom: 8px;'>" + __("Paiement en cours de confirmation") + "</div>" +
-				"<div style='font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.5;'>" + __("L'op\u00e9rateur n'a pas encore confirm\u00e9 le paiement. Votre abonnement sera activ\u00e9 automatiquement d\u00e8s la confirmation.") + "</div>" +
-				"<button id='btn-check-again' class='btn btn-default' style='border-radius: 8px; padding: 10px 22px;'>" + __("V\u00e9rifier \u00e0 nouveau") + "</button>" +
-			"</div>" +
-
-			// State: Already subscribed
+			// State: Already subscribed (no automatic redirect to CinetPay)
 			"<div id='abonnement-state-active' style='display: none; padding: 20px 0;'>" +
 				"<div style='font-size: 20px; font-weight: 700; color: #15803d; margin-bottom: 8px;'>" + __("Abonnement actif") + "</div>" +
 				"<div id='abonnement-active-desc' style='font-size: 14px; color: #475569; margin-bottom: 25px; line-height: 1.5;'></div>" +
@@ -97,36 +84,10 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		frappe.set_route("app");
 	});
 
-	var METHODS = [
-		{ value: "wave", label: "Wave", color: "#1dc8f2" },
-		{ value: "orange", label: "Orange Money", color: "#ff7900" },
-		{ value: "mtn", label: "MTN MoMo", color: "#ffcb05" },
-		{ value: "moov", label: "Moov Money", color: "#0066b3" },
-		{ value: "djamo", label: "Djamo", color: "#111827" },
-	];
-	var $methods = $container.find(".abonnement-methods");
-	METHODS.forEach(function (m) {
-		$("<button class='btn btn-default'></button>")
-			.css({ padding: "14px 10px", "border-radius": "10px", "font-weight": 600, "border-left": "5px solid " + m.color })
-			.text(m.label)
-			.on("click", function () {
-				requestAndRedirect(m.value);
-			})
-			.appendTo($methods);
-	});
-
-	function showOnly(state) {
-		$container.find("[id^='abonnement-state-']").hide();
-		$("#abonnement-state-" + state).show();
-	}
-
-	function showLoading(text) {
-		$("#abonnement-loading-text").text(text);
-		showOnly("loading");
-	}
-
-	$("#btn-extend-subscription, #btn-retry-payment").on("click", function () {
-		showOnly("choose");
+	$("#btn-extend-subscription").on("click", function () {
+		$("#abonnement-state-active").hide();
+		$("#abonnement-state-loading").show();
+		requestAndRedirect(0);
 	});
 
 	function endsOnText(sub) {
@@ -134,47 +95,43 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		return __("Actif jusqu'au <strong>{0}</strong>.", [frappe.datetime.str_to_user(sub.ends_on)]);
 	}
 
-	function showPaid(data) {
-		if (data.company) {
-			$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]) + " " + endsOnText(data.subscription));
-		}
-		showOnly("success");
+	$("#btn-retry-payment").on("click", function () {
+		$("#abonnement-state-failed").hide();
+		$("#abonnement-state-loading").show();
+		requestAndRedirect(1);
+	});
+
+	var cinetpayStatus = (getQueryParam("cinetpay_status") || "").toLowerCase();
+	var returnDocname = getQueryParam("docname");
+
+	if (cinetpayStatus === "failed") {
+		$("#abonnement-state-loading").hide();
+		$("#abonnement-state-failed").show();
+		return;
 	}
 
-	var returnDocname = getQueryParam("docname");
-	var returnStatus = (getQueryParam("payment_status") || "").toLowerCase();
-
-	// Back from J\u00e8ko: the operator may confirm a few seconds after the
-	// redirect, so check again for a short while before saying "pending".
-	function checkReturn(attempt) {
+	if (returnDocname || cinetpayStatus === "success") {
 		frappe.call({
 			method: "sitiame_core.subscription_api.check_pme_subscription_status",
 			args: { docname: returnDocname },
 		}).then(function (r) {
 			var data = r.message || {};
 			if (data.status === "Pay\u00e9") {
-				showPaid(data);
-			} else if (data.status === "\u00c9chou\u00e9" || returnStatus === "failed") {
-				// errorUrl: cancelled or refused at the operator
-				showOnly("failed");
-			} else if (attempt < 6) {
-				setTimeout(function () { checkReturn(attempt + 1); }, 5000);
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-ready").hide();
+				if (data.company) {
+					$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]) + " " + endsOnText(data.subscription));
+				}
+				$("#abonnement-state-success").show();
+			} else if (data.status === "\u00c9chou\u00e9") {
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-failed").show();
 			} else {
-				showOnly("pending");
+				requestAndRedirect(0);
 			}
 		}).catch(function () {
-			showOnly("pending");
+			requestAndRedirect(0);
 		});
-	}
-
-	$("#btn-check-again").on("click", function () {
-		showLoading(__("V\u00e9rification du paiement..."));
-		checkReturn(6);
-	});
-
-	if (returnDocname) {
-		showLoading(__("V\u00e9rification du paiement..."));
-		checkReturn(0);
 	} else {
 		frappe.call({
 			method: "sitiame_core.subscription_api.get_my_subscription",
@@ -184,16 +141,17 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				$container.hide();
 				renderAdminPanel();
 			} else if (!sub.company) {
-				showOnly("error");
-				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement."));
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement.")).show();
 			} else if (sub.active) {
+				$("#abonnement-state-loading").hide();
 				$("#abonnement-active-desc").html(endsOnText(sub));
-				showOnly("active");
+				$("#abonnement-state-active").show();
 			} else {
-				showOnly("choose");
+				requestAndRedirect(0);
 			}
 		}).catch(function () {
-			showOnly("choose");
+			requestAndRedirect(0);
 		});
 	}
 
@@ -204,7 +162,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			"<div style='max-width: 1000px; margin: 24px auto; padding: 0 16px;'>" +
 				"<div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px 22px; margin-bottom: 20px;'>" +
 					"<h4 style='font-weight: 700; margin: 0 0 4px;'>" + __("Générer un lien de paiement") + "</h4>" +
-					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien Jèko (15 000 FCFA / 1 mois, à usage unique) et envoyez-le-lui : elle choisira son opérateur en l'ouvrant.") + "</p>" +
+					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien CinetPay (15 000 FCFA / 1 mois) et envoyez-le-lui.") + "</p>" +
 					"<div style='display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;'>" +
 						"<div class='admin-company-field' style='min-width: 280px; flex: 1;'></div>" +
 						"<button class='btn btn-primary btn-generate-link' style='margin-bottom: 15px;'>" + __("Générer le lien") + "</button>" +
@@ -248,11 +206,11 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				method: "sitiame_core.subscription_api.create_company_payment_link",
 				args: { company: company },
 				freeze: true,
-				freeze_message: __("Génération du lien Jèko..."),
+				freeze_message: __("Génération du lien CinetPay..."),
 			}).then(function (r) {
 				var res = r.message || {};
 				if (!res.payment_url) {
-					frappe.msgprint(__("Jèko n'a pas renvoyé de lien. Voir le journal des erreurs."));
+					frappe.msgprint(__("CinetPay n'a pas renvoyé de lien. Voir le journal des erreurs."));
 					return;
 				}
 				$admin.find(".admin-link-input").val(res.payment_url);
@@ -302,29 +260,31 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		loadSubscriptions();
 	}
 
-	function requestAndRedirect(paymentMethod) {
-		showLoading(__("Connexion \u00e0 votre op\u00e9rateur..."));
+	function requestAndRedirect(forceNew) {
 		frappe.call({
 			method: "sitiame_core.subscription_api.get_or_create_pme_checkout_url",
-			args: { payment_method: paymentMethod },
+			args: { force_new: forceNew || 0 },
 		}).then(function (r) {
 			var res = r.message || {};
 			if (res.status === "Pay\u00e9") {
-				// a payment still open had gone through: nothing to pay
-				showPaid(res);
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-ready").hide();
+				$("#abonnement-state-success").show();
 				return;
 			}
-			if (res.payment_url) {
-				$("#btn-payment-direct").attr("href", res.payment_url);
-				showOnly("ready");
-				window.location.href = res.payment_url;
+			var paymentUrl = res.payment_url;
+			if (paymentUrl) {
+				$("#btn-cinetpay-direct").attr("href", paymentUrl);
+				$("#abonnement-state-ready").show();
+				window.location.href = paymentUrl;
 			} else {
-				showOnly("choose");
-				frappe.msgprint(__("Impossible d'obtenir le lien de paiement. Veuillez r\u00e9essayer ou contacter le support SITIAME."));
+				$("#abonnement-state-loading").hide();
+				$("#abonnement-state-error").html(__("Impossible d'obtenir le lien de paiement CinetPay. Veuillez contacter le support SITIAME.")).show();
 			}
-		}).catch(function () {
-			// the server error is already shown by frappe.call: let them retry
-			showOnly("choose");
+		}).catch(function (err) {
+			$("#abonnement-state-loading").hide();
+			var msg = (err && err.message) ? err.message : __("Erreur lors de l'initialisation du paiement CinetPay.");
+			$("#abonnement-state-error").html(msg).show();
 		});
 	}
 };

@@ -117,14 +117,14 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 			method: "sitiame_core.subscription_api.create_company_payment_link",
 			args: { company: row.company },
 			freeze: true,
-			freeze_message: __("Génération du lien Jèko..."),
+			freeze_message: __("Génération du lien CinetPay..."),
 		}).then(function (r) {
 			var link = (r.message || {}).payment_url;
 			if (!link) return;
 			frappe.utils.copy_to_clipboard(link);
 			frappe.msgprint({
 				title: __("Lien de paiement — {0}", [row.company_name]),
-				message: __("Lien à usage unique (15 000 FCFA / 1 mois), copié dans le presse-papiers : envoyez-le à la PME, elle choisira son opérateur.") +
+				message: __("Lien CinetPay (15 000 FCFA / 1 mois), copié dans le presse-papiers : envoyez-le à la PME, elle choisira son moyen de paiement.") +
 					"<br><br><a href='" + encodeURI(link).replace(/'/g, "%27") + "' target='_blank'>" + esc(link) + "</a>",
 			});
 		});
