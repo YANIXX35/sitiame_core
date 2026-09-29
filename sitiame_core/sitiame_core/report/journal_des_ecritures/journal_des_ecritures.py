@@ -67,6 +67,16 @@ def get_data(filters):
 		filters,
 		as_dict=True,
 	)
+	# Read like a journal: each voucher's lines together, in the order the
+	# vouchers were booked, debits before credits (ERPNext writes an
+	# invoice's credit line first).
+	first_seen = {}
+	for position, row in enumerate(rows):
+		first_seen.setdefault((row.voucher_type, row.voucher_no), position)
+	rows = sorted(
+		rows,
+		key=lambda row: (row.posting_date, first_seen[(row.voucher_type, row.voucher_no)], flt(row.debit) <= 0),
+	)
 	return [
 		{
 			"posting_date": row.posting_date,
