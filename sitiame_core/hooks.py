@@ -56,6 +56,12 @@ has_permission = {
 	doctype: "sitiame_core.staff_isolation.has_permission" for doctype in _ISOLATED_DOCTYPES
 }
 
+# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
+doc_events = {
+	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
+	"Sales Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
+}
+
 extend_bootinfo ="sitiame_core.boot.extend_bootinfo"
 
 after_migrate = "sitiame_core.setup.after_migrate"

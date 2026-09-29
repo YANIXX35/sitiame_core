@@ -9,6 +9,7 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 def after_migrate():
 	_create_subscription_fields()
+	_create_pay_on_submit_fields()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
@@ -163,6 +164,40 @@ def make_hr_icon_a_folder():
 	frappe.db.commit()
 	frappe.translate.clear_cache()
 	frappe.clear_cache()
+
+
+def _create_pay_on_submit_fields():
+	"""The two fields read by pay_on_submit.create_payment: an invoice
+	already paid gets its Payment Entry when it is validated. Hidden where
+	ERPNext already handles the payment itself (Est paye, PDV) and on
+	credit/debit notes."""
+	create_custom_fields(
+		{
+			doctype: [
+				{
+					"fieldname": "sitiame_pay_on_submit",
+					"label": "Payée : créer le paiement à la validation",
+					"fieldtype": "Check",
+					"insert_after": "due_date",
+					"no_copy": 1,
+					"depends_on": "eval:!doc.is_paid && !doc.is_pos && !doc.is_return",
+					"description": "L'écriture de paiement est créée et validée en même temps que la facture.",
+				},
+				{
+					"fieldname": "sitiame_payment_mode",
+					"label": "Moyen de paiement",
+					"fieldtype": "Link",
+					"options": "Mode of Payment",
+					"insert_after": "sitiame_pay_on_submit",
+					"no_copy": 1,
+					"depends_on": "eval:doc.sitiame_pay_on_submit",
+					"mandatory_depends_on": "eval:doc.sitiame_pay_on_submit",
+				},
+			]
+			for doctype in ("Purchase Invoice", "Sales Invoice")
+		},
+		update=True,
+	)
 
 
 def _create_subscription_fields():
