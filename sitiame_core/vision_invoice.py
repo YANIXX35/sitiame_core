@@ -26,7 +26,20 @@ from sitiame_core import gemini_assistant, mistral_ocr
 
 # Bump when the prompt or schema changes, so cached readings are redone.
 PROMPT_VERSION = 3
-TIMEOUT = 90
+# each model has its own free daily quota (20 requests/day/model on the
+# free tier, 2026-09): the more models, the more invoices read. Best
+# readers first; all answered a JSON-schema request on 2026-09-29.
+GEMINI_MODELS = (
+	"gemini-2.5-flash",
+	"gemini-3-flash-preview",
+	"gemini-3.5-flash-lite",
+	"gemini-3.1-flash-lite",
+	"gemini-flash-lite-latest",
+	"gemini-2.5-flash-lite",
+	"gemini-flash-latest",
+)
+# a model this slow is overloaded: the next one answers sooner
+TIMEOUT = 60
 MAX_BYTES = 15 * 1024 * 1024  # Gemini inline data limit is ~20 MB per request
 
 MIME_TYPES = {
@@ -215,8 +228,14 @@ def _read_with_gemini(mime, content):
 		},
 	}
 	cache_key = f"gemini:vision:v{PROMPT_VERSION}:" + hashlib.sha256(content).hexdigest()
-	result = gemini_assistant.generate(payload, cache_key, timeout=TIMEOUT)
-	return _parse(result, "Gemini")
+	# one model at a time: a cut-off or garbled answer from one model moves
+	# on to the next instead of giving up on Gemini
+	for model in GEMINI_MODELS:
+		result = gemini_assistant.generate(payload, cache_key, timeout=TIMEOUT, models=[model])
+		data = _parse(result, f"Gemini {model}")
+		if data is not None:
+			return data
+	return None
 
 
 def _parse(result, reader):

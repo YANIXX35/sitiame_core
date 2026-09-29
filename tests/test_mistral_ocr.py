@@ -135,7 +135,7 @@ def test_json_schema_conversion():
 def gemini(monkeypatch, mistral):
 	calls = []
 
-	def generate(payload, cache_key=None, timeout=None):
+	def generate(payload, cache_key=None, timeout=None, models=None):
 		calls.append(payload)
 		return {"ok": True, "text": json.dumps(dict(ANSWER, fields={"invoice_number": "GEMINI"})), "error": None}
 

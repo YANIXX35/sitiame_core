@@ -36,17 +36,36 @@ def _api_keys():
 	return [k for k in (frappe.conf.get("gemini_api_keys") or []) if k]
 
 
-def _key_lockout_cache_key(api_key):
-	return f"gemini:key:exhausted:{hashlib.md5(api_key.encode()).hexdigest()[:12]}"
+def _key_lockout_cache_key(api_key, model):
+	# Google's free quotas are per model: a key exhausted on one model
+	# still reads with the others
+	return f"gemini:key:exhausted:{hashlib.md5(api_key.encode()).hexdigest()[:12]}:{model}"
 
 
-def _available_keys():
-	all_keys = _api_keys()
-	return [k for k in all_keys if not frappe.cache().get_value(_key_lockout_cache_key(k))]
+def _available_keys(model):
+	return [k for k in _api_keys() if not frappe.cache().get_value(_key_lockout_cache_key(k, model))]
 
 
-def _lockout_key(api_key):
-	frappe.cache().set_value(_key_lockout_cache_key(api_key), True, expires_in_sec=KEY_LOCKOUT_SECONDS)
+def _lockout_key(api_key, model, seconds=KEY_LOCKOUT_SECONDS):
+	frappe.cache().set_value(_key_lockout_cache_key(api_key, model), True, expires_in_sec=seconds)
+
+
+def _quota_lockout_seconds(data):
+	"""How long a 429 sets the key aside for that model: an hour for a
+	daily quota (20 requests/day/model on the free tier), else the delay
+	Google asks for (per-minute quota)."""
+	details = (data.get("error") or {}).get("details") or []
+	for detail in details:
+		for violation in detail.get("violations") or []:
+			if "PerDay" in (violation.get("quotaId") or ""):
+				return KEY_LOCKOUT_SECONDS
+	for detail in details:
+		delay = str(detail.get("retryDelay") or "").rstrip("s")
+		try:
+			return max(int(float(delay)) + 1, 5)
+		except ValueError:
+			continue
+	return KEY_LOCKOUT_SECONDS
 
 
 def _is_model_locked(model):
@@ -99,31 +118,31 @@ def chat(messages):
 	}
 
 
-def generate(payload, cache_key=None, timeout=TIMEOUT):
+def generate(payload, cache_key=None, timeout=TIMEOUT, models=None):
 	"""One generateContent call with key rotation, model fallback, retry and
 	caching. Returns {"ok": bool, "text": str, "error": str|None}."""
 
-	available_keys = _available_keys()
-	if not available_keys:
-		all_keys = _api_keys()
-		if not all_keys:
-			return {"ok": False, "text": "", "error": "Aucune cle GEMINI configuree."}
-		for k in all_keys:
-			frappe.cache().delete_value(_key_lockout_cache_key(k))
+	if not _api_keys():
+		return {"ok": False, "text": "", "error": "Aucune cle GEMINI configuree."}
 
 	if cache_key:
 		cached = frappe.cache().get_value(cache_key)
 		if cached is not None:
 			return {"ok": True, "text": cached, "error": None}
 
-	models_to_try = list(dict.fromkeys([DEFAULT_MODEL, *FALLBACK_MODELS]))
+	models_to_try = list(dict.fromkeys(models or [DEFAULT_MODEL, *FALLBACK_MODELS]))
 	last_error = ""
 
 	for model in models_to_try:
 		if _is_model_locked(model):
 			continue
 
-		for api_key in _available_keys():
+		# overloaded or timing out: that is the model, whatever the key --
+		# trying each key in turn would keep the user minutes
+		skip_model = False
+		for api_key in _available_keys(model):
+			if skip_model:
+				break
 			attempts = 0
 			while attempts < MAX_ATTEMPTS:
 				attempts += 1
@@ -148,7 +167,7 @@ def generate(payload, cache_key=None, timeout=TIMEOUT):
 					last_error = (data.get("error") or {}).get("message", f"HTTP {response.status_code}")
 
 					if response.status_code == 429:
-						_lockout_key(api_key)
+						_lockout_key(api_key, model, _quota_lockout_seconds(data))
 						break
 
 					is_transient = response.status_code == 503 or "overloaded" in last_error.lower()
@@ -156,8 +175,14 @@ def generate(payload, cache_key=None, timeout=TIMEOUT):
 						time.sleep(BASE_DELAY_SECONDS * (2 ** (attempts - 1)))
 					else:
 						_register_failure(model)
+						skip_model = is_transient
 						break
 
+				except requests.Timeout as e:
+					last_error = str(e)
+					_register_failure(model)
+					skip_model = True
+					break
 				except Exception as e:
 					last_error = str(e)
 					if attempts < MAX_ATTEMPTS:

@@ -148,7 +148,7 @@ class Calls(list):
 def gemini(monkeypatch):
 	calls = Calls()
 
-	def generate(payload, cache_key=None, timeout=None):
+	def generate(payload, cache_key=None, timeout=None, models=None):
 		calls.append(payload)
 		return calls.result
 
@@ -175,6 +175,20 @@ def test_read_document_returns_none_when_gemini_fails(gemini):
 def test_read_document_returns_none_on_invalid_json(gemini):
 	gemini.result = {"ok": True, "text": "pas du json", "error": None}
 	assert vision.read_document("scan.jpg", b"img") is None
+	assert len(gemini) == len(vision.GEMINI_MODELS)  # every model was given its chance
+
+
+def test_a_cut_off_answer_moves_on_to_the_next_model(gemini, monkeypatch):
+	answers = [{"ok": True, "text": '{"document_type": "inv', "error": None}, {"ok": True, "text": json.dumps(ANSWER), "error": None}]
+	tried = []
+
+	def generate(payload, cache_key=None, timeout=None, models=None):
+		tried.append(models)
+		return answers.pop(0)
+
+	monkeypatch.setattr(gemini_assistant, "generate", generate)
+	assert vision.read_document("scan.jpg", b"img")["fields"]["invoice_number"] == "FA7354176"
+	assert tried == [[vision.GEMINI_MODELS[0]], [vision.GEMINI_MODELS[1]]]
 
 
 def test_unsupported_file_skips_gemini(gemini):
