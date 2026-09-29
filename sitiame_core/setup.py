@@ -141,7 +141,9 @@ def ensure_charge_affaires_workspace():
 				"link_to": CHARGE_AFFAIRES_SIDEBAR,
 				"icon": "users",
 				"icon_image": "/assets/erpnext/icons/desktop_icons/solid/crm.svg",
-				"bg_color": "green",
+				# "green" is refused here: the tiles are turned green by
+				# public/css/green_desktop_icons.css
+				"bg_color": "blue",
 				"app": "sitiame_core",
 				# not a tile for the rest of the team
 				"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
