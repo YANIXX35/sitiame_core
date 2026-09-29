@@ -55,6 +55,20 @@ def test_filters_become_conditions(ledger):
 	assert ledger["params"]["account"] == "4011 - Fournisseurs - S"
 
 
+def test_each_voucher_stays_together_debits_first(ledger, monkeypatch):
+	"""Production, 2026-09-29: ERPNext writes an invoice's credit line
+	(4011) before its debit line (6011), so the journal read backwards."""
+	rows = [
+		frappe._dict(posting_date=datetime.date(2026, 9, 29), voucher_type="Purchase Invoice", voucher_no="PINV-4", account="4011", party="F", against=None, remarks=None, debit=0.0, credit=10.0),
+		frappe._dict(posting_date=datetime.date(2026, 9, 29), voucher_type="Purchase Invoice", voucher_no="PINV-4", account="6011", party=None, against="F", remarks=None, debit=10.0, credit=0.0),
+		frappe._dict(posting_date=datetime.date(2026, 9, 29), voucher_type="Payment Entry", voucher_no="ACC-PAY-3", account="5711", party=None, against="F", remarks=None, debit=0.0, credit=10.0),
+		frappe._dict(posting_date=datetime.date(2026, 9, 29), voucher_type="Payment Entry", voucher_no="ACC-PAY-3", account="4011", party="F", against=None, remarks=None, debit=10.0, credit=0.0),
+	]
+	monkeypatch.setattr(frappe.db, "sql", lambda query, params=None, as_dict=False: rows, raising=False)
+	columns, data = journal.execute({"company": "S"})
+	assert [(r["voucher_no"], r["account"]) for r in data] == [("PINV-4", "6011"), ("PINV-4", "4011"), ("ACC-PAY-3", "4011"), ("ACC-PAY-3", "5711")]
+
+
 def test_rows_read_like_a_journal(ledger):
 	columns, data = journal.execute({"company": "S"})
 	assert [c["fieldname"] for c in columns] == ["posting_date", "voucher_label", "voucher_type", "voucher_no", "account", "libelle", "debit", "credit"]
