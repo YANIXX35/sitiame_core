@@ -94,10 +94,9 @@ def _grant_crm_permissions():
 
 CHARGE_AFFAIRES_SIDEBAR = "Chargé d'affaires"
 CHARGE_AFFAIRES_PAGE = "erp-charge-affaires"
-# (label, link_type, link_to)
+# (label, link_type, link_to). "Mon portefeuille", "Prospects" and
+# "Inscrire une PME" are home tiles of their own instead (asked 2026-09-29).
 CHARGE_AFFAIRES_ITEMS = (
-	("Mon portefeuille", "Page", CHARGE_AFFAIRES_PAGE),
-	("Prospects", "DocType", "Lead"),
 	("Opportunités", "DocType", "Opportunity"),
 	("Dossiers de scoring", "DocType", "Credit Scoring Dossier"),
 	("Dossiers de financement", "DocType", "Financing Dossier"),
@@ -114,16 +113,15 @@ def ensure_charge_affaires_workspace():
 	above."""
 	_ensure_sidebar(CHARGE_AFFAIRES_SIDEBAR, CHARGE_AFFAIRES_ITEMS)
 	_ensure_charge_affaires_icon(
-		CHARGE_AFFAIRES_SIDEBAR, "users", "/assets/erpnext/icons/desktop_icons/solid/crm.svg"
+		CHARGE_AFFAIRES_SIDEBAR, "users", "/assets/erpnext/icons/desktop_icons/solid/crm.svg", idx=90
 	)
-	# "Inscrire une PME" is a home tile of its own, not an entry of the
-	# sidebar above (asked 2026-09-29). A desk tile is only shown when a
-	# sidebar of the same name exists, and opens its first link; a tile
-	# pointing to a URL instead is dropped, or opens a new browser tab.
-	_ensure_sidebar(REGISTER_PME_ICON, ((REGISTER_PME_ICON, "Page", "erp-inscrire-pme"),))
-	_ensure_charge_affaires_icon(
-		REGISTER_PME_ICON, "add", "/assets/hrms/icons/desktop_icons/solid/recruitment.svg"
-	)
+	# Tiles of their own, not entries of the sidebar above. A desk tile is
+	# only shown when a sidebar of the same name exists, and opens its first
+	# link; a tile pointing to a URL instead is dropped, or opens a new
+	# browser tab: each gets a one-entry sidebar.
+	for idx, (label, icon, image, link_type, link_to) in enumerate(STANDALONE_TILES, start=91):
+		_ensure_sidebar(label, ((label, link_type, link_to),))
+		_ensure_charge_affaires_icon(label, icon, image, idx=idx)
 	frappe.db.commit()
 	# per-user tile lists are cached (frappe get_desktop_icons)
 	frappe.cache().delete_value("desktop_icons")
@@ -131,6 +129,12 @@ def ensure_charge_affaires_workspace():
 
 
 REGISTER_PME_ICON = "Inscrire une PME"
+# (label, icon, image, link_type, link_to), in home screen order
+STANDALONE_TILES = (
+	("Mon portefeuille", "briefcase", "/assets/erpnext/icons/desktop_icons/solid/organization.svg", "Page", CHARGE_AFFAIRES_PAGE),
+	("Prospects", "users", "/assets/erpnext/icons/desktop_icons/solid/selling.svg", "DocType", "Lead"),
+	(REGISTER_PME_ICON, "add", "/assets/hrms/icons/desktop_icons/solid/recruitment.svg", "Page", "erp-inscrire-pme"),
+)
 
 
 def _ensure_sidebar(title, items):
@@ -154,9 +158,11 @@ def _ensure_sidebar(title, items):
 		sidebar.save()
 
 
-def _ensure_charge_affaires_icon(label, icon, image):
+def _ensure_charge_affaires_icon(label, icon, image, idx):
 	values = {
 		"label": label,
+		# before Scoring / Financement
+		"idx": idx,
 		"icon_type": "Link",
 		"link_type": "Workspace Sidebar",
 		"link_to": label,
