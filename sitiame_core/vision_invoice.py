@@ -1,8 +1,8 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
-"""Invoice/receipt reading by a vision model (Gemini) instead of OCR +
-regex.
+"""Invoice/receipt reading by a vision model (Mistral OCR first, then
+Gemini -- see mistral_ocr.py) instead of OCR + regex.
 
 OCR.space turns a blurry, skewed or partly hand-written scan into broken
 text, and the label regexes in api.py then find nothing. A vision model
@@ -22,7 +22,7 @@ import re
 
 import frappe
 
-from sitiame_core import gemini_assistant
+from sitiame_core import gemini_assistant, mistral_ocr
 
 # Bump when the prompt or schema changes, so cached readings are redone.
 PROMPT_VERSION = 3
@@ -152,11 +152,45 @@ def mime_type(filename):
 	return MIME_TYPES.get(extension)
 
 
+def json_schema(schema):
+	"""RESPONSE_SCHEMA (Gemini's OpenAPI subset) as a standard JSON schema,
+	for Mistral."""
+	type_ = schema["type"].lower()
+	if type_ == "object":
+		converted = {"type": "object", "properties": {k: json_schema(v) for k, v in schema["properties"].items()}}
+		if "required" in schema:
+			converted["required"] = list(schema["required"])
+		return converted
+	if type_ == "array":
+		return {"type": "array", "items": json_schema(schema["items"])}
+	converted = {"type": [type_, "null"] if schema.get("nullable") else type_}
+	if "enum" in schema:
+		converted["enum"] = list(schema["enum"])
+	return converted
+
+
 def read_document(filename, content):
-	"""Read an invoice/receipt with Gemini. None when not possible."""
+	"""Read an invoice/receipt with Mistral OCR, else Gemini (each rotating
+	through its own keys). None when neither can."""
 	mime = mime_type(filename)
 	if not mime or not content or len(content) > MAX_BYTES:
 		return None
+	for reader in (_read_with_mistral, _read_with_gemini):
+		data = reader(mime, content)
+		if data is not None:
+			return data
+	return None
+
+
+def _read_with_mistral(mime, content):
+	if not mistral_ocr._api_keys() or not mistral_ocr.supports(mime):
+		return None
+	cache_key = f"mistral:vision:v{PROMPT_VERSION}:" + hashlib.sha256(content).hexdigest()
+	result = mistral_ocr.annotate(mime, content, PROMPT, json_schema(RESPONSE_SCHEMA), cache_key)
+	return _parse(result, "Mistral")
+
+
+def _read_with_gemini(mime, content):
 	if not gemini_assistant._api_keys():
 		return None
 
@@ -182,14 +216,17 @@ def read_document(filename, content):
 	}
 	cache_key = f"gemini:vision:v{PROMPT_VERSION}:" + hashlib.sha256(content).hexdigest()
 	result = gemini_assistant.generate(payload, cache_key, timeout=TIMEOUT)
-	if not result["ok"]:
-		frappe.logger("sitiame_core.ocr").warning(f"[OCR] vision unavailable: {result['error']}")
-		return None
+	return _parse(result, "Gemini")
 
+
+def _parse(result, reader):
+	if not result["ok"]:
+		frappe.logger("sitiame_core.ocr").warning(f"[OCR] {reader} vision unavailable: {result['error']}")
+		return None
 	try:
 		return normalize(json.loads(result["text"]))
 	except (ValueError, TypeError, AttributeError):
-		frappe.logger("sitiame_core.ocr").warning(f"[OCR] vision answer unusable: {result['text'][:500]}")
+		frappe.logger("sitiame_core.ocr").warning(f"[OCR] {reader} vision answer unusable: {result['text'][:500]}")
 		return None
 
 

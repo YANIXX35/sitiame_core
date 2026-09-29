@@ -970,7 +970,7 @@ def read_invoice_file(file_url):
 		data["source"] = "ocr"
 		if vision_invoice.mime_type(filename):
 			data["warnings"] = [
-				_("Lecture par IA indisponible (quota Gemini atteint ou service en panne) : lecture de secours, moins fiable -- verifiez chaque champ.")
+				_("Lecture par IA indisponible (quotas Mistral et Gemini atteints ou services en panne) : lecture de secours, moins fiable -- verifiez chaque champ.")
 			]
 	else:
 		data["source"] = "vision"
