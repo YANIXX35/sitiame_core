@@ -11,6 +11,7 @@ def after_migrate():
 	_create_subscription_fields()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
+	add_journal_to_payment_sidebars()
 	_ensure_platform_admin_role()
 
 
@@ -63,6 +64,46 @@ def add_syscohada_report_to_sidebar():
 		}
 	)
 	item.db_insert()
+	frappe.db.commit()
+	frappe.clear_cache()
+
+
+JOURNAL_REPORT = "Journal des ecritures"
+JOURNAL_SIDEBARS = ("Payments", "Invoicing")
+
+
+def add_journal_to_payment_sidebars():
+	""""Journal des ecritures" right after Journal Entry in the Payments and
+	Invoicing sidebars: users looked there for the entries of their
+	validated invoices, which ERPNext books on the invoice itself. Standard
+	sidebars again (re-checked on every migrate, row written directly)."""
+	for sidebar in JOURNAL_SIDEBARS:
+		if not frappe.db.exists("Workspace Sidebar", sidebar):
+			continue
+		if frappe.db.exists("Workspace Sidebar Item", {"parent": sidebar, "link_to": JOURNAL_REPORT}):
+			continue
+		anchor = frappe.db.get_value("Workspace Sidebar Item", {"parent": sidebar, "link_to": "Journal Entry"}, "idx")
+		if not anchor:
+			continue
+
+		frappe.db.sql(
+			"update `tabWorkspace Sidebar Item` set idx = idx + 1 where parent = %s and idx > %s",
+			(sidebar, anchor),
+		)
+		frappe.get_doc(
+			{
+				"doctype": "Workspace Sidebar Item",
+				"parent": sidebar,
+				"parenttype": "Workspace Sidebar",
+				"parentfield": "items",
+				"idx": anchor + 1,
+				"label": "Journal des écritures",
+				"type": "Link",
+				"link_type": "Report",
+				"link_to": JOURNAL_REPORT,
+				"child": 1,
+			}
+		).db_insert()
 	frappe.db.commit()
 	frappe.clear_cache()
 
