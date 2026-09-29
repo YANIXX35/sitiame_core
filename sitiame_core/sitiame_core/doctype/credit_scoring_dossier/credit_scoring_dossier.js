@@ -384,10 +384,22 @@ function credit_scoring_render_scoring360(frm) {
 	});
 }
 
+// A chargé d'affaires proposes, a validator decides (the server enforces
+// it too: sitiame_core.portfolio.check_decision).
+function credit_scoring_is_proposer() {
+	return frappe.user.has_role("Charge d'affaires Sitiame")
+		&& !frappe.user.has_role("System Manager") && !frappe.user.has_role("Analyste Credit Sitiame");
+}
+
 var handlers = {
 	refresh: function (frm) {
 		credit_scoring_recompute(frm);
 		credit_scoring_schedule_scoring360(frm);
+		if (credit_scoring_is_proposer()) {
+			frm.set_df_property("decision", "read_only", 1);
+			frm.set_df_property("validator", "read_only", 1);
+			frm.set_df_property("decision", "description", __("La décision revient à un validateur : cochez « Prêt » quand le dossier est complet."));
+		}
 	},
 	company: function (frm) {
 		credit_scoring_prefill_company_info(frm);

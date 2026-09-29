@@ -423,7 +423,9 @@ RANKING_CATEGORY_FROM_DECISION_LEVEL = {
 
 
 def classement_erpnext(date_from=None, date_to=None):
-	companies = frappe.get_all("Company", fields=["name", "company_name"], order_by="company_name")
+	# get_list, not get_all: a chargé d'affaires ranks his portfolio only
+	# (portfolio.py); validators still read every company
+	companies = frappe.get_list("Company", fields=["name", "company_name"], order_by="company_name")
 
 	lignes = []
 	for company in companies:

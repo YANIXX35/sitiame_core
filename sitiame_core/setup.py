@@ -6,7 +6,7 @@ import json
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-from sitiame_core.roles import CREDIT_ANALYST_ROLE
+from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
 
 
 def after_migrate():
@@ -17,6 +17,10 @@ def after_migrate():
 	add_journal_to_payment_sidebars()
 	_ensure_platform_admin_role()
 	ensure_credit_analyst_role()
+	ensure_charge_affaires_role()
+	_create_portfolio_field()
+	_grant_crm_permissions()
+	ensure_charge_affaires_workspace()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -30,6 +34,122 @@ def _ensure_platform_admin_role():
 
 def ensure_credit_analyst_role():
 	_ensure_role(CREDIT_ANALYST_ROLE)
+
+
+def ensure_charge_affaires_role():
+	_ensure_role(CHARGE_AFFAIRES_ROLE)
+
+
+def _create_portfolio_field():
+	"""Company.sitiame_charge_affaires: who follows this PME. Only a
+	validator may change it (portfolio.guard_portfolio_field)."""
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": "sitiame_charge_affaires",
+					"label": "Chargé d'affaires",
+					"fieldtype": "Link",
+					"options": "User",
+					"insert_after": "sitiame_subscription_ends_on",
+					"no_copy": 1,
+					"in_standard_filter": 1,
+					"description": "Membre de l'équipe Sitiame qui suit cette PME : lui seul (et les validateurs) la voit dans l'espace Chargé d'affaires.",
+				},
+			],
+		},
+		update=True,
+	)
+
+
+# What a chargé d'affaires works in the CRM, and reads of the PMEs. Which
+# records he sees is narrowed by portfolio.py (his own leads and
+# opportunities, the companies of his portfolio).
+CRM_RIGHTS = ("read", "write", "create", "print", "email", "report", "export")
+CHARGE_AFFAIRES_GRANTS = {
+	"Lead": CRM_RIGHTS,
+	"Opportunity": CRM_RIGHTS,
+	"Prospect": CRM_RIGHTS,
+	"Contact": CRM_RIGHTS,
+	"Company": ("read", "print", "report"),
+}
+
+
+def _grant_crm_permissions():
+	"""add_permission copies the standard permissions into Custom DocPerm
+	first: a Custom DocPerm alone would replace them for every role."""
+	from frappe.permissions import add_permission, update_permission_property
+
+	for doctype, rights in CHARGE_AFFAIRES_GRANTS.items():
+		if not frappe.db.exists("DocType", doctype):
+			continue
+		if not frappe.db.exists(
+			"Custom DocPerm", {"parent": doctype, "role": CHARGE_AFFAIRES_ROLE, "permlevel": 0, "if_owner": 0}
+		):
+			add_permission(doctype, CHARGE_AFFAIRES_ROLE, 0)
+		for right in rights:
+			update_permission_property(doctype, CHARGE_AFFAIRES_ROLE, 0, right, 1, validate=False)
+	frappe.db.commit()
+
+
+CHARGE_AFFAIRES_SIDEBAR = "Chargé d'affaires"
+CHARGE_AFFAIRES_PAGE = "erp-charge-affaires"
+# (label, link_type, link_to)
+CHARGE_AFFAIRES_ITEMS = (
+	("Mon portefeuille", "Page", CHARGE_AFFAIRES_PAGE),
+	("Prospects", "DocType", "Lead"),
+	("Opportunités", "DocType", "Opportunity"),
+	("Dossiers de scoring", "DocType", "Credit Scoring Dossier"),
+	("Dossiers de financement", "DocType", "Financing Dossier"),
+	("Classement financier", "Page", "erp-financial-ranking"),
+	("Liasse SYSCOHADA", "Report", "Liasse SYSCOHADA"),
+	("Documents KYC", "Page", "erp-kyc"),
+	("Abonnements des PME", "Page", "erp-abonnement"),
+)
+
+
+def ensure_charge_affaires_workspace():
+	"""Sidebar + home icon of the chargé d'affaires space, built like the
+	"Scoring" ones. Rewritten on every migrate so the list stays the one
+	above."""
+	if frappe.db.exists("Workspace Sidebar", CHARGE_AFFAIRES_SIDEBAR):
+		sidebar = frappe.get_doc("Workspace Sidebar", CHARGE_AFFAIRES_SIDEBAR)
+		sidebar.items = []
+	else:
+		sidebar = frappe.new_doc("Workspace Sidebar")
+		sidebar.title = CHARGE_AFFAIRES_SIDEBAR
+	sidebar.header_icon = "users"
+	sidebar.module = "Sitiame Core"
+	for label, link_type, link_to in CHARGE_AFFAIRES_ITEMS:
+		sidebar.append(
+			"items", {"label": label, "type": "Link", "link_type": link_type, "link_to": link_to, "icon": "users"}
+		)
+	sidebar.flags.ignore_permissions = True
+	sidebar.flags.ignore_links = True
+	if sidebar.is_new():
+		sidebar.insert()
+	else:
+		sidebar.save()
+
+	if not frappe.db.exists("Desktop Icon", CHARGE_AFFAIRES_SIDEBAR):
+		icon = frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": CHARGE_AFFAIRES_SIDEBAR,
+				"icon_type": "Link",
+				"link_type": "Workspace Sidebar",
+				"link_to": CHARGE_AFFAIRES_SIDEBAR,
+				"icon": "users",
+				"icon_image": "/assets/erpnext/icons/desktop_icons/solid/crm.svg",
+				"bg_color": "green",
+				"app": "sitiame_core",
+				# not a tile for the rest of the team
+				"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
+			}
+		)
+		icon.insert(ignore_permissions=True)
+	frappe.db.commit()
+	frappe.clear_cache()
 
 
 def _ensure_role(role):

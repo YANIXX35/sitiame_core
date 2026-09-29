@@ -56,10 +56,24 @@ has_permission = {
 	doctype: "sitiame_core.staff_isolation.has_permission" for doctype in _ISOLATED_DOCTYPES
 }
 
-# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
+doctype_js = {"User": "public/js/user_charge_affaires.js"}
+
+# A chargé d'affaires only sees his portfolio of PMEs (portfolio.py)
+from sitiame_core.portfolio import PORTFOLIO_DOCTYPES as _PORTFOLIO_DOCTYPES
+
+permission_query_conditions.update(
+	{doctype: "sitiame_core.portfolio.get_permission_query_conditions" for doctype in _PORTFOLIO_DOCTYPES}
+)
+has_permission.update({doctype: "sitiame_core.portfolio.has_permission" for doctype in _PORTFOLIO_DOCTYPES})
+
 doc_events = {
+	# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
 	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
 	"Sales Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
+	# a chargé d'affaires proposes, a validator decides (portfolio.py)
+	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
+	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
+	"Company": {"validate": "sitiame_core.portfolio.guard_portfolio_field"},
 }
 
 extend_bootinfo ="sitiame_core.boot.extend_bootinfo"

@@ -180,7 +180,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			method: "sitiame_core.subscription_api.get_my_subscription",
 		}).then(function (r) {
 			var sub = r.message || {};
-			if (!sub.company && frappe.user.has_role("System Manager")) {
+			if (!sub.company && (frappe.user.has_role("System Manager") || frappe.user.has_role("Charge d'affaires Sitiame"))) {
 				$container.hide();
 				renderAdminPanel();
 			} else if (!sub.company) {

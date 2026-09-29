@@ -6,7 +6,7 @@
 	"icon": "octicon octicon-shield",
 	"idx": 0,
 	"method": "GET",
-	"modified": "2026-09-18 00:00:00.000000",
+	"modified": "2026-09-29 16:00:00.000000",
 	"modified_by": "Administrator",
 	"module": "Sitiame Core",
 	"name": "erp-kyc",
@@ -16,6 +16,9 @@
 	"roles": [
 		{
 			"role": "System Manager"
+		},
+		{
+			"role": "Charge d'affaires Sitiame"
 		}
 	],
 	"standard": "Yes",

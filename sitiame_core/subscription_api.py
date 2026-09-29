@@ -9,7 +9,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_months, getdate, today
 
-from sitiame_core import jeko_client
+from sitiame_core import jeko_client, portfolio
+from sitiame_core.roles import CHARGE_AFFAIRES_ROLE
 from sitiame_core.tasks import TRIAL_ROLES
 
 # Custom Field on Company (created by sitiame_core.setup.after_migrate).
@@ -211,10 +212,12 @@ def get_or_create_pme_checkout_url(payment_method=None, force_new=0):
 @frappe.whitelist()
 def create_company_payment_link(company):
 	"""Sitiame staff: always a fresh single-use Jèko link for the chosen
-	PME, to send it to them (WhatsApp, e-mail...)."""
-	frappe.only_for("System Manager")
+	PME, to send it to them (WhatsApp, e-mail...). A chargé d'affaires:
+	for a PME of his portfolio."""
+	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
 	if not frappe.db.exists("Company", company):
 		frappe.throw(_("Societe introuvable : {0}").format(company))
+	portfolio.check_company(company)
 	doc = _new_payment(company)
 	return {"payment_url": _create_link(doc), "docname": doc.name, "company": company, "is_new": True}
 
@@ -222,8 +225,8 @@ def create_company_payment_link(company):
 @frappe.whitelist()
 def list_company_subscriptions():
 	"""Sitiame staff overview: every PME company with its subscription state
-	and paid history."""
-	frappe.only_for("System Manager")
+	and paid history (a chargé d'affaires: his portfolio)."""
+	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
 
 	paid = {}
 	for row in frappe.get_all(
@@ -239,8 +242,12 @@ def list_company_subscriptions():
 		for row in frappe.get_all("User Permission", filters={"allow": "Company"}, fields=["for_value"])
 	}
 
+	companies = pme_companies | set(paid)
+	if portfolio.is_charge_affaires():
+		companies &= portfolio.portfolio()
+
 	rows = []
-	for company in sorted(pme_companies | set(paid)):
+	for company in sorted(companies):
 		sub = get_company_subscription(company)
 		history = paid.get(company) or {}
 		if sub["active"]:

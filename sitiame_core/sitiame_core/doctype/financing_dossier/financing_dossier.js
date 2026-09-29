@@ -7,6 +7,19 @@ frappe.ui.form.on("Financing Dossier", {
 			financing_dossier_sync(frm);
 		});
 
+		// A chargé d'affaires proposes, a validator gives the opinion (the
+		// server enforces it too: sitiame_core.portfolio.check_decision).
+		if (frappe.user.has_role("Charge d'affaires Sitiame")
+			&& !frappe.user.has_role("System Manager") && !frappe.user.has_role("Analyste Credit Sitiame")) {
+			var proposals = ["A examiner", "En cours d'analyse"];
+			if (!frm.doc.status || proposals.indexOf(frm.doc.status) !== -1) {
+				frm.set_df_property("status", "options", proposals.join("\n"));
+			} else {
+				frm.set_df_property("status", "read_only", 1);
+			}
+			frm.set_df_property("status", "description", __("L'avis (favorable, défavorable, ajourné) revient à un validateur."));
+		}
+
 		if (!frm.doc.company) return;
 	},
 

@@ -18,7 +18,8 @@ from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, get_backups_path, get_bench_path
 from frappe.utils.password import decrypt, encrypt
 
-from sitiame_core.roles import CREDIT_ANALYST_ROLE
+from sitiame_core import portfolio
+from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
 
 # Signup anti-bot: short-lived math challenge, answer cached server-side
 # keyed by a one-time token. No external captcha service/API key needed.
@@ -1233,8 +1234,9 @@ def clear_erp_logs():
 def get_financial_ranking(date_from=None, date_to=None):
 	"""Ranks every ERPNext Company by its Scoring 360 Composite score/
 	decision (pret_a_deployer/solide_mais_a_cadrer/risque_a_traiter/
-	insuffisant). See scoring360_service.py::classement_erpnext."""
-	frappe.only_for(("System Manager", CREDIT_ANALYST_ROLE))
+	insuffisant). See scoring360_service.py::classement_erpnext -- a
+	chargé d'affaires gets his portfolio only."""
+	frappe.only_for(("System Manager", CREDIT_ANALYST_ROLE, CHARGE_AFFAIRES_ROLE))
 
 	from sitiame_core.scoring360_service import classement_erpnext
 
@@ -1333,11 +1335,14 @@ def list_erp_kyc_documents(company=None):
 	Files on the matching Company record -- this just surfaces what that
 	sync produces, grouped by company, instead of opening each Company one
 	by one to check its Attachments panel."""
-	frappe.only_for("System Manager")
+	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
 
 	filters = {"attached_to_doctype": "Company"}
 	if company:
+		portfolio.check_company(company)
 		filters["attached_to_name"] = company
+	elif portfolio.is_charge_affaires():
+		filters["attached_to_name"] = ["in", sorted(portfolio.portfolio()) or [""]]
 
 	files = frappe.get_all(
 		"File",
@@ -1947,8 +1952,9 @@ def get_scoring_suggestions(company):
 	financement, and Garanties et recouvrement stay manual: no reliable
 	system signal exists for them.
 	"""
-	if not {"System Manager", CREDIT_ANALYST_ROLE} & set(frappe.get_roles()):
+	if not {"System Manager", CREDIT_ANALYST_ROLE, CHARGE_AFFAIRES_ROLE} & set(frappe.get_roles()):
 		frappe.throw(_("Réservé aux administrateurs et analystes crédit."), frappe.PermissionError)
+	portfolio.check_company(company)
 
 	from sitiame_core.scoring360_service import _entries_count, get_config, score_company
 
@@ -2030,8 +2036,9 @@ def get_financing_dossier_from_pme360(company):
 	reverse-webhook pattern as register_pme_from_erpnext -- ERPNext calls
 	PME360's read-only endpoint with the shared X-PME360-Webhook-Token.
 	"""
-	if not {"System Manager", CREDIT_ANALYST_ROLE} & set(frappe.get_roles()):
+	if not {"System Manager", CREDIT_ANALYST_ROLE, CHARGE_AFFAIRES_ROLE} & set(frappe.get_roles()):
 		frappe.throw(_("Réservé aux administrateurs et analystes crédit."), frappe.PermissionError)
+	portfolio.check_company(company)
 
 	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
 	token = frappe.conf.get("pme360_webhook_token")
