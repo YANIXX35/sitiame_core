@@ -26,6 +26,27 @@ def _throw(message, exc=None):
 	raise Refused(message)
 
 
+class Local:
+	"""Like werkzeug's Local behind frappe.local: attributes, no __dict__
+	(production 2026-09-29: frappe.local.__dict__ raised AttributeError)."""
+
+	def __init__(self):
+		object.__setattr__(self, "_storage", {})
+
+	def __getattr__(self, name):
+		try:
+			return self._storage[name]
+		except KeyError:
+			raise AttributeError(name) from None
+
+	def __setattr__(self, name, value):
+		self._storage[name] = value
+
+	@property
+	def __dict__(self):
+		raise AttributeError("__dict__")
+
+
 class Doc(frappe._dict):
 	def is_new(self):
 		return bool(self.get("__new"))
@@ -38,7 +59,7 @@ def world(monkeypatch):
 
 	monkeypatch.setattr(frappe, "get_roles", lambda user=None: state["roles"].get(user or state["user"], []), raising=False)
 	monkeypatch.setattr(frappe, "session", frappe._dict(user=CA), raising=False)
-	monkeypatch.setattr(frappe, "local", frappe._dict(), raising=False)
+	monkeypatch.setattr(frappe, "local", Local(), raising=False)
 	monkeypatch.setattr(
 		frappe, "get_all",
 		lambda doctype, filters=None, pluck=None, **kw: list(state["portfolio"].get(filters[portfolio.PORTFOLIO_FIELD], [])),

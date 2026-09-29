@@ -42,7 +42,10 @@ def is_charge_affaires(user=None):
 def portfolio(user=None):
 	"""Companies followed by `user`, cached for the request."""
 	user = user or frappe.session.user
-	cache = frappe.local.__dict__.setdefault("sitiame_portfolio", {})
+	# frappe.local is a werkzeug Local: attributes only, no __dict__
+	cache = getattr(frappe.local, "sitiame_portfolio", None)
+	if cache is None:
+		cache = frappe.local.sitiame_portfolio = {}
 	if user not in cache:
 		cache[user] = set(frappe.get_all("Company", filters={PORTFOLIO_FIELD: user}, pluck="name", ignore_permissions=True))
 	return cache[user]
