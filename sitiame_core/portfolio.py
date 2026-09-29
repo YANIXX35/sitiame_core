@@ -220,8 +220,10 @@ def assign_pending_pme(doc, method=None):
 
 
 # Home tiles a chargé d'affaires keeps; every other one is hidden for him.
+# (no "Financement" tile: his financing dossiers are in the Chargé
+# d'affaires sidebar -- asked 2026-09-29)
 CHARGE_AFFAIRES_ICONS = (
-	"Chargé d'affaires", "Mon portefeuille", "Prospects", "Inscrire une PME", "CRM", "Scoring", "Financement",
+	"Chargé d'affaires", "Mon portefeuille", "Prospects", "Inscrire une PME", "CRM", "Scoring",
 )
 
 
