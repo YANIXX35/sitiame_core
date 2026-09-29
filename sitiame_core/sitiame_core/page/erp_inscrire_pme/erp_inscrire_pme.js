@@ -33,13 +33,38 @@ frappe.pages["erp-inscrire-pme"].on_page_load = function (wrapper) {
 			"<div class='col-sm-6'><label class='control-label'>" + __("Mot de passe (optionnel)") + "</label>" +
 			"<input type='password' class='form-control pme-password' placeholder='" + __("défaut : SITIAME2026!") + "'></div>" +
 			"</div>" +
+			"<div class='pme-charge-affaires' style='margin-top:10px;'></div>" +
 			"<button class='btn btn-primary pme-submit' style='margin-top:18px;'>" + __("Inscrire la PME") + "</button>" +
 			"<div class='pme-result' style='margin-top:15px;'></div>" +
 			"</div>"
 	).appendTo(page.body);
 
+	// A chargé d'affaires registers PMEs for his own portfolio; an
+	// administrator may give the new PME to one (sitiame_core.portfolio).
+	var isChargeAffaires = frappe.user.has_role("Charge d'affaires Sitiame") &&
+		!frappe.user.has_role("System Manager") && !frappe.user.has_role("Analyste Credit Sitiame");
+	var chargeAffairesField = null;
+	if (isChargeAffaires) {
+		$intro.append("<br><b>" + __("La PME rejoindra automatiquement votre portefeuille dès que sa société est créée (quelques instants).") + "</b>");
+	} else {
+		chargeAffairesField = frappe.ui.form.make_control({
+			parent: $body.find(".pme-charge-affaires"),
+			df: {
+				fieldtype: "Link",
+				options: "User",
+				label: __("Chargé d'affaires (optionnel)"),
+				description: __("La PME sera ajoutée à son portefeuille."),
+				get_query: function () {
+					return { query: "frappe.core.doctype.user.user.user_query", filters: { role: "Charge d'affaires Sitiame" } };
+				},
+			},
+			render_input: true,
+		});
+	}
+
 	$body.find(".pme-submit").on("click", function () {
 		var payload = {
+			charge_affaires: chargeAffairesField ? chargeAffairesField.get_value() : null,
 			name: $body.find(".pme-name").val(),
 			email: $body.find(".pme-email").val(),
 			phone: $body.find(".pme-phone").val(),
@@ -73,6 +98,7 @@ frappe.pages["erp-inscrire-pme"].on_page_load = function (wrapper) {
 					"</div>"
 			);
 			$body.find("input").val("");
+			if (chargeAffairesField) chargeAffairesField.set_value("");
 		}).catch(function () {
 			// L'erreur est déjà affichée par frappe.call via son propre dialogue.
 		}).always(function () {

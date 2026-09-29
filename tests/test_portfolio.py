@@ -10,7 +10,7 @@ import pathlib
 import frappe
 import pytest
 
-from sitiame_core import portfolio, subscription_api
+from sitiame_core import api, portfolio, subscription_api
 from sitiame_core.roles import CHARGE_AFFAIRES_ROLE
 from sitiame_core.staff_isolation import ISOLATED_DOCTYPES
 
@@ -172,6 +172,75 @@ def test_guard_portfolio_field(world, monkeypatch):
 	portfolio.guard_portfolio_field(Company(doctype="Company", name="PME A"))
 
 
+# -- PMEs a chargé d'affaires registers join his portfolio --
+
+
+@pytest.fixture
+def pending(monkeypatch):
+	state = {"defaults": {}, "company_set": {}}
+
+	def set_default(key, value, parent=None):
+		state["defaults"][(parent, key)] = value
+
+	def get_default(key, parent=None):
+		return state["defaults"].get((parent, key))
+
+	def sql(query, values=None, **kw):
+		state["defaults"].pop((values[0], values[1]), None)
+
+	monkeypatch.setattr(frappe.db, "set_default", set_default, raising=False)
+	monkeypatch.setattr(frappe.db, "get_default", get_default, raising=False)
+	monkeypatch.setattr(frappe.db, "sql", sql, raising=False)
+	monkeypatch.setattr(frappe.db, "set_value", lambda dt, name, field, value: state["company_set"].__setitem__(name, (field, value)), raising=False)
+	return state
+
+
+def test_registered_pme_joins_the_portfolio_once_provisioned(pending):
+	portfolio.remember_pending_pme(" Boss@PME.ci ", CA)
+	portfolio.assign_pending_pme(Doc(allow="Company", user="boss@pme.ci", for_value="PME NEW #42"))
+	assert pending["company_set"] == {"PME NEW #42": (portfolio.PORTFOLIO_FIELD, CA)}
+	assert pending["defaults"] == {}  # done once
+
+
+def test_other_user_permissions_are_ignored(pending):
+	portfolio.remember_pending_pme("boss@pme.ci", CA)
+	portfolio.assign_pending_pme(Doc(allow="Warehouse", user="boss@pme.ci", for_value="W"))
+	portfolio.assign_pending_pme(Doc(allow="Company", user="someone@else.ci", for_value="X"))
+	assert pending["company_set"] == {}
+
+
+@pytest.fixture
+def registering(world, monkeypatch, pending):
+	calls = []
+	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
+	monkeypatch.setattr(frappe.db, "exists", lambda doctype, name: True, raising=False)
+	monkeypatch.setattr(api, "_register_pme_in_pme360", lambda *a: calls.append(a) or {"email": a[1]})
+	return calls
+
+
+def test_charge_affaires_registers_for_himself(registering, pending):
+	api.register_pme_from_erpnext("Boss", "boss@pme.ci", "PME NEW", charge_affaires="someone.else@x")
+	assert pending["defaults"] == {(portfolio.PENDING_PARENT, "boss@pme.ci"): CA}
+
+
+def test_failed_registration_leaves_nothing_pending(registering, pending, monkeypatch):
+	def refused(*a):
+		raise Refused("PME360 a refusé")
+
+	monkeypatch.setattr(api, "_register_pme_in_pme360", refused)
+	with pytest.raises(Refused):
+		api.register_pme_from_erpnext("Boss", "boss@pme.ci", "PME NEW")
+	assert pending["defaults"] == {}
+
+
+def test_other_staff_cannot_register(registering, world, monkeypatch):
+	monkeypatch.setattr(frappe, "session", frappe._dict(user="accountant@x"), raising=False)
+	world["user"] = "accountant@x"
+	world["roles"]["accountant@x"] = ["Accounts Manager"]
+	with pytest.raises(Refused):
+		api.register_pme_from_erpnext("Boss", "boss@pme.ci", "PME NEW")
+
+
 # -- declared rights --
 
 
@@ -189,6 +258,7 @@ def test_role_works_the_dossiers_without_deleting(doctype):
 	"sitiame_core/page/erp_charge_affaires/erp_charge_affaires.json",
 	"sitiame_core/page/erp_financial_ranking/erp_financial_ranking.json",
 	"sitiame_core/page/erp_kyc/erp_kyc.json",
+	"sitiame_core/page/erp_inscrire_pme/erp_inscrire_pme.json",
 	"sitiame_core/page/erp_abonnement/erp_abonnement.json",
 	"sitiame_core/report/liasse_syscohada/liasse_syscohada.json",
 ])

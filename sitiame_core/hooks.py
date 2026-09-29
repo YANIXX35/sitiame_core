@@ -74,6 +74,9 @@ doc_events = {
 	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Company": {"validate": "sitiame_core.portfolio.guard_portfolio_field"},
+	# a PME registered by a chargé d'affaires joins his portfolio once its
+	# company is provisioned (portfolio.py)
+	"User Permission": {"after_insert": "sitiame_core.portfolio.assign_pending_pme"},
 }
 
 extend_bootinfo ="sitiame_core.boot.extend_bootinfo"

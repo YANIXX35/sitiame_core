@@ -9,6 +9,9 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 		title: __("Chargé d'affaires"),
 		single_column: true,
 	});
+	page.set_primary_action(__("Inscrire une PME"), function () {
+		frappe.set_route("erp-inscrire-pme");
+	}, "add");
 	page.set_secondary_action(__("Actualiser"), load);
 
 	var esc = frappe.utils.escape_html;
@@ -132,8 +135,12 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 		frappe.call({ method: "sitiame_core.portfolio.get_charge_affaires_dashboard" }).then(function (r) {
 			var data = r.message || {};
 			var rows = data.pme || [];
+			var pending = (data.en_inscription || []).length
+				? "<div class='alert alert-info' style='margin: 12px 0 0; font-size: 13px;'>" + __("En cours d'inscription (la société est en création) :") + " " +
+				  data.en_inscription.map(esc).join(", ") + "</div>"
+				: "";
 			$body.html(
-				card(__("Mon portefeuille") + " <span class='text-muted' style='font-weight: 400;'>(" + rows.length + ")</span>", portfolioTable(rows)) +
+				card(__("Mon portefeuille") + " <span class='text-muted' style='font-weight: 400;'>(" + rows.length + ")</span>", portfolioTable(rows) + pending) +
 				"<div class='row'>" +
 					"<div class='col-md-6'>" + card(__("Mes relances"), relances(data.relances || {})) + "</div>" +
 					"<div class='col-md-6'>" + card(__("Dossiers à compléter"), aCompleter(data.a_completer || {})) + "</div>" +

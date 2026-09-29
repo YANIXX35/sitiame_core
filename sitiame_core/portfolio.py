@@ -142,6 +142,7 @@ def get_charge_affaires_dashboard():
 
 	return {
 		"pme": pme,
+		"en_inscription": pending_pmes(user),
 		"relances": {
 			"todos": frappe.get_all(
 				"ToDo",
@@ -174,6 +175,48 @@ def _latest_by_company(doctype, companies, fields):
 	):
 		latest.setdefault(row.company, row)
 	return latest
+
+
+# A PME a chargé d'affaires registers is created in two steps: PME360
+# creates the account, then provisions the ERPNext Company and the PME's
+# user in the background (ErpNextClient::provisionCompanyForPme). Until
+# then the e-mail -> chargé d'affaires link waits here (DefaultValue rows,
+# durable), and assign_pending_pme puts the company in his portfolio as
+# soon as the PME's Company User Permission is created.
+PENDING_PARENT = "__sitiame_pending_charge_affaires"
+
+
+def remember_pending_pme(email, charge_affaires):
+	email = (email or "").strip().lower()
+	if email and charge_affaires:
+		frappe.db.set_default(email, charge_affaires, parent=PENDING_PARENT)
+
+
+def forget_pending_pme(email):
+	frappe.db.sql(
+		"delete from `tabDefaultValue` where parent=%s and defkey=%s", (PENDING_PARENT, (email or "").strip().lower())
+	)
+
+
+def pending_pmes(charge_affaires):
+	"""E-mails of the PMEs he registered whose company isn't created yet."""
+	return frappe.get_all(
+		"DefaultValue", filters={"parent": PENDING_PARENT, "defvalue": charge_affaires}, pluck="defkey"
+	)
+
+
+def assign_pending_pme(doc, method=None):
+	"""User Permission after_insert: the PME's user is tied to its company."""
+	if doc.allow != "Company" or not doc.user:
+		return
+	email = doc.user.strip().lower()
+	charge_affaires = frappe.db.get_default(email, parent=PENDING_PARENT)
+	if not charge_affaires:
+		return
+	# set_value: the provisioning runs as the PME360 API user, and the
+	# assignment was decided when a chargé d'affaires registered the PME
+	frappe.db.set_value("Company", doc.for_value, PORTFOLIO_FIELD, charge_affaires)
+	forget_pending_pme(email)
 
 
 # Home tiles a chargé d'affaires keeps; every other one is hidden for him.

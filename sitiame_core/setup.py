@@ -97,6 +97,7 @@ CHARGE_AFFAIRES_PAGE = "erp-charge-affaires"
 # (label, link_type, link_to)
 CHARGE_AFFAIRES_ITEMS = (
 	("Mon portefeuille", "Page", CHARGE_AFFAIRES_PAGE),
+	("Inscrire une PME", "Page", "erp-inscrire-pme"),
 	("Prospects", "DocType", "Lead"),
 	("Opportunités", "DocType", "Opportunity"),
 	("Dossiers de scoring", "DocType", "Credit Scoring Dossier"),

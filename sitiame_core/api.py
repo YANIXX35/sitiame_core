@@ -1645,9 +1645,30 @@ def chat_with_assistant(message, history=None):
 # sur ERPNext (même chemin que /register ou l'espace Commercial de PME360).
 @frappe.whitelist()
 def register_pme_from_erpnext(name, email, company_name, phone=None, password=None,
-	company_tax_id=None, rccm=None, city=None):
-	if "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+	company_tax_id=None, rccm=None, city=None, charge_affaires=None):
+	"""A chargé d'affaires registers a PME for his own portfolio; an
+	administrator may give it to a chargé d'affaires (charge_affaires)."""
+	roles = set(frappe.get_roles())
+	if not roles & {"System Manager", CHARGE_AFFAIRES_ROLE}:
+		frappe.throw(_("Réservé aux administrateurs et chargés d'affaires."), frappe.PermissionError)
+	if portfolio.is_charge_affaires():
+		charge_affaires = frappe.session.user
+	elif charge_affaires and not frappe.db.exists("User", charge_affaires):
+		frappe.throw(_("Chargé d'affaires introuvable : {0}").format(charge_affaires))
+
+	# committed before calling PME360: its background job provisions the
+	# ERPNext company (another transaction) right after it answers
+	portfolio.remember_pending_pme(email, charge_affaires)
+	frappe.db.commit()
+	try:
+		return _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
+	except Exception:
+		portfolio.forget_pending_pme(email)
+		frappe.db.commit()
+		raise
+
+
+def _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city):
 
 	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
 	token = frappe.conf.get("pme360_webhook_token")
