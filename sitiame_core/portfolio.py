@@ -187,10 +187,11 @@ def configure_charge_affaires(user):
 	frappe.only_for("System Manager")
 	doc = frappe.get_doc("User", user)
 	doc.add_roles(CHARGE_AFFAIRES_ROLE)
-	top_level = frappe.get_all(
-		"Desktop Icon", filters={"parent_icon": ["is", "not set"], "hidden": 0}, pluck="label"
-	)
-	hidden = sorted({label for label in top_level if label and label not in CHARGE_AFFAIRES_ICONS})
+	# every level: once a folder (Frappe HR, Accounting...) is hidden, the
+	# desk shows its children as tiles of their own (Maeva, 2026-09-29:
+	# Paie, Recrutement, Achat, Vente... on her home screen)
+	labels = frappe.get_all("Desktop Icon", filters={"hidden": 0}, pluck="label")
+	hidden = sorted({label for label in labels if label and label not in CHARGE_AFFAIRES_ICONS})
 	frappe.db.set_value("User", user, "sitiame_hidden_desktop_icons", json.dumps(hidden))
 	frappe.clear_cache(user=user)
 	return {"hidden": hidden}
