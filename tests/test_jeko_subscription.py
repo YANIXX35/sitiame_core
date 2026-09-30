@@ -207,3 +207,10 @@ def test_price_defaults_to_15000_and_site_config_overrides_it(monkeypatch):
 	assert sa.subscription_amount() == 15000
 	monkeypatch.setattr(frappe, "conf", frappe._dict(sitiame_subscription_amount="20"), raising=False)
 	assert sa.subscription_amount() == 20
+
+
+def test_link_below_jekos_minimum_is_refused_clearly(jeko, monkeypatch):
+	monkeypatch.setattr(frappe, "throw", _throw, raising=False)
+	with pytest.raises(Refused, match="au moins 100 FCFA"):
+		jeko_client.create_payment_link("Abonnement Sitiame - OOO", 20)
+	assert jeko["calls"] == []

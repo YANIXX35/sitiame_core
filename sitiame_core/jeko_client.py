@@ -95,7 +95,15 @@ def get_payment_request(payment_request_id):
 	return _call("GET", f"/partner_api/payment_requests/{payment_request_id}", _("statut du paiement"))
 
 
+# Jèko refuses payment links below this amount (checkouts accept 1 XOF).
+LINK_MIN_XOF = 100
+
+
 def create_payment_link(title, amount_xof):
+	if amount_xof < LINK_MIN_XOF:
+		frappe.throw(
+			_("Jèko exige au moins {0} FCFA pour un lien de paiement (montant actuel : {1} FCFA). Payez depuis la page Abonnement de la PME.").format(LINK_MIN_XOF, amount_xof)
+		)
 	return _call(
 		"POST",
 		"/partner_api/payment_links",
