@@ -197,3 +197,13 @@ def test_failed_payment_is_marked_failed(webhook):
 	webhook["payments"][(sa.CHECKOUT, "pr-1")] = "SUB-2026-00023"
 	_post(webhook, {"status": "error", "transactionDetails": {"id": "pr-1"}})
 	assert webhook["set"][("SUB-2026-00023", "status")] == "Échoué" and webhook["paid"] == []
+
+
+# -- price --
+
+
+def test_price_defaults_to_15000_and_site_config_overrides_it(monkeypatch):
+	monkeypatch.setattr(frappe, "conf", frappe._dict(), raising=False)
+	assert sa.subscription_amount() == 15000
+	monkeypatch.setattr(frappe, "conf", frappe._dict(sitiame_subscription_amount="20"), raising=False)
+	assert sa.subscription_amount() == 20

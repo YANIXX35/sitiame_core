@@ -22,7 +22,13 @@ SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
 # abandoned checkout (see reconcile_pending_payments).
 PENDING_EXPIRES_AFTER_DAYS = 7
 
+# Monthly price in FCFA. site_config "sitiame_subscription_amount" overrides
+# it, e.g. 20 for a real low-cost payment test (Jèko has no sandbox).
 SUBSCRIPTION_AMOUNT = 15000
+
+
+def subscription_amount():
+	return int(frappe.conf.get("sitiame_subscription_amount") or SUBSCRIPTION_AMOUNT)
 
 # Subscription Payment.payment_provider. Older payments (empty provider)
 # came from a previous provider and are no longer queried.
@@ -96,7 +102,8 @@ def _restore_trial_roles(company):
 def get_my_subscription():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
-	return get_company_subscription(get_user_company())
+	# the price comes along so the pages show what will really be charged
+	return {**get_company_subscription(get_user_company()), "amount": subscription_amount()}
 
 
 # -- Creating payments --
@@ -107,7 +114,7 @@ def _new_payment(company):
 		{
 			"doctype": "Subscription Payment",
 			"company": company,
-			"amount": SUBSCRIPTION_AMOUNT,
+			"amount": subscription_amount(),
 			"duration_months": 1,
 			"status": PENDING,
 		}

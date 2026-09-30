@@ -63,7 +63,7 @@
 
 		var link = document.createElement("a");
 		link.href = "/app/erp-abonnement";
-		link.textContent = __("Renouveler / S'abonner (15 000 FCFA / mois)");
+		link.textContent = __("Renouveler / S'abonner");
 		link.style.cssText = "font-weight:700;text-decoration:underline;color:" + message.color + ";";
 
 		banner.appendChild(text);

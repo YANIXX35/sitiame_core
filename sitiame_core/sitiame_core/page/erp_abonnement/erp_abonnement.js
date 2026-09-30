@@ -12,7 +12,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		"<div style='max-width: 580px; margin: 30px auto; padding: 35px 25px; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); text-align: center; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>" +
 			"<div style='font-size: 46px; margin-bottom: 12px;'>\uD83D\uDCB3</div>" +
 			"<h3 style='font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 22px;'>" + __("Abonnement SITIAME CAPITAL") + "</h3>" +
-			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;'>" + __("Pack Premium Enterprise : <strong>15 000 FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money : Wave, Orange Money, MTN, Moov, Djamo</span>") + "</p>" +
+			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;'>" + __("Pack Premium Enterprise : <strong><span class='abonnement-price'>15 000</span> FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money : Wave, Orange Money, MTN, Moov, Djamo</span>") + "</p>" +
 
 			// State: Loading
 			"<div id='abonnement-state-loading' style='padding: 20px 0;'>" +
@@ -47,7 +47,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				"<div style='font-size: 20px; font-weight: 700; color: #15803d; margin-bottom: 8px;'>" + __("Abonnement actif") + "</div>" +
 				"<div id='abonnement-active-desc' style='font-size: 14px; color: #475569; margin-bottom: 25px; line-height: 1.5;'></div>" +
 				"<button id='btn-extend-subscription' class='btn btn-primary' style='border-radius: 8px; padding: 11px 24px; font-weight: 600;'>" +
-					__("Prolonger d'un mois (15 000 FCFA)") +
+					__("Prolonger d'un mois") + " (" + "<span class='abonnement-price'>15 000</span>" + " FCFA)" +
 				"</button>" +
 			"</div>" +
 
@@ -81,6 +81,13 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			"</div>" +
 		"</div>"
 	).appendTo(page.body);
+
+	// The price is set on the server (site_config sitiame_subscription_amount):
+	// show what will really be charged.
+	frappe.call({ method: "sitiame_core.subscription_api.get_my_subscription" }).then(function (r) {
+		var amount = (r.message || {}).amount;
+		if (amount) $(".abonnement-price").text(format_number(amount, null, 0));
+	});
 
 	function getQueryParam(key) {
 		var sp = new URLSearchParams(window.location.search);
@@ -204,7 +211,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			"<div style='max-width: 1000px; margin: 24px auto; padding: 0 16px;'>" +
 				"<div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px 22px; margin-bottom: 20px;'>" +
 					"<h4 style='font-weight: 700; margin: 0 0 4px;'>" + __("Générer un lien de paiement") + "</h4>" +
-					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien Jèko (15 000 FCFA / 1 mois, à usage unique) et envoyez-le-lui : elle choisira son opérateur en l'ouvrant.") + "</p>" +
+					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien Jèko (1 mois, à usage unique) et envoyez-le-lui : elle choisira son opérateur en l'ouvrant.") + " " + __("Montant : {0} FCFA.", ["<span class='abonnement-price'>15 000</span>"]) + "</p>" +
 					"<div style='display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;'>" +
 						"<div class='admin-company-field' style='min-width: 280px; flex: 1;'></div>" +
 						"<button class='btn btn-primary btn-generate-link' style='margin-bottom: 15px;'>" + __("Générer le lien") + "</button>" +

@@ -126,7 +126,7 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 			frappe.utils.copy_to_clipboard(link);
 			frappe.msgprint({
 				title: __("Lien de paiement — {0}", [row.company_name]),
-				message: __("Lien Jèko à usage unique (15 000 FCFA / 1 mois), copié dans le presse-papiers : envoyez-le à la PME, elle choisira son opérateur en l'ouvrant.") +
+				message: __("Lien Jèko à usage unique (1 mois), copié dans le presse-papiers : envoyez-le à la PME, elle choisira son opérateur en l'ouvrant.") +
 					"<br><br><a href='" + encodeURI(link).replace(/'/g, "%27") + "' target='_blank'>" + esc(link) + "</a>",
 			});
 		});
