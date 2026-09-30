@@ -130,6 +130,8 @@ def get_my_subscription():
 		**get_company_subscription(get_user_company()),
 		"amount": subscription_amount(),
 		"is_staff": is_sitiame_staff(),
+		# admins keep the overview; other staff pay like a PME, picking it
+		"is_admin": "System Manager" in frappe.get_roles(),
 	}
 
 
@@ -208,21 +210,45 @@ def generate_payment_link_on_insert(doc):
 		)
 
 
+SITIAME_COMPANY = "SITIAME"
+
+
+def _paying_company(company=None):
+	"""A PME account always pays for its own company, whatever it sends.
+	A Sitiame staff account (no company of its own) picks the PME: any
+	of them, or those of his portfolio for a chargé d'affaires."""
+	own = get_user_company()
+	if own:
+		return own
+	if not company:
+		if is_sitiame_staff():
+			frappe.throw(_("Choisissez d'abord la PME (champ « Société »)."))
+		frappe.throw(
+			_("L'abonnement se paie depuis le compte de la PME : aucune societe n'est rattachee a votre compte.")
+		)
+	_only_staff()
+	if company == SITIAME_COMPANY or not frappe.db.exists("Company", company):
+		frappe.throw(_("Societe introuvable : {0}").format(company))
+	portfolio.check_company(company)
+	return company
+
+
 @frappe.whitelist()
-def get_or_create_pme_checkout_url(payment_method=None, force_new=0):
+def get_company_subscription_for(company):
+	"""Staff paying for a PME: that PME's current state."""
+	return get_company_subscription(_paying_company(company))
+
+
+@frappe.whitelist()
+def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=None):
 	"""The PME pays its own subscription with the operator it picked on
-	the Abonnement page. force_new is ignored (kept for old clients)."""
+	the Abonnement page; Sitiame staff pick the PME first (`company`).
+	force_new is ignored (kept for old clients)."""
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
 
-	# Only a PME account pays for its own company: a Sitiame staff account
-	# with no company must never open a checkout on some other PME's behalf.
-	company = get_user_company(user)
-	if not company:
-		frappe.throw(
-			_("L'abonnement se paie depuis le compte de la PME : aucune societe n'est rattachee a votre compte.")
-		)
+	company = _paying_company(company)
 	if payment_method not in jeko_client.PAYMENT_METHODS:
 		frappe.throw(_("Choisissez votre moyen de paiement (Wave, Orange Money, MTN, Moov ou Djamo)."))
 
@@ -342,8 +368,7 @@ def check_pme_subscription_status(docname=None):
 	if docname and frappe.db.exists("Subscription Payment", docname):
 		doc = frappe.get_doc("Subscription Payment", docname)
 		# a PME may only look at its own company's payments (amount, link)
-		if "System Manager" not in frappe.get_roles() and doc.company != get_user_company(user):
-			frappe.throw(_("Ce paiement ne concerne pas votre societe."), frappe.PermissionError)
+		_check_receipt_access(doc)
 
 		if doc.status == PENDING and doc.transaction_id:
 			try:
@@ -571,11 +596,12 @@ def download_receipt(docname):
 
 
 @frappe.whitelist()
-def list_my_receipts():
-	"""The PME's paid payments, newest first, for the Abonnement page."""
-	company = get_user_company()
-	if not company:
+def list_my_receipts(company=None):
+	"""The PME's paid payments, newest first, for the Abonnement page
+	(staff: those of the PME they picked)."""
+	if not get_user_company() and not company:
 		return []
+	company = _paying_company(company)
 	return frappe.get_all(
 		"Subscription Payment",
 		filters={"company": company, "status": PAID},

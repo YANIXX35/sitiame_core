@@ -104,8 +104,8 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		return "/api/method/sitiame_core.subscription_api.download_receipt?docname=" + encodeURIComponent(docname);
 	}
 
-	function loadReceipts() {
-		frappe.call({ method: "sitiame_core.subscription_api.list_my_receipts" }).then(function (r) {
+	function loadReceipts(company) {
+		frappe.call({ method: "sitiame_core.subscription_api.list_my_receipts", args: { company: company || null } }).then(function (r) {
 			var rows = r.message || [];
 			if (!rows.length) return;
 			var html = "<table class='table table-sm' style='font-size: 13px; margin: 0;'><thead><tr>" +
@@ -193,9 +193,10 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 	}
 
 	function showPaid(data) {
-		paidDocname = returnDocname;
+		paidDocname = data.docname || returnDocname;
 		$("#btn-download-receipt").toggle(!!paidDocname);
-		loadReceipts();
+		// staff paid for a PME: that PME's receipts
+		loadReceipts(data.company);
 		if (data.company) {
 			$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]) + " " + endsOnText(data.subscription));
 		}
@@ -241,9 +242,13 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			method: "sitiame_core.subscription_api.get_my_subscription",
 		}).then(function (r) {
 			var sub = r.message || {};
-			if (!sub.company && sub.is_staff) {
+			if (!sub.company && sub.is_admin) {
 				$container.hide();
 				renderAdminPanel();
+			} else if (!sub.company && sub.is_staff) {
+				// chargé d'affaires, accountants: the PME view, picking the PME first
+				setupStaffCompanyPicker();
+				showOnly("choose");
 			} else if (!sub.company) {
 				showOnly("error");
 				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement."));
@@ -366,11 +371,65 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		loadSubscriptions();
 	}
 
+	// Staff without a company of their own: which PME they pay for
+	var staffMode = false;
+	var staffCompany = null;
+
+	function setupStaffCompanyPicker() {
+		staffMode = true;
+		var $picker = $(
+			"<div style='text-align: left; margin-bottom: 18px;'>" +
+				"<div class='staff-company-field'></div>" +
+				"<div class='staff-company-status' style='font-size: 13px; color: #475569; margin-top: -6px;'></div>" +
+			"</div>"
+		).prependTo($("#abonnement-state-choose"));
+
+		frappe.ui.form.make_control({
+			parent: $picker.find(".staff-company-field"),
+			df: {
+				fieldtype: "Link",
+				options: "Company",
+				label: __("Soci\u00e9t\u00e9 (PME) \u00e0 abonner"),
+				placeholder: __("Choisissez la PME"),
+				get_query: function () {
+					return { filters: { name: ["!=", "SITIAME"] } };
+				},
+				change: function () {
+					var company = this.get_value();
+					if (company === staffCompany) return;
+					staffCompany = company || null;
+					$receipts.hide();
+					var $status = $picker.find(".staff-company-status").empty();
+					if (!staffCompany) return;
+					frappe.call({
+						method: "sitiame_core.subscription_api.get_company_subscription_for",
+						args: { company: staffCompany },
+					}).then(function (r) {
+						var sub = r.message || {};
+						if (sub.active) {
+							$status.html("<span style='color: #15803d; font-weight: 600;'>" + __("Abonnement actif") + "</span> \u2014 " + endsOnText(sub) + " " + __("Un paiement le prolonge d'un mois."));
+						} else if (sub.in_trial) {
+							$status.html("<span style='color: #b45309; font-weight: 600;'>" + __("En p\u00e9riode d'essai") + "</span>");
+						} else {
+							$status.html("<span style='color: #b91c1c; font-weight: 600;'>" + __("Aucun abonnement actif") + "</span>");
+						}
+						loadReceipts(staffCompany);
+					});
+				},
+			},
+			render_input: true,
+		});
+	}
+
 	function requestAndRedirect(paymentMethod) {
+		if (staffMode && !staffCompany) {
+			frappe.msgprint(__("Choisissez d'abord la PME \u00e0 abonner."));
+			return;
+		}
 		showLoading(__("Connexion \u00e0 votre op\u00e9rateur..."));
 		frappe.call({
 			method: "sitiame_core.subscription_api.get_or_create_pme_checkout_url",
-			args: { payment_method: paymentMethod },
+			args: { payment_method: paymentMethod, company: staffCompany },
 		}).then(function (r) {
 			var res = r.message || {};
 			if (res.status === "Pay\u00e9") {

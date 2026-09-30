@@ -304,3 +304,47 @@ def test_receipt_template_renders(monkeypatch):
 	)
 	for text in ("REÇU DE PAIEMENT", "SUB-2026-00024", "binks", "20 FCFA", "Wave", "87a01652", "k@gmail.com", "+2250509273117", "du 23/10/2026 au 23/11/2026", "vingt francs CFA", "data:image/png"):
 		assert text in html
+
+
+# -- staff paying for a PME --
+
+
+@pytest.fixture
+def paying(monkeypatch):
+	state = {"own": None, "staff": False, "portfolio_ok": True, "companies": {"binks", "OOO", "SITIAME"}}
+	monkeypatch.setattr(frappe, "throw", _throw, raising=False)
+	monkeypatch.setattr(sa, "get_user_company", lambda user=None: state["own"])
+	monkeypatch.setattr(sa, "is_sitiame_staff", lambda user=None: state["staff"])
+	monkeypatch.setattr(frappe.db, "exists", lambda dt, name=None: name in state["companies"], raising=False)
+
+	def check_company(company, user=None):
+		if not state["portfolio_ok"]:
+			raise Refused("portefeuille")
+
+	monkeypatch.setattr(sa.portfolio, "check_company", check_company)
+	return state
+
+
+def test_a_pme_always_pays_for_itself(paying):
+	paying["own"] = "binks"
+	assert sa._paying_company("OOO") == "binks"
+
+
+def test_staff_pay_for_the_pme_they_pick(paying):
+	paying["staff"] = True
+	assert sa._paying_company("OOO") == "OOO"
+	with pytest.raises(Refused, match="Choisissez"):
+		sa._paying_company(None)
+	with pytest.raises(Refused, match="introuvable"):
+		sa._paying_company("SITIAME")
+
+
+def test_charge_affaires_only_pays_for_his_portfolio(paying):
+	paying.update(staff=True, portfolio_ok=False)
+	with pytest.raises(Refused, match="portefeuille"):
+		sa._paying_company("OOO")
+
+
+def test_other_accounts_cannot_pay_for_a_pme(paying):
+	with pytest.raises(Refused):
+		sa._paying_company("OOO")
