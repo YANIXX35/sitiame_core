@@ -234,6 +234,12 @@ def _paying_company(company=None):
 
 
 @frappe.whitelist()
+def get_company_subscription_for(company):
+	"""Staff paying for a PME: that PME's current state."""
+	return get_company_subscription(_paying_company(company))
+
+
+@frappe.whitelist()
 def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=None):
 	"""The PME pays its own subscription with the operator it picked on
 	the Abonnement page; Sitiame staff pick the PME first (`company`).
