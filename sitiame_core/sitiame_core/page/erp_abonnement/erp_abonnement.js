@@ -142,18 +142,31 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		frappe.set_route("app");
 	});
 
+	var LOGOS = "/assets/sitiame_core/images/payment/";
 	var METHODS = [
-		{ value: "wave", label: "Wave", color: "#1dc8f2" },
-		{ value: "orange", label: "Orange Money", color: "#ff7900" },
-		{ value: "mtn", label: "MTN MoMo", color: "#ffcb05" },
-		{ value: "moov", label: "Moov Money", color: "#0066b3" },
-		{ value: "djamo", label: "Djamo", color: "#111827" },
+		{ value: "wave", label: "Wave", color: "#1dc8f2", logo: "wave.png" },
+		{ value: "orange", label: "Orange Money", color: "#ff7900", logo: "orange.png" },
+		// MTN's logo is wide: shown whole on its own yellow
+		{ value: "mtn", label: "MTN MoMo", color: "#ffcb05", logo: "mtn.png", fit: "contain" },
+		{ value: "moov", label: "Moov Money", color: "#0066b3", logo: "moov.jpg" },
+		{ value: "djamo", label: "Djamo", color: "#111827", logo: "djamo.png" },
 	];
 	var $methods = $container.find(".abonnement-methods");
 	METHODS.forEach(function (m) {
 		$("<button class='btn btn-default'></button>")
-			.css({ padding: "14px 10px", "border-radius": "10px", "font-weight": 600, "border-left": "5px solid " + m.color })
-			.text(m.label)
+			.css({
+				padding: "10px 12px", "border-radius": "10px", "font-weight": 600, "border-left": "5px solid " + m.color,
+				display: "flex", "align-items": "center", gap: "10px", "justify-content": "flex-start",
+			})
+			.append(
+				$("<img>")
+					.attr({ src: LOGOS + m.logo, alt: m.label })
+					.css({
+						width: "40px", height: "40px", "border-radius": "8px", "flex-shrink": 0,
+						"object-fit": m.fit || "cover", background: m.color,
+					})
+			)
+			.append($("<span></span>").text(m.label))
 			.on("click", function () {
 				requestAndRedirect(m.value);
 			})
