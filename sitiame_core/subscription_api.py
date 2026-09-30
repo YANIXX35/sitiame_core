@@ -153,7 +153,11 @@ def _create_checkout(doc, payment_method):
 	"""Jèko Checkout for a PME paying from the Abonnement page: back on
 	that page once paid (or not)."""
 	base = f"{frappe.utils.get_url()}/desk/erp-abonnement?docname={doc.name}&payment_status="
-	result = jeko_client.create_payment_request(doc.name, doc.amount, payment_method, base + "success", base + "failed")
+	# Jèko refuses a reference it has already seen, and a document name
+	# can come back (a rolled-back insert reuses its number): a suffix
+	# keeps every attempt unique.
+	reference = f"{doc.name}-{frappe.generate_hash(length=6)}"
+	result = jeko_client.create_payment_request(reference, doc.amount, payment_method, base + "success", base + "failed")
 	_save_payment(doc, CHECKOUT, result.get("id"), result.get("redirectUrl"), payment_method)
 	return result.get("redirectUrl")
 
@@ -387,8 +391,10 @@ def _find_payment(details):
 		name = frappe.db.get_value(
 			"Subscription Payment", {"payment_provider": CHECKOUT, "transaction_id": details["id"]}, "name"
 		)
-		# the reference we sent is the document name
-		if name and (not details.get("reference") or details["reference"] == name):
+		# the reference we sent is the document name, plus a suffix since
+		# 2026-09-30 (older checkouts carry the bare name)
+		reference = details.get("reference")
+		if name and (not reference or reference == name or reference.startswith(name + "-")):
 			return name
 	return None
 

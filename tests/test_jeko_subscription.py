@@ -234,3 +234,22 @@ def test_staff_view_is_for_sitiame_accounts_only(monkeypatch, roles, company, st
 	monkeypatch.setattr(frappe, "get_roles", lambda user=None: roles, raising=False)
 	monkeypatch.setattr(frappe.db, "get_value", lambda *a, **k: company, raising=False)
 	assert sa.is_sitiame_staff("someone@example.com") is staff
+
+
+def test_suffixed_reference_is_accepted_but_not_a_longer_name(webhook):
+	webhook["payments"][(sa.CHECKOUT, "pr-1")] = "SUB-2026-00023"
+	assert _post(webhook, {"status": "success", "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-000231"}}) == {"status": "ignored"}
+	_post(webhook, {"status": "success", "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-00023-a1b2c3"}})
+	assert webhook["paid"] == ["SUB-2026-00023"]
+
+
+def test_each_checkout_attempt_sends_a_new_reference(jeko, monkeypatch):
+	monkeypatch.setattr(sa, "_save_payment", lambda *a, **k: None)
+	monkeypatch.setattr(frappe.utils, "get_url", lambda: "https://erp", raising=False)
+	monkeypatch.setattr(frappe, "generate_hash", lambda length=10: __import__("secrets").token_hex(length)[:length], raising=False)
+	doc = frappe._dict(name="SUB-2026-00023", amount=20)
+	for _ in range(2):
+		jeko["responses"].append(Response(201, {"id": "pr", "redirectUrl": "u"}))
+		sa._create_checkout(doc, "wave")
+	first, second = (c["json"]["reference"] for c in jeko["calls"])
+	assert first.startswith("SUB-2026-00023-") and first != second
