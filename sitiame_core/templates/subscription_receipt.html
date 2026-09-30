@@ -4,70 +4,143 @@
 <meta charset="utf-8">
 <title>Reçu {{ doc.name }}</title>
 <style>
-	body { font-family: "Helvetica", "Arial", sans-serif; color: #0f172a; font-size: 13px; margin: 0; padding: 32px 40px; }
-	.header { width: 100%; border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 26px; }
-	.brand { font-size: 22px; font-weight: bold; color: #1d4ed8; letter-spacing: 0.5px; }
-	.brand-sub { font-size: 11px; color: #64748b; margin-top: 3px; }
-	.title { font-size: 20px; font-weight: bold; text-align: right; }
-	.number { font-size: 12px; color: #475569; text-align: right; margin-top: 4px; }
-	.stamp { display: inline-block; border: 2px solid #15803d; color: #15803d; font-weight: bold; font-size: 14px; padding: 4px 14px; border-radius: 6px; letter-spacing: 1px; }
-	table.info { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-	table.info td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-	table.info td.label { width: 38%; color: #64748b; }
-	table.info td.value { font-weight: bold; }
-	table.lines { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-	table.lines th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 2px solid #cbd5e1; }
-	table.lines td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+	/* wkhtmltopdf (old WebKit): tables, no flexbox */
+	body { font-family: "Helvetica", "Arial", sans-serif; color: #1e293b; font-size: 12px; margin: 0; padding: 26px 38px; }
+	table { border-collapse: collapse; width: 100%; }
+	td, th { vertical-align: top; }
+	.gold { color: #b8912a; }
+	.navy { color: #0b1f6e; }
+
+	.head td { padding: 0; }
+	.logo { height: 78px; }
+	.issuer { font-size: 10.5px; color: #64748b; line-height: 1.55; margin-top: 4px; }
+	.doc-title { font-size: 22px; font-weight: bold; color: #0b1f6e; text-align: right; letter-spacing: 1px; }
+	.doc-meta { text-align: right; font-size: 11.5px; color: #475569; line-height: 1.7; margin-top: 6px; }
+	.doc-meta b { color: #0f172a; }
+	.stamp { display: inline-block; margin-top: 8px; border: 2px solid #15803d; color: #15803d; font-weight: bold; font-size: 13px; padding: 3px 14px; border-radius: 4px; letter-spacing: 2px; }
+	.rule { height: 4px; background: #0b1f6e; border-bottom: 2px solid #b8912a; margin: 16px 0 20px; }
+
+	.parties td.box { width: 50%; padding: 0; }
+	.card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; }
+	.card-title { font-size: 10px; font-weight: bold; color: #b8912a; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+	.card-name { font-size: 14px; font-weight: bold; color: #0b1f6e; margin-bottom: 6px; }
+	.kv td { padding: 2px 0; font-size: 11.5px; }
+	.kv td.k { color: #64748b; width: 34%; }
+
+	.lines { margin-top: 20px; }
+	.lines th { background: #0b1f6e; color: #fff; font-size: 11px; text-align: left; padding: 9px 12px; letter-spacing: 0.5px; }
+	.lines td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+	.lines .desc-sub { font-size: 10.5px; color: #64748b; margin-top: 3px; }
 	.right { text-align: right; }
-	.total td { font-size: 15px; font-weight: bold; background: #eff6ff; }
-	.footer { margin-top: 40px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; line-height: 1.6; }
+	.totals { margin-top: 0; }
+	.totals td { padding: 8px 12px; }
+	.totals .grand td { background: #fbf6e6; border-top: 2px solid #b8912a; font-size: 15px; font-weight: bold; color: #0b1f6e; }
+
+	.words { margin-top: 16px; padding: 10px 14px; background: #f8fafc; border-left: 3px solid #b8912a; font-size: 11.5px; }
+	.words b { color: #0b1f6e; }
+
+	.pay { margin-top: 18px; }
+	.pay td { padding: 5px 12px; font-size: 11.5px; border-bottom: 1px dashed #e2e8f0; }
+	.pay td.k { color: #64748b; width: 34%; }
+	.section-title { font-size: 10px; font-weight: bold; color: #b8912a; letter-spacing: 1.5px; text-transform: uppercase; margin: 22px 0 6px; }
+
+	.thanks { margin-top: 26px; font-size: 12px; color: #0b1f6e; font-weight: bold; }
+	.footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9.5px; color: #94a3b8; line-height: 1.6; text-align: center; }
 </style>
 </head>
 <body>
-	<table class="header">
+	<table class="head">
 		<tr>
-			<td>
-				<div class="brand">SITIAME CAPITAL</div>
-				<div class="brand-sub">erp.sitiame-capital.com</div>
+			<td style="width: 55%;">
+				{% if logo %}<img class="logo" src="{{ logo }}" alt="SITIAME CAPITAL">{% else %}<div class="doc-title navy" style="text-align: left;">SITIAME CAPITAL</div>{% endif %}
+				<div class="issuer">
+					<b class="navy">SITIAME CAPITAL</b><br>
+					{% for line in issuer_lines %}{{ line }}<br>{% endfor %}
+				</div>
 			</td>
-			<td>
-				<div class="title">REÇU DE PAIEMENT</div>
-				<div class="number">N° {{ doc.name }}</div>
+			<td style="width: 45%;">
+				<div class="doc-title">REÇU DE PAIEMENT</div>
+				<div class="doc-meta">
+					Reçu N° <b>{{ doc.name }}</b><br>
+					Date : <b>{{ paid_date }}</b>
+				</div>
+				<div style="text-align: right;"><span class="stamp">PAYÉ</span></div>
 			</td>
 		</tr>
 	</table>
 
-	<p style="margin: 0 0 18px;"><span class="stamp">PAYÉ</span></p>
+	<div class="rule"></div>
 
-	<table class="info">
-		<tr><td class="label">Reçu de</td><td class="value">{{ doc.company }}</td></tr>
-		<tr><td class="label">Date du paiement</td><td class="value">{{ paid_at }}</td></tr>
-		<tr><td class="label">Moyen de paiement</td><td class="value">{{ method or "Mobile Money" }} (via Jèko)</td></tr>
-		{% if doc.transaction_id %}
-		<tr><td class="label">Référence de transaction</td><td class="value">{{ doc.transaction_id }}</td></tr>
-		{% endif %}
+	<table class="parties">
+		<tr>
+			<td class="box" style="padding-right: 10px;">
+				<div class="card">
+					<div class="card-title">Client</div>
+					<div class="card-name">{{ doc.company }}{% if customer.company_sigle %} ({{ customer.company_sigle }}){% endif %}</div>
+					<table class="kv">
+						{% if customer.contact_name %}<tr><td class="k">Contact</td><td>{{ customer.contact_name }}</td></tr>{% endif %}
+						{% if customer.email %}<tr><td class="k">E-mail du compte</td><td>{{ customer.email }}</td></tr>{% endif %}
+						{% if customer.phone %}<tr><td class="k">Téléphone</td><td>{{ customer.phone }}</td></tr>{% endif %}
+						{% if customer.location %}<tr><td class="k">Adresse</td><td>{{ customer.location }}</td></tr>{% endif %}
+						{% if customer.rccm %}<tr><td class="k">RCCM</td><td>{{ customer.rccm }}</td></tr>{% endif %}
+						{% if customer.sector %}<tr><td class="k">Secteur</td><td>{{ customer.sector }}</td></tr>{% endif %}
+					</table>
+				</div>
+			</td>
+			<td class="box" style="padding-left: 10px;">
+				<div class="card">
+					<div class="card-title">Abonnement</div>
+					<div class="card-name">Pack Premium Enterprise</div>
+					<table class="kv">
+						<tr><td class="k">Durée</td><td>{{ months }} mois</td></tr>
+						{% if period_start and period_end %}<tr><td class="k">Période</td><td>du {{ period_start }} au {{ period_end }}</td></tr>{% endif %}
+						<tr><td class="k">Plateforme</td><td>ERP SITIAME</td></tr>
+					</table>
+				</div>
+			</td>
+		</tr>
 	</table>
 
 	<table class="lines">
 		<tr>
-			<th>Désignation</th>
-			<th class="right">Durée</th>
+			<th style="width: 58%;">Désignation</th>
+			<th class="right">Qté</th>
+			<th class="right">Prix unitaire</th>
 			<th class="right">Montant</th>
 		</tr>
 		<tr>
-			<td>Abonnement SITIAME — Pack Premium Enterprise</td>
-			<td class="right">{{ months }} mois</td>
+			<td>
+				Abonnement SITIAME — Pack Premium Enterprise
+				<div class="desc-sub">{{ months }} mois{% if period_start and period_end %}, du {{ period_start }} au {{ period_end }}{% endif %}</div>
+			</td>
+			<td class="right">1</td>
+			<td class="right">{{ amount }}</td>
 			<td class="right">{{ amount }}</td>
 		</tr>
-		<tr class="total">
-			<td colspan="2" class="right">Total payé</td>
+	</table>
+	<table class="totals">
+		<tr class="grand">
+			<td class="right" style="width: 75%;">TOTAL PAYÉ</td>
 			<td class="right">{{ amount }}</td>
 		</tr>
 	</table>
 
+	<div class="words">Arrêté le présent reçu à la somme de : <b>{{ amount_in_words }}</b>.</div>
+
+	<div class="section-title">Détails du paiement</div>
+	<table class="pay">
+		<tr><td class="k">Payé le</td><td>{{ paid_at }}</td></tr>
+		<tr><td class="k">Moyen de paiement</td><td>{{ method }}</td></tr>
+		<tr><td class="k">Canal</td><td>{{ channel }} — Jèko</td></tr>
+		{% if doc.transaction_id %}<tr><td class="k">Référence de transaction</td><td>{{ doc.transaction_id }}</td></tr>{% endif %}
+		<tr><td class="k">Statut</td><td style="color: #15803d; font-weight: bold;">Payé</td></tr>
+	</table>
+
+	<div class="thanks">Merci pour votre confiance.</div>
+
 	<div class="footer">
-		Ce reçu confirme le paiement de l'abonnement SITIAME de la société {{ doc.company }}.<br>
-		Document généré électroniquement le {{ generated_at }} ; il ne nécessite pas de signature.
+		Ce reçu atteste le paiement de l'abonnement SITIAME de la société {{ doc.company }}.<br>
+		Document généré électroniquement le {{ generated_at }} ; il ne nécessite ni signature ni cachet.
 	</div>
 </body>
 </html>

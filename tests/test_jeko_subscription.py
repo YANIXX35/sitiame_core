@@ -296,8 +296,11 @@ def test_receipt_template_renders(monkeypatch):
 
 	path = os.path.join(os.path.dirname(sa.__file__), "templates", "subscription_receipt.html")
 	doc = frappe._dict(name="SUB-2026-00024", company="binks", transaction_id="87a01652", duration_months=1)
+	customer = frappe._dict(contact_name="Kouassi", email="k@gmail.com", phone="+2250509273117", location="Grand-Bassam, Côte d'Ivoire")
 	html = jinja2.Template(open(path, encoding="utf-8").read()).render(
-		doc=doc, amount="20 FCFA", paid_at="30/09/2026 21:57", method="Wave", months=1, generated_at="30/09/2026 22:10"
+		doc=doc, customer=customer, amount="20 FCFA", amount_in_words="vingt francs CFA", paid_at="30/09/2026 à 21:57",
+		paid_date="30/09/2026", method="Wave", channel="Paiement en ligne", months=1, period_start="23/10/2026",
+		period_end="23/11/2026", logo="data:image/png;base64,AAAA", issuer_lines=["Côte d'Ivoire"], generated_at="30/09/2026",
 	)
-	for text in ("REÇU DE PAIEMENT", "SUB-2026-00024", "binks", "20 FCFA", "Wave", "87a01652"):
+	for text in ("REÇU DE PAIEMENT", "SUB-2026-00024", "binks", "20 FCFA", "Wave", "87a01652", "k@gmail.com", "+2250509273117", "du 23/10/2026 au 23/11/2026", "vingt francs CFA", "data:image/png"):
 		assert text in html

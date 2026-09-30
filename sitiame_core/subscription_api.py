@@ -99,7 +99,11 @@ def _mark_paid(docname):
 	for date in (current["ends_on"], current["trial_ends_on"]):
 		if date and getdate(date) > start:
 			start = getdate(date)
-	frappe.db.set_value("Company", doc.company, SUBSCRIPTION_ENDS_FIELD, add_months(start, doc.duration_months or 1))
+	end = add_months(start, doc.duration_months or 1)
+	frappe.db.set_value("Company", doc.company, SUBSCRIPTION_ENDS_FIELD, end)
+	# printed on the receipt
+	doc.db_set("period_start", start)
+	doc.db_set("period_end", end)
 
 	_restore_trial_roles(doc.company)
 	frappe.db.commit()
@@ -483,15 +487,66 @@ def format_fcfa(amount):
 	return f"{int(round(amount or 0)):,}".replace(",", " ") + " FCFA"
 
 
+def amount_in_words(amount):
+	"""« vingt mille francs CFA », as French receipts state the total."""
+	try:
+		from num2words import num2words
+
+		return f"{num2words(int(round(amount or 0)), lang='fr')} francs CFA"
+	except Exception:
+		return format_fcfa(amount)
+
+
+def _logo_data_uri():
+	# embedded: wkhtmltopdf would otherwise have to fetch it over HTTP
+	import base64
+	import os
+
+	path = os.path.join(os.path.dirname(__file__), "public", "images", "sitiame-capital-logo.png")
+	try:
+		with open(path, "rb") as f:
+			return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+	except OSError:
+		return None
+
+
+def _customer(company):
+	"""The PME as it signed up: contact, account e-mail, phone, address."""
+	signup = frappe.db.get_value(
+		"Company Signup",
+		{"company": company},
+		["contact_name", "email", "phone", "company_sigle", "sector", "rccm", "address", "city"],
+		as_dict=True,
+	) or frappe._dict()
+	country = frappe.db.get_value("Company", company, "country")
+	if country == "Ivory Coast":
+		country = "Côte d'Ivoire"
+	signup.location = ", ".join(x for x in (signup.address, signup.city, country) if x)
+	return signup
+
+
 def receipt_context(doc):
 	method = (doc.payment_method or "").lower()
+
+	def date(value):
+		return frappe.utils.formatdate(value, "dd/MM/yyyy") if value else ""
+
 	return {
 		"doc": doc,
+		"customer": _customer(doc.company),
 		"amount": format_fcfa(doc.amount),
-		"paid_at": frappe.utils.format_datetime(doc.paid_at, "dd/MM/yyyy HH:mm") if doc.paid_at else "",
-		"method": METHOD_LABELS.get(method, doc.payment_method or ""),
+		"amount_in_words": amount_in_words(doc.amount),
+		"paid_at": frappe.utils.format_datetime(doc.paid_at, "dd/MM/yyyy à HH:mm") if doc.paid_at else "",
+		"paid_date": date(doc.paid_at),
+		"method": METHOD_LABELS.get(method, doc.payment_method or "Mobile Money"),
+		"channel": _("Lien de paiement") if doc.payment_provider == LINK else _("Paiement en ligne"),
 		"months": doc.duration_months or 1,
-		"generated_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm"),
+		"period_start": date(doc.get("period_start")),
+		"period_end": date(doc.get("period_end")),
+		"logo": _logo_data_uri(),
+		# site_config "sitiame_receipt_issuer": lines under the logo (address, phone, RCCM...)
+		"issuer_lines": frappe.conf.get("sitiame_receipt_issuer") or ["Côte d'Ivoire", "erp.sitiame-capital.com"],
+		"generated_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy à HH:mm"),
 	}
 
 
