@@ -46,6 +46,25 @@ def get_user_company(user=None):
 	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
 
 
+# Staff accounts such as accountants or credit analysts. PME accounts have
+# the Accounts Manager role too, but they are tied to their company.
+STAFF_ROLES = ("System Manager", CHARGE_AFFAIRES_ROLE)
+
+
+def is_sitiame_staff(user=None):
+	"""Opens the staff view of the Abonnement page (every PME)."""
+	user = user or frappe.session.user
+	roles = set(frappe.get_roles(user))
+	if roles.intersection(STAFF_ROLES):
+		return True
+	return "Accounts Manager" in roles and not get_user_company(user)
+
+
+def _only_staff():
+	if not is_sitiame_staff():
+		frappe.throw(_("Réservé au personnel Sitiame."), frappe.PermissionError)
+
+
 def get_company_subscription(company):
 	ends_on = frappe.db.get_value("Company", company, SUBSCRIPTION_ENDS_FIELD) if company else None
 	trial_ends_on = frappe.db.get_value("Company Signup", {"company": company}, "trial_ends_on") if company else None
@@ -103,7 +122,11 @@ def get_my_subscription():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
 	# the price comes along so the pages show what will really be charged
-	return {**get_company_subscription(get_user_company()), "amount": subscription_amount()}
+	return {
+		**get_company_subscription(get_user_company()),
+		"amount": subscription_amount(),
+		"is_staff": is_sitiame_staff(),
+	}
 
 
 # -- Creating payments --
@@ -221,7 +244,7 @@ def create_company_payment_link(company):
 	"""Sitiame staff: always a fresh single-use Jèko link for the chosen
 	PME, to send it to them (WhatsApp, e-mail...). A chargé d'affaires:
 	for a PME of his portfolio."""
-	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
+	_only_staff()
 	if not frappe.db.exists("Company", company):
 		frappe.throw(_("Societe introuvable : {0}").format(company))
 	portfolio.check_company(company)
@@ -233,7 +256,7 @@ def create_company_payment_link(company):
 def list_company_subscriptions():
 	"""Sitiame staff overview: every PME company with its subscription state
 	and paid history (a chargé d'affaires: his portfolio)."""
-	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
+	_only_staff()
 
 	paid = {}
 	for row in frappe.get_all(

@@ -214,3 +214,23 @@ def test_link_below_jekos_minimum_is_refused_clearly(jeko, monkeypatch):
 	with pytest.raises(Refused, match="au moins 100 FCFA"):
 		jeko_client.create_payment_link("Abonnement Sitiame - OOO", 20)
 	assert jeko["calls"] == []
+
+
+# -- who sees the staff view --
+
+
+@pytest.mark.parametrize(
+	"roles, company, staff",
+	[
+		(["System Manager"], None, True),
+		(["Charge d'affaires Sitiame"], None, True),
+		(["Accounts Manager"], None, True),  # accountant, credit analyst
+		(["Accounts Manager", "PME Client"], "OOO", False),  # a PME account
+		(["Accounts Manager"], "OOO", False),  # a PME whose trial ended
+		(["Accounts User"], None, False),
+	],
+)
+def test_staff_view_is_for_sitiame_accounts_only(monkeypatch, roles, company, staff):
+	monkeypatch.setattr(frappe, "get_roles", lambda user=None: roles, raising=False)
+	monkeypatch.setattr(frappe.db, "get_value", lambda *a, **k: company, raising=False)
+	assert sa.is_sitiame_staff("someone@example.com") is staff
