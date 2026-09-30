@@ -12,7 +12,6 @@
   "status",
   "payment_section",
   "transaction_id",
-  "notify_token",
   "payment_url",
   "col_break_2",
   "paid_at"
@@ -69,20 +68,13 @@
   {
    "fieldname": "payment_section",
    "fieldtype": "Section Break",
-   "label": "Paiement CinetPay"
+   "label": "Paiement"
   },
   {
    "fieldname": "transaction_id",
    "fieldtype": "Data",
-   "label": "ID de transaction CinetPay",
+   "label": "ID de transaction",
    "read_only": 1
-  },
-  {
-   "fieldname": "notify_token",
-   "fieldtype": "Data",
-   "label": "Jeton de notification",
-   "read_only": 1,
-   "hidden": 1
   },
   {
    "fieldname": "payment_url",
@@ -104,7 +96,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-29 20:00:00.000000",
+ "modified": "2026-09-30 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Subscription Payment",

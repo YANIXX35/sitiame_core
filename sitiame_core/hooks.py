@@ -91,6 +91,5 @@ scheduler_events = {
 		"0 */4 * * *": ["sitiame_core.tasks.run_scheduled_backup"],
 		# 02:30, off the 4-hourly database backups
 		"30 2 * * *": ["sitiame_core.tasks.run_daily_files_backup"],
-		"*/10 * * * *": ["sitiame_core.subscription_api.reconcile_pending_payments"],
 	},
 }

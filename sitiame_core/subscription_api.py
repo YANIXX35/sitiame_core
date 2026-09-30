@@ -1,16 +1,19 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
-import datetime
-import hmac
+"""PME subscription to Sitiame (15 000 FCFA / month), independent of the
+payment provider: state of a company's subscription, extension once a
+payment is confirmed, staff overview.
+
+The payment provider (Jèko) plugs in through _mark_paid, the single entry
+point for a confirmed payment."""
 
 import frappe
 from frappe import _
 from frappe.utils import add_months, getdate, today
 
 from sitiame_core import portfolio
-from sitiame_core.cinetpay_client import get_payment_status, init_payment
 from sitiame_core.roles import CHARGE_AFFAIRES_ROLE
 from sitiame_core.tasks import TRIAL_ROLES
 
@@ -18,10 +21,6 @@ from sitiame_core.tasks import TRIAL_ROLES
 # ERPNext is the only source of truth for a PME's subscription: the
 # subscription is active while this date is today or later.
 SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
-
-# A payment CinetPay still reports as undecided after this many days is an
-# abandoned checkout (see reconcile_pending_payments).
-PENDING_EXPIRES_AFTER_DAYS = 7
 
 
 def get_user_company(user=None):
@@ -46,11 +45,11 @@ def get_company_subscription(company):
 
 
 def _mark_paid(docname):
-	"""Single entry point once CinetPay confirms a payment (webhook, return
-	page, pending-session check): flags the Subscription Payment as paid,
-	extends the Company's subscription and gives back any access the
-	trial expiry had removed. Row-locked so the webhook and the return page
-	racing each other can never extend the subscription twice."""
+	"""Single entry point once the payment provider confirms a payment:
+	flags the Subscription Payment as paid, extends the Company's
+	subscription and gives back any access the trial expiry had removed.
+	Row-locked so two confirmations racing each other (webhook, return
+	page) can never extend the subscription twice."""
 	status = frappe.db.get_value("Subscription Payment", docname, "status", for_update=True)
 	if status == "Payé":
 		return
@@ -78,7 +77,7 @@ def _restore_trial_roles(company):
 	):
 		if frappe.db.exists("User", signup.email):
 			user = frappe.get_doc("User", signup.email)
-			# the CinetPay webhook runs as Guest
+			# a payment webhook runs as Guest
 			user.flags.ignore_permissions = True
 			user.add_roles(*TRIAL_ROLES)
 		frappe.db.set_value("Company Signup", signup.name, "trial_blocked", 0)
@@ -89,107 +88,6 @@ def get_my_subscription():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
 	return get_company_subscription(get_user_company())
-
-
-def _generate_payment_link(doc):
-	site_url = frappe.utils.get_url()
-
-	# CinetPay caps notify_url at 120 characters (official SDK, types/
-	# payment.ts); with our own ?token=&docname= it was 164, and webhooks
-	# for successful payments never arrived. The bare method URL is 102
-	# characters: the webhook body carries merchant_transaction_id, and
-	# the notify_token CinetPay returns below is what authenticates it.
-	notify_url = f"{site_url}/api/method/sitiame_core.subscription_api.cinetpay_subscription_webhook"
-	success_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=success"
-	failed_url = f"{site_url}/app/erp-abonnement?docname={doc.name}&cinetpay_status=failed"
-
-	customer = {}
-	# Prefer the PME's own account: when Sitiame staff generate the link,
-	# doc.owner is the staff member, not the customer paying.
-	user_email = (
-		frappe.db.get_value("User Permission", {"allow": "Company", "for_value": doc.company}, "user")
-		or doc.owner
-		or frappe.session.user
-	)
-	if user_email and frappe.db.exists("User", user_email):
-		user_doc = frappe.get_doc("User", user_email)
-		customer["first_name"] = user_doc.first_name or "Client"
-		customer["last_name"] = user_doc.last_name or doc.company
-		if user_doc.email and "@" in user_doc.email and not user_doc.email.endswith("@example.com"):
-			customer["email"] = user_doc.email
-		if getattr(user_doc, "mobile_no", None) or getattr(user_doc, "phone", None):
-			customer["phone"] = user_doc.mobile_no or user_doc.phone
-
-	result = init_payment(
-		merchant_transaction_id=doc.name,
-		amount=doc.amount,
-		designation=f"Abonnement premium Sitiame - {doc.company}",
-		notify_url=notify_url,
-		success_url=success_url,
-		failed_url=failed_url,
-		customer=customer,
-	)
-
-	payment_token = result.get("payment_token")
-	payment_url = result.get("payment_url")
-	if not payment_url and payment_token:
-		payment_url = f"https://secure.cinetpay.net/checkout/{payment_token}"
-
-	doc.db_set("transaction_id", result.get("transaction_id"))
-	doc.db_set("payment_url", payment_url)
-	if result.get("notify_token"):
-		doc.db_set("notify_token", result["notify_token"])
-	frappe.db.commit()
-
-	return {"payment_url": payment_url}
-
-
-@frappe.whitelist()
-def generate_subscription_payment_link(docname):
-	if "System Manager" not in frappe.get_roles():
-		frappe.throw(_("Reserve aux administrateurs."), frappe.PermissionError)
-
-	doc = frappe.get_doc("Subscription Payment", docname)
-	return _generate_payment_link(doc)
-
-
-def generate_payment_link_on_insert(doc):
-	try:
-		_generate_payment_link(doc)
-	except Exception:
-		frappe.log_error(
-			title="Subscription Payment: generation automatique du lien echouee",
-			message=frappe.get_traceback(),
-		)
-
-
-@frappe.whitelist()
-def get_or_create_pme_checkout_url(force_new=0):
-	user = frappe.session.user
-	if user == "Guest":
-		frappe.throw(_("Connexion requise."), frappe.PermissionError)
-
-	# Only a PME account pays for its own company: a Sitiame staff account
-	# with no company must never open a checkout on some other PME's behalf.
-	company = get_user_company(user)
-	if not company:
-		frappe.throw(
-			_("L'abonnement se paie depuis le compte de la PME : aucune societe n'est rattachee a votre compte.")
-		)
-
-	return _get_or_create_checkout(company, int(force_new or 0))
-
-
-@frappe.whitelist()
-def create_company_payment_link(company):
-	"""Sitiame staff: always a fresh checkout link for the chosen PME, to
-	send it to them (WhatsApp, e-mail...). A chargé d'affaires: for a PME
-	of his portfolio."""
-	frappe.only_for(("System Manager", CHARGE_AFFAIRES_ROLE))
-	if not frappe.db.exists("Company", company):
-		frappe.throw(_("Societe introuvable : {0}").format(company))
-	portfolio.check_company(company)
-	return _get_or_create_checkout(company, force=1)
 
 
 @frappe.whitelist()
@@ -239,84 +137,10 @@ def list_company_subscriptions():
 	return rows
 
 
-def _get_or_create_checkout(company, force=0):
-	if not force:
-		existing = frappe.get_all(
-			"Subscription Payment",
-			filters={
-				"company": company,
-				"status": "En attente",
-			},
-			fields=["name", "payment_url", "creation"],
-			order_by="creation desc",
-			limit=1,
-		)
-		if existing and existing[0].get("payment_url"):
-			existing_name = existing[0]["name"]
-			existing_creation = existing[0].get("creation")
-
-			# Check transaction age (sessions expire on CinetPay in ~15 minutes)
-			is_fresh = False
-			if existing_creation:
-				age_seconds = (frappe.utils.now_datetime() - frappe.utils.get_datetime(existing_creation)).total_seconds()
-				if age_seconds < 900:
-					is_fresh = True
-
-			if is_fresh:
-				try:
-					live_info = get_payment_status(existing_name)
-					live_status = (live_info.get("status") or "").upper()
-					if live_status == "INITIATED":
-						return {
-							"payment_url": existing[0]["payment_url"],
-							"docname": existing_name,
-							"company": company,
-							"is_new": False,
-						}
-					elif live_status in ["SUCCESS", "ACCEPTED"]:
-						_mark_paid(existing_name)
-						return {
-							"status": "Payé",
-							"already_paid": True,
-							"docname": existing_name,
-							"company": company,
-						}
-					else:
-						# FAILED, CANCELLED, REFUSED, etc.
-						frappe.db.set_value("Subscription Payment", existing_name, "status", "Échoué")
-						frappe.db.commit()
-				except Exception:
-					pass
-			else:
-				frappe.db.set_value("Subscription Payment", existing_name, "status", "Échoué")
-				frappe.db.commit()
-
-	# Create a brand new pending payment and generate a fresh CinetPay checkout session
-	doc = frappe.get_doc({
-		"doctype": "Subscription Payment",
-		"company": company,
-		"amount": 15000,
-		"duration_months": 1,
-		"status": "En attente",
-	})
-	doc.insert(ignore_permissions=True)
-	doc.reload()
-
-	payment_url = doc.payment_url
-	if not payment_url:
-		res = _generate_payment_link(doc)
-		payment_url = res.get("payment_url")
-
-	return {
-		"payment_url": payment_url,
-		"docname": doc.name,
-		"company": company,
-		"is_new": True,
-	}
-
-
 @frappe.whitelist()
 def check_pme_subscription_status(docname=None):
+	"""A payment's recorded status (or the company's latest one) and the
+	resulting subscription state."""
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
@@ -326,21 +150,6 @@ def check_pme_subscription_status(docname=None):
 		# a PME may only look at its own company's payments (amount, link)
 		if "System Manager" not in frappe.get_roles() and doc.company != get_user_company(user):
 			frappe.throw(_("Ce paiement ne concerne pas votre societe."), frappe.PermissionError)
-
-		if doc.status == "En attente":
-			try:
-				live_info = get_payment_status(doc.name)
-				live_status = (live_info.get("status") or "").upper()
-				if live_status in ["SUCCESS", "ACCEPTED"]:
-					_mark_paid(doc.name)
-					doc.reload()
-				elif live_status in ["FAILED", "CANCELLED", "REFUSED"]:
-					doc.db_set("status", "Échoué")
-					frappe.db.commit()
-					doc.reload()
-			except Exception:
-				pass
-
 		return {
 			"status": doc.status,
 			"paid_at": str(doc.paid_at) if doc.paid_at else None,
@@ -371,95 +180,3 @@ def check_pme_subscription_status(docname=None):
 			"payment_url": last[0].get("payment_url"),
 		}
 	return {"status": "none", "company": company}
-
-
-@frappe.whitelist(allow_guest=True)
-def cinetpay_subscription_webhook():
-	data = frappe.local.form_dict or {}
-	query = frappe.request.args if frappe.request else {}
-
-	merchant_transaction_id = (
-		query.get("docname")
-		or data.get("docname")
-		or data.get("cpm_order_id")
-		or data.get("merchant_transaction_id")
-	)
-
-	cpm_trans_id = data.get("cpm_trans_id") or data.get("transaction_id")
-
-	doc = None
-	if merchant_transaction_id and frappe.db.exists("Subscription Payment", merchant_transaction_id):
-		doc = frappe.get_doc("Subscription Payment", merchant_transaction_id)
-	elif cpm_trans_id:
-		name = frappe.db.get_value("Subscription Payment", {"transaction_id": cpm_trans_id}, "name")
-		if name:
-			doc = frappe.get_doc("Subscription Payment", name)
-
-	if not doc:
-		frappe.response["http_status_code"] = 200
-		return {"status": "ignored"}
-
-	# Links created since 2026-09-25 store the notify_token CinetPay returned
-	# at init and it comes back in the JSON body (official scheme). Older
-	# links carried our own token in the notify_url query string, read from
-	# request.args because Frappe builds form_dict from a JSON body only.
-	expected = str(doc.notify_token or "")
-	candidates = [data.get("notify_token"), query.get("token")]
-	if not expected or not any(
-		token and hmac.compare_digest(expected, str(token)) for token in candidates
-	):
-		frappe.log_error(
-			title="Subscription Payment: notify_token invalide",
-			message=f"{doc.name}: jeton recu invalide",
-		)
-		frappe.response["http_status_code"] = 403
-		return {"status": "forbidden"}
-
-	if doc.status == "Payé":
-		frappe.response["http_status_code"] = 200
-		return {"status": "already processed"}
-
-	status_data = get_payment_status(doc.name)
-	real_status = (status_data.get("status") or "").upper()
-
-	if real_status in ["SUCCESS", "ACCEPTED"]:
-		_mark_paid(doc.name)
-	elif real_status in ["FAILED", "CANCELLED", "REFUSED"]:
-		doc.db_set("status", "Échoué")
-		frappe.db.commit()
-
-	frappe.response["http_status_code"] = 200
-	return {"status": "ok"}
-
-
-def reconcile_pending_payments():
-	"""Scheduler job (every 10 min, see hooks.py): settle payments still "En
-	attente" by asking CinetPay directly. The webhook is the fast path, but
-	it can be lost or delayed (sandbox batches them, a restart can drop
-	one); without this, a paid subscription stayed inactive unless the
-	customer happened to come back to the Abonnement page.
-
-	Every pending payment is checked, whatever its age: a 3-day window left
-	6 payments "En attente" for good although CinetPay answered FAILED.
-	One CinetPay still hasn't decided after PENDING_EXPIRES_AFTER_DAYS is
-	an abandoned checkout, closed as failed so it stops being polled."""
-	expire_before = frappe.utils.now_datetime() - datetime.timedelta(days=PENDING_EXPIRES_AFTER_DAYS)
-	for row in frappe.get_all(
-		"Subscription Payment",
-		filters={"status": "En attente", "transaction_id": ["is", "set"]},
-		fields=["name", "creation"],
-	):
-		name = row.name
-		try:
-			status = (get_payment_status(name).get("status") or "").upper()
-			if status in ("SUCCESS", "ACCEPTED"):
-				_mark_paid(name)
-			elif status in ("FAILED", "CANCELLED", "REFUSED") or row.creation < expire_before:
-				frappe.db.set_value("Subscription Payment", name, "status", "Échoué")
-				frappe.db.commit()
-		except Exception:
-			frappe.db.rollback()
-			frappe.log_error(
-				title="Subscription Payment: reconciliation echouee",
-				message=f"{name}\n{frappe.get_traceback()}",
-			)

@@ -1,13 +1,12 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
-"""HT/TVA/TTC reconciliation for OCR drafts, receipt parsing, CinetPay phone."""
+"""HT/TVA/TTC reconciliation for OCR drafts, and receipt parsing."""
 
 import frappe
 import pytest
 
 from sitiame_core import ocr_payment
-from sitiame_core.cinetpay_client import normalize_phone
 from sitiame_core.ocr_invoice import _resolve_amounts
 
 
@@ -34,23 +33,6 @@ class TestResolveAmounts:
 	def test_no_amount_at_all_is_refused(self):
 		with pytest.raises(frappe.ValidationError):
 			_resolve_amounts({})
-
-
-@pytest.mark.parametrize(
-	"raw, expected",
-	[
-		("0143875302", "+2250143875302"),  # local format: CinetPay FAILED it (ER-P-...)
-		("01 43 87 53 02", "+2250143875302"),
-		("+2250509273117", "+2250509273117"),
-		("002250747931239", "+2250747931239"),
-		("2250747931239", "+2250747931239"),
-		("+33612345678", "+33612345678"),
-		("12345", None),  # not fixable: left out rather than breaking the link
-		(None, None),
-	],
-)
-def test_cinetpay_phone_format(raw, expected):
-	assert normalize_phone(raw) == expected
 
 
 class TestReceiptParsing:

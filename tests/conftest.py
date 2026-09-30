@@ -2,7 +2,7 @@
 # License: MIT
 
 """Unit tests for sitiame_core's pure logic (OCR parsing, amounts, SYSCOHADA
-statements, CinetPay phone format...), runnable anywhere with plain pytest:
+statements, receipt parsing...), runnable anywhere with plain pytest:
 no bench, no site, no database -- production is never touched.
 
 When the real frappe package isn't importable (a laptop, GitHub Actions),

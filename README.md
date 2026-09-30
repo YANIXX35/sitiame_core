@@ -16,7 +16,7 @@ MIT
 ## Tests
 
 Unit tests for the pure logic (OCR parsing, HT/TVA/TTC, Liasse SYSCOHADA,
-CinetPay phone format, receipt parsing). They run without bench or a site,
+receipt parsing). They run without bench or a site,
 with a minimal frappe stand-in (`tests/conftest.py`), so production data is
 never touched:
 
