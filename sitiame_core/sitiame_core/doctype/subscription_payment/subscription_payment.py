@@ -7,6 +7,12 @@ from frappe.model.document import Document
 
 
 class SubscriptionPayment(Document):
+	def after_insert(self):
+		# created by hand in the desk: a single-use Jèko link to send
+		from sitiame_core.subscription_api import generate_payment_link_on_insert
+
+		generate_payment_link_on_insert(self)
+
 	def validate(self):
 		if self.is_new() or not self.transaction_id:
 			return

@@ -11,6 +11,8 @@
   "col_break_1",
   "status",
   "payment_section",
+  "payment_provider",
+  "payment_method",
   "transaction_id",
   "payment_url",
   "col_break_2",
@@ -68,7 +70,21 @@
   {
    "fieldname": "payment_section",
    "fieldtype": "Section Break",
-   "label": "Paiement"
+   "label": "Paiement Jèko"
+  },
+  {
+   "fieldname": "payment_provider",
+   "fieldtype": "Select",
+   "label": "Type de paiement",
+   "options": "\nJèko Checkout\nJèko Lien",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_method",
+   "fieldtype": "Data",
+   "label": "Moyen de paiement",
+   "read_only": 1
   },
   {
    "fieldname": "transaction_id",
@@ -96,7 +112,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-30 12:00:00.000000",
+ "modified": "2026-09-30 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Subscription Payment",

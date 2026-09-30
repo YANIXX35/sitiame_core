@@ -78,7 +78,8 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 					"<button class='btn btn-xs btn-default ca-scoring' data-i='" + i + "'>" + (s ? __("Scoring") : __("+ Scoring")) + "</button> " +
 					"<button class='btn btn-xs btn-default ca-financing' data-i='" + i + "'>" + (f ? __("Financement") : __("+ Financement")) + "</button><br style='margin-bottom: 4px;'>" +
 					"<button class='btn btn-xs btn-default ca-liasse' data-i='" + i + "' style='margin-top: 4px;'>" + __("Liasse") + "</button> " +
-					"<button class='btn btn-xs btn-default ca-kyc' style='margin-top: 4px;'>" + __("KYC") + "</button>" +
+					"<button class='btn btn-xs btn-default ca-kyc' style='margin-top: 4px;'>" + __("KYC") + "</button> " +
+					"<button class='btn btn-xs btn-primary ca-link' data-i='" + i + "' style='margin-top: 4px;'>" + __("Lien de paiement") + "</button>" +
 				"</td></tr>";
 		});
 		return html + "</tbody></table></div>";
@@ -109,6 +110,26 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 		});
 		return items.length ? "<ul style='margin: 0; padding-left: 18px;'>" + items.join("") + "</ul>"
 			: "<p class='text-muted' style='margin: 0;'>" + __("Tous vos dossiers sont complets.") + "</p>";
+	}
+
+	// A single-use Jèko link for one of his PMEs: the PME picks its operator
+	// when it opens the link (sitiame_core.subscription_api).
+	function paymentLink(row) {
+		frappe.call({
+			method: "sitiame_core.subscription_api.create_company_payment_link",
+			args: { company: row.company },
+			freeze: true,
+			freeze_message: __("Génération du lien Jèko..."),
+		}).then(function (r) {
+			var link = (r.message || {}).payment_url;
+			if (!link) return;
+			frappe.utils.copy_to_clipboard(link);
+			frappe.msgprint({
+				title: __("Lien de paiement — {0}", [row.company_name]),
+				message: __("Lien Jèko à usage unique (15 000 FCFA / 1 mois), copié dans le presse-papiers : envoyez-le à la PME, elle choisira son opérateur en l'ouvrant.") +
+					"<br><br><a href='" + encodeURI(link).replace(/'/g, "%27") + "' target='_blank'>" + esc(link) + "</a>",
+			});
+		});
 	}
 
 	function load() {
@@ -147,6 +168,9 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 			});
 			$body.find(".ca-kyc").on("click", function () {
 				frappe.set_route("erp-kyc");
+			});
+			$body.find(".ca-link").on("click", function () {
+				paymentLink(rows[$(this).data("i")]);
 			});
 		});
 	}

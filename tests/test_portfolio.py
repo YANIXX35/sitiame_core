@@ -10,7 +10,7 @@ import pathlib
 import frappe
 import pytest
 
-from sitiame_core import api, portfolio
+from sitiame_core import api, portfolio, subscription_api
 from sitiame_core.roles import CHARGE_AFFAIRES_ROLE
 from sitiame_core.staff_isolation import ISOLATED_DOCTYPES
 
@@ -142,6 +142,21 @@ def test_validator_decides(world, monkeypatch):
 
 
 # -- APIs --
+
+
+def test_payment_link_refused_outside_the_portfolio(world, monkeypatch):
+	monkeypatch.setattr(frappe, "only_for", lambda roles: None, raising=False)
+	monkeypatch.setattr(frappe.db, "exists", lambda doctype, name: True, raising=False)
+	with pytest.raises(Refused, match="portefeuille"):
+		subscription_api.create_company_payment_link("PME Z")
+
+
+def test_payment_link_allowed_in_the_portfolio(world, monkeypatch):
+	monkeypatch.setattr(frappe, "only_for", lambda roles: None, raising=False)
+	monkeypatch.setattr(frappe.db, "exists", lambda doctype, name: True, raising=False)
+	monkeypatch.setattr(subscription_api, "_new_payment", lambda company: frappe._dict(name="SUB-1"))
+	monkeypatch.setattr(subscription_api, "_create_link", lambda doc: "https://pay.jeko.africa/l/1")
+	assert subscription_api.create_company_payment_link("PME A")["payment_url"] == "https://pay.jeko.africa/l/1"
 
 
 def test_guard_portfolio_field(world, monkeypatch):
