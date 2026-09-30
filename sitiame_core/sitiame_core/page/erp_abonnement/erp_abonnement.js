@@ -56,7 +56,10 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				"<div style='font-size: 52px; color: #16a34a; margin-bottom: 12px;'>\u2705</div>" +
 				"<div style='font-size: 20px; font-weight: 700; color: #15803d; margin-bottom: 8px;'>" + __("Paiement valid\u00e9 avec succ\u00e8s !") + "</div>" +
 				"<div id='abonnement-success-desc' style='font-size: 14px; color: #475569; margin-bottom: 25px; line-height: 1.5;'>" + __("Votre abonnement Enterprise est actif.") + "</div>" +
-				"<button id='btn-return-desk-success' class='btn btn-primary' style='border-radius: 8px; padding: 10px 26px; font-weight: 600;'>" + __("Acc\u00e9der \u00e0 mon espace Desk") + "</button>" +
+				"<div style='display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;'>" +
+					"<button id='btn-download-receipt' class='btn btn-default' style='border-radius: 8px; padding: 10px 22px; font-weight: 600;'>" + __("T\u00e9l\u00e9charger le re\u00e7u") + "</button>" +
+					"<button id='btn-return-desk-success' class='btn btn-primary' style='border-radius: 8px; padding: 10px 26px; font-weight: 600;'>" + __("Acc\u00e9der \u00e0 mon espace Desk") + "</button>" +
+				"</div>" +
 			"</div>" +
 
 			// State: Failed / Canceled / Expired
@@ -82,11 +85,46 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		"</div>"
 	).appendTo(page.body);
 
+	// The PME's paid payments, each with its PDF receipt
+	var $receipts = $(
+		"<div style='max-width: 580px; margin: 0 auto 30px; padding: 22px 25px; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); display: none;'>" +
+			"<h5 style='font-weight: 700; color: #0f172a; margin: 0 0 12px;'>" + __("Mes reçus de paiement") + "</h5>" +
+			"<div class='abonnement-receipts' style='overflow-x: auto;'></div>" +
+		"</div>"
+	).appendTo(page.body);
+
 	// The price is set on the server (site_config sitiame_subscription_amount):
 	// show what will really be charged.
 	frappe.call({ method: "sitiame_core.subscription_api.get_my_subscription" }).then(function (r) {
 		var amount = (r.message || {}).amount;
 		if (amount) $(".abonnement-price").text(format_number(amount, null, 0));
+	});
+
+	function receiptUrl(docname) {
+		return "/api/method/sitiame_core.subscription_api.download_receipt?docname=" + encodeURIComponent(docname);
+	}
+
+	function loadReceipts() {
+		frappe.call({ method: "sitiame_core.subscription_api.list_my_receipts" }).then(function (r) {
+			var rows = r.message || [];
+			if (!rows.length) return;
+			var html = "<table class='table table-sm' style='font-size: 13px; margin: 0;'><thead><tr>" +
+				"<th>" + __("N°") + "</th><th>" + __("Date") + "</th><th style='text-align: right;'>" + __("Montant") + "</th><th></th>" +
+				"</tr></thead><tbody>";
+			rows.forEach(function (row) {
+				html += "<tr><td>" + frappe.utils.escape_html(row.name) + "</td>" +
+					"<td>" + (row.paid_at ? frappe.datetime.str_to_user(row.paid_at) : "") + "</td>" +
+					"<td style='text-align: right;'>" + format_number(row.amount, null, 0) + " FCFA</td>" +
+					"<td style='text-align: right;'><a class='btn btn-xs btn-default' href='" + receiptUrl(row.name) + "'>" + __("Reçu PDF") + "</a></td></tr>";
+			});
+			$receipts.find(".abonnement-receipts").html(html + "</tbody></table>");
+			$receipts.show();
+		});
+	}
+
+	var paidDocname = null;
+	$("#btn-download-receipt").on("click", function () {
+		if (paidDocname) window.location.href = receiptUrl(paidDocname);
 	});
 
 	function getQueryParam(key) {
@@ -142,6 +180,9 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 	}
 
 	function showPaid(data) {
+		paidDocname = returnDocname;
+		$("#btn-download-receipt").toggle(!!paidDocname);
+		loadReceipts();
 		if (data.company) {
 			$("#abonnement-success-desc").html(__("Votre abonnement Enterprise est actif pour la soci\u00e9t\u00e9 <strong>{0}</strong>.", [frappe.utils.escape_html(data.company)]) + " " + endsOnText(data.subscription));
 		}
@@ -194,9 +235,12 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				showOnly("error");
 				$("#abonnement-state-error").html(__("Cette page est réservée aux comptes PME : aucune société n'est rattachée à votre compte. Connectez-vous avec le compte de la PME pour payer son abonnement."));
 			} else if (sub.active) {
+				loadReceipts();
 				$("#abonnement-active-desc").html(endsOnText(sub));
 				showOnly("active");
 			} else {
+				// an expired PME keeps its past receipts
+				loadReceipts();
 				showOnly("choose");
 			}
 		}).catch(function () {

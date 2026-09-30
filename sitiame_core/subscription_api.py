@@ -458,3 +458,73 @@ def reconcile_pending_payments():
 				title="Subscription Payment: reconciliation echouee",
 				message=f"{row.name}\n{frappe.get_traceback()}",
 			)
+
+
+# -- Receipts --
+
+RECEIPT_TEMPLATE = "sitiame_core/templates/subscription_receipt.html"
+
+# Subscription Payment.payment_method as Jèko sends it
+METHOD_LABELS = {"wave": "Wave", "orange": "Orange Money", "mtn": "MTN MoMo", "moov": "Moov Money", "djamo": "Djamo"}
+
+
+def _check_receipt_access(doc):
+	"""A PME: its own company's payments. Sitiame staff: every PME, a
+	chargé d'affaires his portfolio only."""
+	if doc.company and doc.company == get_user_company():
+		return
+	if is_sitiame_staff():
+		portfolio.check_company(doc.company)
+		return
+	frappe.throw(_("Ce paiement ne concerne pas votre societe."), frappe.PermissionError)
+
+
+def format_fcfa(amount):
+	return f"{int(round(amount or 0)):,}".replace(",", " ") + " FCFA"
+
+
+def receipt_context(doc):
+	method = (doc.payment_method or "").lower()
+	return {
+		"doc": doc,
+		"amount": format_fcfa(doc.amount),
+		"paid_at": frappe.utils.format_datetime(doc.paid_at, "dd/MM/yyyy HH:mm") if doc.paid_at else "",
+		"method": METHOD_LABELS.get(method, doc.payment_method or ""),
+		"months": doc.duration_months or 1,
+		"generated_at": frappe.utils.format_datetime(frappe.utils.now_datetime(), "dd/MM/yyyy HH:mm"),
+	}
+
+
+@frappe.whitelist()
+def download_receipt(docname):
+	"""PDF receipt of a paid subscription payment."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Connexion requise."), frappe.PermissionError)
+	if not frappe.db.exists("Subscription Payment", docname):
+		frappe.throw(_("Paiement introuvable : {0}").format(docname))
+	doc = frappe.get_doc("Subscription Payment", docname)
+	_check_receipt_access(doc)
+	if doc.status != PAID:
+		frappe.throw(_("Le reçu est disponible une fois le paiement confirmé."))
+
+	from frappe.utils.pdf import get_pdf
+
+	html = frappe.render_template(RECEIPT_TEMPLATE, receipt_context(doc))
+	frappe.local.response.filename = f"Recu-{doc.name}.pdf"
+	frappe.local.response.filecontent = get_pdf(html)
+	frappe.local.response.type = "download"
+
+
+@frappe.whitelist()
+def list_my_receipts():
+	"""The PME's paid payments, newest first, for the Abonnement page."""
+	company = get_user_company()
+	if not company:
+		return []
+	return frappe.get_all(
+		"Subscription Payment",
+		filters={"company": company, "status": PAID},
+		fields=["name", "paid_at", "amount", "payment_method", "duration_months"],
+		order_by="paid_at desc",
+		ignore_permissions=True,
+	)

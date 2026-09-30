@@ -253,3 +253,51 @@ def test_each_checkout_attempt_sends_a_new_reference(jeko, monkeypatch):
 		sa._create_checkout(doc, "wave")
 	first, second = (c["json"]["reference"] for c in jeko["calls"])
 	assert first.startswith("SUB-2026-00023-") and first != second
+
+
+# -- receipts --
+
+
+def test_amounts_are_printed_in_fcfa():
+	assert sa.format_fcfa(20) == "20 FCFA"
+	assert sa.format_fcfa(15000.0) == "15 000 FCFA"
+
+
+@pytest.mark.parametrize(
+	"own_company, staff, charge_ok, allowed",
+	[
+		("binks", False, True, True),  # the PME that paid
+		("OOO", False, True, False),  # another PME
+		(None, True, True, True),  # Sitiame staff
+		(None, True, False, False),  # a chargé d'affaires, PME outside his portfolio
+	],
+)
+def test_receipt_access(monkeypatch, own_company, staff, charge_ok, allowed):
+	monkeypatch.setattr(frappe, "throw", _throw, raising=False)
+	monkeypatch.setattr(sa, "get_user_company", lambda user=None: own_company)
+	monkeypatch.setattr(sa, "is_sitiame_staff", lambda user=None: staff)
+
+	def check_company(company, user=None):
+		if not charge_ok:
+			raise Refused("portefeuille")
+
+	monkeypatch.setattr(sa.portfolio, "check_company", check_company)
+	doc = frappe._dict(company="binks")
+	if allowed:
+		sa._check_receipt_access(doc)
+	else:
+		with pytest.raises(Refused):
+			sa._check_receipt_access(doc)
+
+
+def test_receipt_template_renders(monkeypatch):
+	jinja2 = pytest.importorskip("jinja2")
+	import os
+
+	path = os.path.join(os.path.dirname(sa.__file__), "templates", "subscription_receipt.html")
+	doc = frappe._dict(name="SUB-2026-00024", company="binks", transaction_id="87a01652", duration_months=1)
+	html = jinja2.Template(open(path, encoding="utf-8").read()).render(
+		doc=doc, amount="20 FCFA", paid_at="30/09/2026 21:57", method="Wave", months=1, generated_at="30/09/2026 22:10"
+	)
+	for text in ("REÇU DE PAIEMENT", "SUB-2026-00024", "binks", "20 FCFA", "Wave", "87a01652"):
+		assert text in html

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Reçu {{ doc.name }}</title>
+<style>
+	body { font-family: "Helvetica", "Arial", sans-serif; color: #0f172a; font-size: 13px; margin: 0; padding: 32px 40px; }
+	.header { width: 100%; border-bottom: 3px solid #1d4ed8; padding-bottom: 14px; margin-bottom: 26px; }
+	.brand { font-size: 22px; font-weight: bold; color: #1d4ed8; letter-spacing: 0.5px; }
+	.brand-sub { font-size: 11px; color: #64748b; margin-top: 3px; }
+	.title { font-size: 20px; font-weight: bold; text-align: right; }
+	.number { font-size: 12px; color: #475569; text-align: right; margin-top: 4px; }
+	.stamp { display: inline-block; border: 2px solid #15803d; color: #15803d; font-weight: bold; font-size: 14px; padding: 4px 14px; border-radius: 6px; letter-spacing: 1px; }
+	table.info { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+	table.info td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+	table.info td.label { width: 38%; color: #64748b; }
+	table.info td.value { font-weight: bold; }
+	table.lines { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+	table.lines th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-size: 12px; color: #334155; border-bottom: 2px solid #cbd5e1; }
+	table.lines td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+	.right { text-align: right; }
+	.total td { font-size: 15px; font-weight: bold; background: #eff6ff; }
+	.footer { margin-top: 40px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+	<table class="header">
+		<tr>
+			<td>
+				<div class="brand">SITIAME CAPITAL</div>
+				<div class="brand-sub">erp.sitiame-capital.com</div>
+			</td>
+			<td>
+				<div class="title">REÇU DE PAIEMENT</div>
+				<div class="number">N° {{ doc.name }}</div>
+			</td>
+		</tr>
+	</table>
+
+	<p style="margin: 0 0 18px;"><span class="stamp">PAYÉ</span></p>
+
+	<table class="info">
+		<tr><td class="label">Reçu de</td><td class="value">{{ doc.company }}</td></tr>
+		<tr><td class="label">Date du paiement</td><td class="value">{{ paid_at }}</td></tr>
+		<tr><td class="label">Moyen de paiement</td><td class="value">{{ method or "Mobile Money" }} (via Jèko)</td></tr>
+		{% if doc.transaction_id %}
+		<tr><td class="label">Référence de transaction</td><td class="value">{{ doc.transaction_id }}</td></tr>
+		{% endif %}
+	</table>
+
+	<table class="lines">
+		<tr>
+			<th>Désignation</th>
+			<th class="right">Durée</th>
+			<th class="right">Montant</th>
+		</tr>
+		<tr>
+			<td>Abonnement SITIAME — Pack Premium Enterprise</td>
+			<td class="right">{{ months }} mois</td>
+			<td class="right">{{ amount }}</td>
+		</tr>
+		<tr class="total">
+			<td colspan="2" class="right">Total payé</td>
+			<td class="right">{{ amount }}</td>
+		</tr>
+	</table>
+
+	<div class="footer">
+		Ce reçu confirme le paiement de l'abonnement SITIAME de la société {{ doc.company }}.<br>
+		Document généré électroniquement le {{ generated_at }} ; il ne nécessite pas de signature.
+	</div>
+</body>
+</html>

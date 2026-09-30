@@ -11,7 +11,14 @@ frappe.ui.form.on("Subscription Payment", {
 			});
 		}
 
-		if (frm.doc.payment_url) {
+		if (frm.doc.status === "Payé") {
+			frm.add_custom_button(__("Télécharger le reçu"), function () {
+				window.location.href =
+					"/api/method/sitiame_core.subscription_api.download_receipt?docname=" + encodeURIComponent(frm.doc.name);
+			});
+		}
+
+		if (frm.doc.payment_url && frm.doc.status !== "Payé") {
 			frm.add_custom_button(__("Ouvrir le lien de paiement"), function () {
 				window.open(frm.doc.payment_url, "_blank");
 			});
