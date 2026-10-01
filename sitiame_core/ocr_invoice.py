@@ -6,8 +6,9 @@
 The accountant uploads the paper invoice; this creates the whole invoice as
 a draft (party found or created, one line per line read when they add up
 to the HT -- else a single HT line --, each on the account proposed by
-ocr_accounts, the VAT on the company's own TVA account, dates, supplier
-invoice number, the scan attached). Nothing is
+ocr_accounts, the stamp and fees apart, the VAT on the SYSCOHADA account of
+its nature or added to the cost when it is not recoverable -- see
+ocr_plan.py --, dates, supplier invoice number, the scan attached). Nothing is
 submitted here: the accountant reviews the draft and clicks "Soumettre",
 and ERPNext's own GL engine then books charge/produit + TVA + tiers into
 the journal, general ledger and trial balance.
@@ -19,8 +20,10 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, today
 
+from sitiame_core import ocr_plan
+from sitiame_core.ocr_plan import franc
 from sitiame_core.api import read_invoice_file
-from sitiame_core.ocr_accounts import _fold, choose_account, remembered_account
+from sitiame_core.ocr_accounts import _fold, remembered_account
 
 SUPPORTED_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
 
@@ -78,8 +81,25 @@ REVIEW_FIELDS = (
 	"subtotal",
 	"tax_amount",
 	"grand_total",
+	"stamp_duty",
+	"non_vat_charges",
+	"previous_balance",
 )
-REVIEW_AMOUNT_FIELDS = ("subtotal", "tax_amount", "grand_total")
+REVIEW_AMOUNT_FIELDS = ("subtotal", "tax_amount", "grand_total", "stamp_duty", "non_vat_charges", "previous_balance")
+REVIEW_LABELS = {
+	"invoice_number": "numero",
+	"invoice_date": "date",
+	"due_date": "echeance",
+	"supplier_name": "fournisseur",
+	"customer_name": "client",
+	"subtotal": "HT",
+	"tax_amount": "TVA",
+	"grand_total": "TTC",
+	"stamp_duty": "timbre",
+	"non_vat_charges": "taxes hors TVA",
+	"previous_balance": "impayes anterieurs",
+	"has_fne": "FNE",
+}
 REVIEW_CACHE_SECONDS = 60 * 60
 
 
@@ -123,6 +143,8 @@ def ocr_read_invoice_for_review(file_url, doctype, company=None):
 
 	party_key = "supplier_name" if is_purchase else "customer_name"
 	party_type = "Supplier" if is_purchase else "Customer"
+	existing_party = _find_party(party_type, fields[party_key]) if fields.get(party_key) else None
+	fne = data.get("fne") or {}
 	return {
 		"file_url": file_url,
 		"source": data.get("source"),
@@ -131,8 +153,62 @@ def ocr_read_invoice_for_review(file_url, doctype, company=None):
 		"warnings": warnings,
 		"line_count": len(data.get("line_items") or []),
 		"party_key": party_key,
-		"existing_party": _find_party(party_type, fields[party_key]) if fields.get(party_key) else None,
+		"existing_party": existing_party,
+		"fne": {"present": fne.get("present"), "number": fne.get("number")},
+		"regime": ocr_plan.regime_code(_company_regime(company)),
+		"plan": _review_plan(is_purchase, company, data, existing_party or fields.get(party_key)),
 	}
+
+
+def _review_plan(is_purchase, company, data, party):
+	"""The accounting the draft would get from this reading, shown on the
+	review screen (recomputed from the corrected values at creation)."""
+	try:
+		plan = _build_plan(is_purchase, company, data, party, remembered_account(is_purchase, party, company) if party else None)
+	except Exception:
+		# an unreadable total: the user types it in, the plan comes at creation
+		return None
+	return _plan_for_display(plan)
+
+
+def _plan_for_display(plan):
+	return {
+		"lines": [
+			{
+				"item_name": line["item_name"],
+				"amount": line["amount"],
+				"account": line.get("account"),
+				"reason": line.get("reason"),
+			}
+			for line in plan["lines"]
+		],
+		"taxes": [{"account": row["account"], "amount": row["amount"]} for row in plan["taxes"]],
+		"summary": plan["summary"],
+		"warnings": plan["warnings"],
+		"notes": plan["notes"],
+	}
+
+
+def _company_regime(company):
+	return frappe.get_cached_value("Company", company, "sitiame_regime_fiscal")
+
+
+def _build_plan(is_purchase, company, data, party, remembered):
+	fields = data.get("fields") or {}
+	return ocr_plan.build_plan(
+		is_purchase,
+		company,
+		data,
+		party,
+		fields.get("invoice_number") or _("sans numero"),
+		frappe.get_cached_value(
+			"Company", company, "default_expense_account" if is_purchase else "default_income_account"
+		),
+		remembered,
+		_company_regime(company),
+		fields.get("invoice_date") or today(),
+		_company_vat_account(company, is_purchase),
+	)
 
 
 def _apply_corrections(data, corrections):
@@ -157,6 +233,13 @@ def _apply_corrections(data, corrections):
 		else:
 			fields[key] = value
 			confidence[key] = 1.0
+	if corrections.get("has_fne") is not None:
+		# the accountant looked at the paper: FNE marks there or not
+		fne = data.setdefault("fne", {})
+		present = bool(int(corrections["has_fne"] or 0))
+		if present != fne.get("present"):
+			corrected.append("has_fne")
+		fne["present"] = present
 	return corrected
 
 
@@ -198,11 +281,11 @@ def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None, 
 			)
 		)
 
-	net, tax, amount_warnings = _resolve_amounts(fields)
-	warnings += amount_warnings
-
 	if is_purchase and fields.get("invoice_number"):
 		_assert_not_already_imported(fields["invoice_number"], party_name, company)
+
+	# fails before anything is created when no amount was read
+	ocr_plan.resolve_amounts(fields)
 
 	party, created = _get_or_create_party("Supplier" if is_purchase else "Customer", party_name)
 	if created:
@@ -225,79 +308,21 @@ def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None, 
 	if fields.get("due_date") and getdate(fields["due_date"]) >= getdate(invoice.posting_date):
 		invoice.due_date = fields["due_date"]
 
-	account_field = "expense_account" if is_purchase else "income_account"
-	company_account = frappe.get_cached_value(
-		"Company", company, "default_expense_account" if is_purchase else "default_income_account"
-	)
-	reference = fields.get("invoice_number") or _("sans numero")
-	lines, line_warnings = _invoice_lines(data.get("line_items") or [], net, reference, party)
-	warnings += line_warnings
-
-	remembered = remembered_account(is_purchase, party, company)
-	cost_center = frappe.get_cached_value("Company", company, "cost_center")
-	proposals = []
-	for line in lines:
-		account, source = choose_account(is_purchase, company, line["item_name"], company_account, remembered)
-		proposals.append((line["item_name"], account, source))
-		invoice.append(
-			"items",
-			{
-				"item_name": line["item_name"][:140],
-				"description": line["description"],
-				"qty": line["qty"],
-				"uom": "Nos",
-				"rate": line["rate"],
-				account_field: account,
-				"cost_center": cost_center,
-			},
-		)
-	if any(source == "defaut" for label, account, source in proposals):
-		warnings.append(
-			_("Compte par defaut ({0}) utilise faute d'historique ou de mot-cle reconnu : verifiez-le avant de soumettre.").format(
-				company_account
-			)
-		)
-
-	if tax > 0:
-		tax_account = _company_vat_account(company, is_purchase)
-		if tax_account:
-			row = {
-				"charge_type": "Actual",
-				"account_head": tax_account,
-				"description": _("TVA ({0}% du HT)").format(round(tax / net * 100, 2) if net else "?"),
-				"tax_amount": tax,
-			}
-			if is_purchase:
-				row.update({"category": "Total", "add_deduct_tax": "Add"})
-			invoice.append("taxes", row)
-		else:
-			warnings.append(
-				_("TVA lue ({0}) mais aucun modele TVA par defaut pour {1} : ajoutez la ligne de TVA a la main.").format(
-					tax, company
-				)
-			)
+	plan = _build_plan(is_purchase, company, data, party, remembered_account(is_purchase, party, company))
+	warnings += plan["warnings"]
+	_fill_invoice(invoice, is_purchase, company, plan)
 
 	_apply_payment(invoice, paid_mode)
 	invoice.insert()
 	_attach_scan(file_url, invoice)
 	reviewed_note = None
 	if reviewed:
-		labels = {
-			"invoice_number": _("numero"),
-			"invoice_date": _("date"),
-			"due_date": _("echeance"),
-			"supplier_name": _("fournisseur"),
-			"customer_name": _("client"),
-			"subtotal": _("HT"),
-			"tax_amount": _("TVA"),
-			"grand_total": _("TTC"),
-		}
 		reviewed_note = _("Lecture relue et validee par {0} avant creation").format(frappe.session.user) + (
-			_(" -- corrige a la main : {0}").format(", ".join(labels[key] for key in corrected))
+			_(" -- corrige a la main : {0}").format(", ".join(_(REVIEW_LABELS[key]) for key in corrected))
 			if corrected
 			else _(" -- aucune correction")
 		)
-	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings, proposals, reviewed_note)
+	_add_review_comment(invoice, fields, data.get("confidence") or {}, warnings, plan, reviewed_note)
 	frappe.cache().delete_value(_review_cache_key(file_url))
 
 	return {"doctype": doctype, "name": invoice.name, "warnings": warnings}
@@ -320,81 +345,52 @@ def _default_company():
 	) or frappe.defaults.get_user_default("Company")
 
 
-def _resolve_amounts(fields):
-	"""Returns (HT, TVA, warnings) from whatever the OCR read: any two of
-	HT/TVA/TTC give the third; TTC alone is booked as HT with no VAT and
-	flagged, rather than inventing a VAT the document may not carry."""
-	net = flt(fields.get("subtotal"))
-	tax = flt(fields.get("tax_amount"))
-	gross = flt(fields.get("grand_total"))
-	warnings = []
-
-	if not net and gross:
-		net = gross - tax if tax else gross
-		if not tax:
-			warnings.append(_("Seul le TTC a ete lu : facture enregistree sans TVA, a verifier."))
-	if net and gross and gross - net > AMOUNT_TOLERANCE and abs(net + tax - gross) > AMOUNT_TOLERANCE:
-		# HT and TTC both read but the VAT doesn't reconcile (missing, or a
-		# misread such as the rate "18" taken for the amount): the paper's
-		# own HT/TTC pair is the more reliable source.
-		if tax:
-			warnings.append(
-				_("TVA lue ({0}) incoherente avec HT {1} / TTC {2} : recalculee a {3}.").format(
-					tax, net, gross, gross - net
-				)
-			)
-		tax = gross - net
-
-	if net <= 0:
-		frappe.throw(_("Aucun montant n'a pu etre lu sur le document : creez la facture manuellement."))
-
-	if gross and abs(net + tax - gross) > AMOUNT_TOLERANCE:
-		warnings.append(
-			_("Ecart sur les montants lus : HT {0} + TVA {1} != TTC {2}. Verifiez avant de soumettre.").format(
-				net, tax, gross
-			)
+def _fill_invoice(invoice, is_purchase, company, plan):
+	account_field = "expense_account" if is_purchase else "income_account"
+	cost_center = frappe.get_cached_value("Company", company, "cost_center")
+	for line in plan["lines"]:
+		invoice.append(
+			"items",
+			{
+				"item_name": line["item_name"][:140],
+				"description": line["description"],
+				"qty": line["qty"],
+				"uom": "Nos",
+				"rate": line["rate"],
+				account_field: line.get("account"),
+				"cost_center": cost_center,
+			},
 		)
-	return net, tax, warnings
+	for tax in plan["taxes"]:
+		row = {
+			"charge_type": "Actual",
+			"account_head": tax["account"],
+			"description": tax["description"],
+			"tax_amount": tax["amount"],
+		}
+		if is_purchase:
+			row.update({"category": "Total", "add_deduct_tax": "Add"})
+		invoice.append("taxes", row)
+
+
+def _resolve_amounts(fields):
+	"""Returns (HT, TVA, warnings) from whatever the OCR read (see
+	ocr_plan.resolve_amounts): any two of HT/TVA/TTC give the third; TTC
+	alone is booked as HT with no VAT and flagged."""
+	amounts = ocr_plan.resolve_amounts(fields)
+	gap = ocr_plan.gap_warning(amounts)
+	return amounts.net, amounts.tax, amounts.warnings + ([gap] if gap else [])
 
 
 def _invoice_lines(line_items, net, reference, party):
 	"""One draft line per line read on the document when they add up to
-	the HT; otherwise the single HT line -- never lines that contradict the
-	invoice's own total (a misread table, or no table found)."""
-	lines = []
-	for item in line_items:
-		label = (item.get("item_name") or "").strip()
-		rate = flt(item.get("rate"))
-		if not label or rate <= 0:
-			lines = []
-			break
-		lines.append(
-			{
-				"item_name": label,
-				"qty": flt(item.get("qty")) or 1,
-				"rate": rate,
-				"description": _("Ligne lue sur la facture scannee -- verifiez le compte."),
-			}
-		)
-
-	read_total = sum((flt(item.get("qty")) or 1) * flt(item.get("rate")) for item in line_items)
-	if lines and abs(read_total - net) <= AMOUNT_TOLERANCE * len(lines):
-		return lines, []
-
-	warnings = []
-	if line_items:
-		warnings.append(
-			_("Lignes lues ({0}) incoherentes avec le HT ({1}) : une seule ligne au HT a ete creee.").format(
-				flt(read_total), net
-			)
-		)
-	single = {
-		"item_name": _("Facture {0} - {1}").format(reference, party),
-		"qty": 1,
-		"rate": net,
-		"description": _("Montant HT importe depuis la facture scannee -- verifiez le compte de charge/produit."),
-	}
-	return [single], warnings
+	the HT; otherwise the single HT line (see ocr_plan.build_lines)."""
+	amounts = frappe._dict(net=franc(net), tax=0, gross=0, stamp=0, charges=0, previous=0, gap=0)
+	lines, warnings = ocr_plan.build_lines(line_items, amounts, reference, party)
+	return [
+		{"item_name": line["item_name"], "qty": line["qty"], "rate": line["rate"], "description": line["description"]}
+		for line in lines
+	], warnings
 
 
 def _assert_not_already_imported(bill_no, party_name, company):
@@ -412,12 +408,17 @@ def _assert_not_already_imported(bill_no, party_name, company):
 
 
 def _find_party(party_type, party_name):
-	"""The existing Supplier/Customer: exact name, else a single partial match."""
+	"""The existing Supplier/Customer: exact name, else a single partial match.
+	These lookups bypass permissions: a PME only matches its own parties
+	(it used to reuse, and so see, another PME's supplier)."""
+	from sitiame_core.party_isolation import own_party_filters
+
 	name_field = "supplier_name" if party_type == "Supplier" else "customer_name"
-	exact = frappe.db.get_value(party_type, {name_field: party_name}, "name")
+	own = own_party_filters()
+	exact = frappe.db.get_value(party_type, {name_field: party_name, **own}, "name")
 	if exact:
 		return exact
-	matches = frappe.get_all(party_type, filters={name_field: ["like", f"%{party_name}%"]}, pluck="name", limit=2)
+	matches = frappe.get_all(party_type, filters={name_field: ["like", f"%{party_name}%"], **own}, pluck="name", limit=2)
 	return matches[0] if len(matches) == 1 else None
 
 
@@ -459,7 +460,8 @@ def _attach_scan(file_url, invoice):
 	file_doc.save(ignore_permissions=True)
 
 
-def _add_review_comment(invoice, fields, confidence, warnings, proposals=(), reviewed_note=None):
+def _add_review_comment(invoice, fields, confidence, warnings, plan=None, reviewed_note=None):
+	esc = frappe.utils.escape_html
 	labels = {
 		"invoice_number": _("Numero"),
 		"invoice_date": _("Date"),
@@ -468,10 +470,13 @@ def _add_review_comment(invoice, fields, confidence, warnings, proposals=(), rev
 		"customer_name": _("Client"),
 		"subtotal": _("HT"),
 		"tax_amount": _("TVA"),
+		"stamp_duty": _("Timbre"),
+		"non_vat_charges": _("Taxes et redevances hors TVA"),
 		"grand_total": _("TTC"),
+		"previous_balance": _("Impayes anterieurs (exclus du total)"),
 	}
 	lines = [
-		f"<li>{label} : {frappe.utils.escape_html(str(fields[key]))}"
+		f"<li>{label} : {esc(str(fields[key]))}"
 		+ (f" ({round(confidence[key] * 100)}%)" if confidence.get(key) else "")
 		+ "</li>"
 		for key, label in labels.items()
@@ -479,24 +484,31 @@ def _add_review_comment(invoice, fields, confidence, warnings, proposals=(), rev
 	]
 	html = "<b>" + _("Facture creee depuis le document scanne -- a verifier puis soumettre.") + "</b>"
 	if reviewed_note:
-		html += "<br>" + frappe.utils.escape_html(reviewed_note)
+		html += "<br>" + esc(reviewed_note)
 	html += "<ul>" + "".join(lines) + "</ul>"
-	if proposals:
-		sources = {
-			"memoire": _("derniere facture de ce tiers"),
-			"mot-cle": _("mot-cle du libelle"),
-			"defaut": _("compte par defaut, a verifier"),
-		}
+	if plan:
+		summary = plan["summary"]
+		html += "<b>" + _("Traitement fiscal :") + "</b><ul>"
+		html += "<li>" + _("Regime fiscal de la societe : {0}").format(esc(summary["regime"])) + "</li>"
+		html += "<li>" + _("FNE : {0}").format(esc(summary["fne"])) + "</li>"
+		html += "<li>" + _("TVA : {0}").format(esc(summary["vat"])) + "</li></ul>"
 		html += "<b>" + _("Comptes proposes :") + "</b><ul>"
 		html += "".join(
-			f"<li>{frappe.utils.escape_html(label)} &rarr; {frappe.utils.escape_html(account or '-')}"
-			f" ({frappe.utils.escape_html(sources[source])})</li>"
-			for label, account, source in proposals
+			f"<li>{esc(line['item_name'])} : {esc(str(line['amount']))} &rarr; {esc(line.get('account') or '-')}"
+			f" ({esc(_(line['reason']))})</li>"
+			for line in plan["lines"]
+		)
+		html += "".join(
+			f"<li>{esc(tax['description'])} : {esc(str(tax['amount']))} &rarr; {esc(tax['account'])}</li>"
+			for tax in plan["taxes"]
 		)
 		html += "</ul>"
+		if plan["notes"]:
+			html += "<b>" + _("Rappels :") + "</b><ul>"
+			html += "".join(f"<li>{esc(note)}</li>" for note in plan["notes"]) + "</ul>"
 	if warnings:
 		html += "<b>" + _("Points a verifier :") + "</b><ul>"
-		html += "".join(f"<li>{frappe.utils.escape_html(w)}</li>" for w in warnings) + "</ul>"
+		html += "".join(f"<li>{esc(w)}</li>" for w in warnings) + "</ul>"
 	invoice.add_comment("Comment", html)
 
 
