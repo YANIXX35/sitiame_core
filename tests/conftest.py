@@ -54,6 +54,16 @@ def _install_frappe_stub():
 	frappe.whitelist = whitelist
 	frappe.only_for = lambda *args, **kwargs: None
 	frappe.parse_json = lambda value: json.loads(value) if isinstance(value, str) else value
+	frappe.get_roles = lambda user=None: []
+	frappe.has_permission = lambda *a, **k: True
+	frappe.get_all = lambda *a, **k: []
+	frappe.get_list = lambda *a, **k: []
+	frappe.get_cached_value = lambda *a, **k: None
+	frappe.generate_hash = lambda length=20: "a" * length
+	frappe.defaults = types.SimpleNamespace(
+		get_user_default=lambda *a, **k: None,
+		set_user_default=lambda *a, **k: None,
+	)
 	frappe.conf = _dict()
 	frappe.session = _dict(user="Administrator")
 	frappe.local = _dict()
@@ -61,6 +71,10 @@ def _install_frappe_stub():
 		exists=lambda *a, **k: True,
 		get_value=lambda *a, **k: None,
 		sql=lambda *a, **k: [],
+		count=lambda *a, **k: 0,
+		set_value=lambda *a, **k: None,
+		commit=lambda *a, **k: None,
+		rollback=lambda *a, **k: None,
 	)
 
 	utils = types.ModuleType("frappe.utils")
@@ -87,9 +101,11 @@ def _install_frappe_stub():
 	utils.add_days = lambda date, days: getdate(date) + datetime.timedelta(days=days)
 	utils.add_months = lambda date, months: getdate(date)  # not exercised by these tests
 	utils.formatdate = lambda value, fmt=None: str(value)
+	utils.format_datetime = lambda value, fmt=None: str(value)
 	utils.escape_html = lambda text: str(text).replace("<", "&lt;").replace(">", "&gt;")
 	utils.get_backups_path = lambda: ""
 	utils.get_bench_path = lambda: ""
+	utils.get_link_to_form = lambda doctype, name: f"/app/{doctype.lower().replace(' ', '-')}/{name}"
 	frappe.utils = utils
 
 	password = types.ModuleType("frappe.utils.password")

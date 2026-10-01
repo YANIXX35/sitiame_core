@@ -21,7 +21,7 @@ from frappe.utils import flt, today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from sitiame_core.api import _AMOUNT_VALUE, _parse_amount, read_invoice_file
-from sitiame_core.ocr_accounts import mobile_money_account
+from sitiame_core.ocr_accounts import mobile_money_account, needs_withholding, account_number_of, leaf_by_number
 from sitiame_core.ocr_invoice import AMOUNT_TOLERANCE, _attach_scan, _default_company
 
 INVOICE_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
@@ -110,23 +110,25 @@ def ocr_create_payment_draft(file_url, company=None, invoice_doctype=None, invoi
 	if mode_of_payment:
 		pe.mode_of_payment = mode_of_payment
 	pe.remarks = _("Paiement cree depuis le recu scanne, pour {0} {1}.").format(_(invoice.doctype), invoice.name)
+	_assert_payment_not_already_imported(pe.reference_no, company)
 	pe.insert()
 
 	_attach_scan(file_url, pe)
+	withholding = _withholding_note(invoice, company)
+	comment_lines = [
+		_("Facture reglee : {0} ({1})").format(invoice.name, invoice.get("supplier") or invoice.get("customer")),
+		_("Montant : {0}").format(amount),
+		_("Moyen de paiement : {0}").format(mode_of_payment or _("non detecte")),
+		*warnings,
+	]
+	if withholding:
+		comment_lines.append(withholding)
 	pe.add_comment(
 		"Comment",
 		"<b>"
 		+ _("Paiement cree depuis le recu scanne -- a verifier puis soumettre.")
 		+ "</b><ul>"
-		+ "".join(
-			f"<li>{frappe.utils.escape_html(line)}</li>"
-			for line in [
-				_("Facture reglee : {0} ({1})").format(invoice.name, invoice.get("supplier") or invoice.get("customer")),
-				_("Montant : {0}").format(amount),
-				_("Moyen de paiement : {0}").format(mode_of_payment or _("non detecte")),
-				*warnings,
-			]
-		)
+		+ "".join(f"<li>{frappe.utils.escape_html(line)}</li>" for line in comment_lines)
 		+ "</ul>",
 	)
 
@@ -211,6 +213,58 @@ def _match_open_invoice(text, company, amount, warnings):
 			)
 		)
 	return frappe.get_doc(chosen.doctype, chosen.name)
+
+
+def _assert_payment_not_already_imported(reference_no, company):
+	"""Étape 4 — anti-doublon : refuse a second Payment Entry with the same
+	reference_no (Wave/OM transaction ID) for the same company."""
+	if not reference_no or not company:
+		return
+	existing = frappe.db.get_value(
+		"Payment Entry",
+		{"reference_no": reference_no, "company": company, "docstatus": ["<", 2]},
+		"name",
+	)
+	if existing:
+		frappe.throw(
+			_("Ce recu (reference {0}) a deja ete importe : {1}.").format(
+				reference_no, existing
+			)
+		)
+
+
+def _withholding_note(invoice, company):
+	"""Étape 3 — retenue à la source : if the first line of the invoice is a
+	consultant / liberal-profession expense (6324 / 6327), return a note
+	telling the accountant which withholding to apply and on which account.
+	No entry is created; the accountant adds the deduction manually."""
+	items = frappe.get_all(
+		f"{invoice.doctype} Item",
+		filters={"parent": invoice.name},
+		fields=["expense_account", "item_name"],
+		limit=1,
+	)
+	if not items:
+		return None
+	item = items[0]
+	acct_number = account_number_of(item.expense_account)
+	if not needs_withholding(item.item_name or "", acct_number):
+		return None
+	gross = flt(invoice.grand_total)
+	amount_75 = int(gross * 0.075)
+	amount_2 = int(gross * 0.02)
+	w_account = (
+		leaf_by_number(company, "4471")
+		or leaf_by_number(company, "4476")
+		or _("compte 4471 (a configurer dans le plan comptable)")
+	)
+	return _(
+		"Retenue a la source probable (honoraires / consultant) : 7,5 % = {0} F "
+		"(ou 2 % = {1} F si le prestataire est en RME / entreprenant). "
+		"Compte propose : {2}. "
+		"Ajoutez manuellement une ligne de Deduction dans ce paiement avant de le soumettre, "
+		"puis reversez la retenue avant le 15 du mois suivant."
+	).format(amount_75, amount_2, w_account)
 
 
 def _detect_mode_of_payment(text):

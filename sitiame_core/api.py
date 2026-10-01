@@ -115,6 +115,15 @@ _SYSCOHADA_DEFAULT_ACCOUNTS = {
 
 # account_number -> account_type to enforce (the SYSCOHADA template ships
 # these untyped, which breaks TVA reporting and the Cash/Bank dashboards).
+# All VAT accounts used by ocr_plan.plan_vat() must be typed "Tax" so that
+# ERPNext's tax tables accept them and leaf_by_number() can find them:
+#   4451 TVA récupérable / immobilisations
+#   4452 TVA récupérable / achats de biens
+#   4453 TVA récupérable / transport
+#   4454 TVA récupérable / services extérieurs
+#   4431 TVA facturée / ventes de biens
+#   4432 TVA facturée / prestations de services
+#   4433 TVA facturée / travaux
 _SYSCOHADA_ACCOUNT_TYPES = {
 	"4111": "Receivable",
 	"4011": "Payable",
@@ -122,7 +131,10 @@ _SYSCOHADA_ACCOUNT_TYPES = {
 	"5711": "Cash",
 	"4431": "Tax",
 	"4432": "Tax",
+	"4433": "Tax",
+	"4451": "Tax",
 	"4452": "Tax",
+	"4453": "Tax",
 	"4454": "Tax",
 }
 
@@ -1011,6 +1023,8 @@ def read_invoice_file(file_url):
 		"line_items": data["line_items"],
 		"source": data["source"],
 		"warnings": data.get("warnings") or [],
+		# facture normalisee electronique marks (vision only; None = unknown)
+		"fne": data.get("fne") or {"present": None, "number": None},
 	}
 
 
@@ -2162,3 +2176,79 @@ def get_platform_users():
 		frappe.throw(_("PME360 a refuse la demande : {0}").format(message))
 
 	return response.json()
+
+
+# ERPNext drafts waiting for accountant validation (docstatus = 0):
+# Purchase/Sales Invoices and Payment Entries created by the OCR pipeline.
+# The accountant submits them to generate GL entries that appear in the
+# financial reports (grand livre, balance, liasse SYSCOHADA).
+@frappe.whitelist()
+def list_pending_drafts(company=None):
+	"""All Purchase/Sales Invoice and Payment Entry drafts (docstatus = 0)
+	for the company (or all companies the caller may read). These are the
+	documents that must be submitted to book entries in the general ledger
+	and appear in SYSCOHADA reports and payment dashboards."""
+	if company:
+		frappe.has_permission("Company", "read", company, throw=True)
+
+	rows = []
+
+	def _load_invoices(doctype, party_field):
+		filters = {"docstatus": 0}
+		if company:
+			filters["company"] = company
+		for r in frappe.get_list(
+			doctype,
+			filters=filters,
+			fields=["name", "posting_date", "company", party_field, "grand_total", "creation"],
+			order_by="creation desc",
+			limit_page_length=0,
+		):
+			rows.append(
+				{
+					"doctype": doctype,
+					"name": r.name,
+					"posting_date": str(r.posting_date or ""),
+					"company": r.company,
+					"party": r.get(party_field),
+					"amount": flt(r.grand_total),
+					"created_at": frappe.utils.format_datetime(r.creation, "dd-MM-yyyy HH:mm"),
+				}
+			)
+
+	_load_invoices("Purchase Invoice", "supplier_name")
+	_load_invoices("Sales Invoice", "customer_name")
+
+	pe_filters = {"docstatus": 0}
+	if company:
+		pe_filters["company"] = company
+	for r in frappe.get_list(
+		"Payment Entry",
+		filters=pe_filters,
+		fields=["name", "posting_date", "company", "party", "party_name", "paid_amount", "payment_type", "creation"],
+		order_by="creation desc",
+		limit_page_length=0,
+	):
+		rows.append(
+			{
+				"doctype": "Payment Entry",
+				"name": r.name,
+				"posting_date": str(r.posting_date or ""),
+				"company": r.company,
+				"party": r.get("party_name") or r.get("party"),
+				"amount": flt(r.paid_amount),
+				"payment_type": r.payment_type,
+				"created_at": frappe.utils.format_datetime(r.creation, "dd-MM-yyyy HH:mm"),
+			}
+		)
+
+	rows.sort(key=lambda r: r["created_at"] or "", reverse=True)
+	return {
+		"rows": rows,
+		"summary": {
+			"purchase_invoices": sum(1 for r in rows if r["doctype"] == "Purchase Invoice"),
+			"sales_invoices": sum(1 for r in rows if r["doctype"] == "Sales Invoice"),
+			"payment_entries": sum(1 for r in rows if r["doctype"] == "Payment Entry"),
+			"total": len(rows),
+		},
+	}
