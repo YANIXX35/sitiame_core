@@ -11,7 +11,10 @@
 
 	function allowed() {
 		var roles = (frappe.boot && frappe.boot.user && frappe.boot.user.roles) || [];
-		return roles.indexOf("System Manager") !== -1 || roles.indexOf("Accounts Manager") !== -1;
+		if (roles.indexOf("System Manager") !== -1) return true;
+		// PME accounts have Accounts Manager too: the assistant is for Sitiame
+		// staff only (api.py::_check_assistant_access decides)
+		return roles.indexOf("Accounts Manager") !== -1 && roles.indexOf("PME Client") === -1;
 	}
 
 	function buildWidget() {

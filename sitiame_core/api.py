@@ -1620,9 +1620,35 @@ def _build_assistant_context():
 	)
 
 
+ASSISTANT_MAX_MESSAGE_CHARS = 4000
+
+
+def _check_assistant_access():
+	"""Sitiame staff only. PME accounts have Accounts Manager too, but the
+	assistant's context is platform-wide (every company, failed logins,
+	unpaid invoices...): audit 2026-10-01. A PME account is the one tied
+	to a company by its User Permission (subscription_api.get_user_company);
+	staff Accounts Managers have none and keep their access."""
+	from sitiame_core.subscription_api import get_user_company
+
+	roles = set(frappe.get_roles())
+	if "System Manager" in roles:
+		return
+	if roles.intersection(_ASSISTANT_ALLOWED_ROLES) and not get_user_company():
+		return
+	frappe.throw(_("Assistant reserve au personnel Sitiame."), frappe.PermissionError)
+
+
 @frappe.whitelist()
+@rate_limit(limit=60, seconds=3600)
 def chat_with_assistant(message, history=None):
-	frappe.only_for(_ASSISTANT_ALLOWED_ROLES)
+	_check_assistant_access()
+
+	message = (message or "").strip()
+	if not message:
+		frappe.throw(_("Message vide."))
+	if len(message) > ASSISTANT_MAX_MESSAGE_CHARS:
+		frappe.throw(_("Message trop long ({0} caracteres maximum).").format(ASSISTANT_MAX_MESSAGE_CHARS))
 
 	from sitiame_core.gemini_assistant import chat
 
@@ -1630,8 +1656,8 @@ def chat_with_assistant(message, history=None):
 
 	messages = [{"role": "system", "content": _build_assistant_context()}]
 	for turn in history[-10:]:
-		if turn.get("role") in ("user", "assistant") and turn.get("content"):
-			messages.append({"role": turn["role"], "content": turn["content"]})
+		if isinstance(turn, dict) and turn.get("role") in ("user", "assistant") and turn.get("content"):
+			messages.append({"role": turn["role"], "content": str(turn["content"])[:ASSISTANT_MAX_MESSAGE_CHARS]})
 	messages.append({"role": "user", "content": message})
 
 	return chat(messages)
