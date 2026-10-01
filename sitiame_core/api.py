@@ -1454,10 +1454,22 @@ def list_caisse_banque(bucket=None, document_type=None, date_from=None, date_to=
 # business bookmark saying the month was reviewed). ERPNext's own
 # "Period Closing Voucher" is a real, consequential accounting entry and
 # is deliberately NOT auto-triggered here.
+def _check_closing_company(company):
+	"""The month closing reads GL counts and closure notes with raw queries:
+	without this, any account read (and closed) another company's month
+	(audit 2026-10-01). Read on the Company is the same rule as the Liasse
+	SYSCOHADA report: a PME its own company, staff all of them, a chargé
+	d'affaires his portfolio."""
+	if not company:
+		frappe.throw(_("Choisissez une societe."))
+	frappe.has_permission("Company", "read", company, throw=True)
+
+
 @frappe.whitelist()
 def get_month_closing_status(company, year_month):
 	import re as _re
 
+	_check_closing_company(company)
 	if not _re.match(r"^\d{4}-\d{2}$", year_month or ""):
 		frappe.throw(_("Mois invalide (format attendu : AAAA-MM)."))
 
@@ -1509,6 +1521,7 @@ def get_month_closing_status(company, year_month):
 def close_month(company, year_month, notes=None):
 	import re as _re
 
+	_check_closing_company(company)
 	if not _re.match(r"^\d{4}-\d{2}$", year_month or ""):
 		frappe.throw(_("Mois invalide (format attendu : AAAA-MM)."))
 
