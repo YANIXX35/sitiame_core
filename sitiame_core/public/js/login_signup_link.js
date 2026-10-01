@@ -40,7 +40,15 @@
 		p.style.marginLeft = "auto";
 		p.style.marginRight = "auto";
 		p.innerHTML = 'Pas encore de compte ? <a href="/company-signup">Inscrire votre entreprise</a>';
-		container.parentNode.insertBefore(p, container.nextSibling);
+		// Under the login buttons, in their own block: same width as the
+		// form, so it stays centered whatever the page layout around it.
+		var actions = document.querySelector(".form-login .page-card-actions");
+		if (actions) {
+			p.style.maxWidth = "none";
+			actions.appendChild(p);
+		} else {
+			container.parentNode.insertBefore(p, container.nextSibling);
+		}
 	}
 
 	document.addEventListener("DOMContentLoaded", addSignupLink);
