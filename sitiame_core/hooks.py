@@ -7,12 +7,17 @@ app_license = "MIT"
 
 required_apps = ["erpnext"]
 
+# These files are served without a hash in their name: browsers kept an
+# old copy after a deploy (2026-10-01, login signup link). Bump WEB_ASSETS_VERSION
+# whenever one of them changes.
+WEB_ASSETS_VERSION = "2026100101"
+
 web_include_js = [
-	"/assets/sitiame_core/js/pwa.js",
-	"/assets/sitiame_core/js/login_signup_link.js",
-	"/assets/sitiame_core/js/sitiame_login.js",
+	f"/assets/sitiame_core/js/pwa.js?v={WEB_ASSETS_VERSION}",
+	f"/assets/sitiame_core/js/login_signup_link.js?v={WEB_ASSETS_VERSION}",
+	f"/assets/sitiame_core/js/sitiame_login.js?v={WEB_ASSETS_VERSION}",
 ]
-web_include_css = "/assets/sitiame_core/css/sitiame_login.css"
+web_include_css = f"/assets/sitiame_core/css/sitiame_login.css?v={WEB_ASSETS_VERSION}"
 
 # Installable app: serves /manifest.webmanifest and /sitiame-sw.js
 page_renderer = ["sitiame_core.pwa.PWARenderer"]
