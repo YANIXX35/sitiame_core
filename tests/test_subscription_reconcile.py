@@ -40,9 +40,18 @@ def world(monkeypatch):
 	return state
 
 
-def _add(world, name, days_old, jeko):
-	world["rows"].append({"name": name, "creation": NOW - datetime.timedelta(days=days_old), "payment_provider": sa.CHECKOUT, "transaction_id": f"pr-{name}"})
+def _add(world, name, days_old, jeko, provider=sa.CHECKOUT):
+	world["rows"].append({"name": name, "creation": NOW - datetime.timedelta(days=days_old), "payment_provider": provider, "transaction_id": f"pr-{name}"})
 	world["jeko"][f"pr-{name}"] = jeko
+
+
+def test_an_old_staff_link_is_never_closed_as_failed(world):
+	"""Audit 2026-10-01: a link may be paid with its webhook lost; staff
+	check it in Jèko, it is not failed automatically after a week."""
+	_add(world, "SUB-LINK", 10, sa.PENDING, provider=sa.LINK)
+	_add(world, "SUB-CHECKOUT", 10, sa.PENDING)
+	sa.reconcile_pending_payments()
+	assert world["status"] == {"SUB-CHECKOUT": "Échoué"}
 
 
 def test_old_payment_that_jeko_declares_failed_is_closed(world):

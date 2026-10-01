@@ -337,15 +337,43 @@ def list_company_subscriptions():
 
 
 def _live_status(provider, transaction_id):
-	"""What Jèko says now: PAID, FAILED or PENDING."""
+	"""What Jèko says now: PAID, FAILED, PENDING, or LINK_CLOSED."""
 	if provider == CHECKOUT:
 		status = (jeko_client.get_payment_request(transaction_id).get("status") or "").lower()
 		return {"success": PAID, "error": FAILED}.get(status, PENDING)
 	if provider == LINK:
-		# a single-use link that no longer accepts payments has been paid
-		return PAID if jeko_client.get_payment_link(transaction_id).get("canReceivePayments") is False else PENDING
+		# A link is only ever paid by its signed "success" webhook. Jèko
+		# answers canReceivePayments = false for a used link, but also for
+		# an expired or disabled one (docs: payments/payment-links), and
+		# its transaction list carries no paymentLinkId: taking false for
+		# "paid" gave a free month whenever a link expired unpaid.
+		if jeko_client.get_payment_link(transaction_id).get("canReceivePayments") is False:
+			return LINK_CLOSED
+		return PENDING
 	# older payments (previous provider): no longer queried, expire with age
 	return PENDING
+
+
+# Internal answer of _live_status: the link no longer accepts payments, and
+# nothing proves it was paid. Left pending for Sitiame staff to check in
+# the Jèko dashboard, never marked paid or failed automatically.
+LINK_CLOSED = "link_closed"
+LINK_CHECK_LOG_TTL = 7 * 24 * 3600
+
+
+def _flag_closed_link(name):
+	"""Error Log once a week per payment, not every 10 minutes."""
+	key = f"sitiame_core:jeko_link_to_check:{name}"
+	if frappe.cache().get_value(key):
+		return
+	frappe.cache().set_value(key, 1, expires_in_sec=LINK_CHECK_LOG_TTL)
+	frappe.log_error(
+		title="Jèko : lien de paiement a verifier",
+		message=_(
+			"{0} : le lien Jèko n'accepte plus de paiement (paye, expire ou desactive) et aucun webhook de paiement "
+			"n'a ete recu. Verifiez dans le tableau de bord Jèko avant toute action : rien n'a ete modifie."
+		).format(name),
+	)
 
 
 def _settle(row):
@@ -356,6 +384,9 @@ def _settle(row):
 	elif status == FAILED:
 		frappe.db.set_value("Subscription Payment", row.name, "status", FAILED)
 		frappe.db.commit()
+	elif status == LINK_CLOSED:
+		_flag_closed_link(row.name)
+		status = PENDING
 	return status
 
 
@@ -478,7 +509,9 @@ def reconcile_pending_payments():
 		fields=["name", "creation", "payment_provider", "transaction_id"],
 	):
 		try:
-			if _settle(row) == PENDING and row.creation < expire_before:
+			# A staff link is never closed as failed automatically: it may
+			# have been paid with its webhook lost (see _live_status).
+			if _settle(row) == PENDING and row.creation < expire_before and row.payment_provider != LINK:
 				frappe.db.set_value("Subscription Payment", row.name, "status", FAILED)
 				frappe.db.commit()
 		except Exception:

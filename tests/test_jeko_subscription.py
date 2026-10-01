@@ -119,10 +119,48 @@ def test_checkout_status(jeko):
 	assert jeko["calls"][0]["url"].endswith("/partner_api/payment_requests/pr-1")
 
 
-def test_a_used_single_use_link_means_paid(jeko):
+def test_a_closed_link_is_never_taken_for_paid(jeko):
+	"""Audit 2026-10-01: canReceivePayments false also means expired or
+	disabled -- reading it as paid gave a free month. Only the signed
+	webhook marks a link paid."""
 	jeko["responses"] = [Response(200, {"canReceivePayments": False}), Response(200, {"canReceivePayments": True})]
-	assert sa._live_status(sa.LINK, "pl-1") == sa.PAID
+	assert sa._live_status(sa.LINK, "pl-1") == sa.LINK_CLOSED
 	assert sa._live_status(sa.LINK, "pl-1") == sa.PENDING
+
+
+@pytest.fixture
+def settle(monkeypatch):
+	state = {"paid": [], "set": {}, "logged": [], "cache": {}}
+
+	class Cache:
+		def get_value(self, key):
+			return state["cache"].get(key)
+
+		def set_value(self, key, value, expires_in_sec=None):
+			state["cache"][key] = value
+
+	monkeypatch.setattr(frappe, "cache", lambda: Cache(), raising=False)
+	monkeypatch.setattr(frappe, "log_error", lambda title=None, message=None: state["logged"].append(title), raising=False)
+	monkeypatch.setattr(sa, "_mark_paid", lambda name: state["paid"].append(name))
+	monkeypatch.setattr(frappe.db, "set_value", lambda dt, name, field, value: state["set"].__setitem__(name, value), raising=False)
+	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
+	return state
+
+
+def test_a_closed_link_stays_pending_and_is_flagged_once(settle, monkeypatch):
+	monkeypatch.setattr(sa, "_live_status", lambda provider, tid: sa.LINK_CLOSED)
+	row = frappe._dict(name="SUB-LINK", payment_provider=sa.LINK, transaction_id="pl-1")
+	assert sa._settle(row) == sa.PENDING
+	assert sa._settle(row) == sa.PENDING
+	assert settle["paid"] == [] and settle["set"] == {}
+	assert settle["logged"] == ["Jèko : lien de paiement a verifier"]
+
+
+def test_a_paid_link_webhook_still_activates(settle, monkeypatch):
+	"""Non-regression: the checkout path is unchanged."""
+	monkeypatch.setattr(sa, "_live_status", lambda provider, tid: sa.PAID)
+	assert sa._settle(frappe._dict(name="SUB-CO", payment_provider=sa.CHECKOUT, transaction_id="pr-1")) == sa.PAID
+	assert settle["paid"] == ["SUB-CO"]
 
 
 def test_older_payments_are_no_longer_queried(jeko):
