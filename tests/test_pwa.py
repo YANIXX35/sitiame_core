@@ -110,7 +110,7 @@ def test_desk_home_scrolls_to_its_last_row_on_a_phone():
 def test_hooks_wire_the_pwa():
 	assert "sitiame_core.pwa.PWARenderer" in hooks.page_renderer
 	assert "/assets/sitiame_core/js/pwa.js" in hooks.app_include_js
-	assert "/assets/sitiame_core/js/pwa.js" in hooks.web_include_js
+	assert any(path.split("?")[0] == "/assets/sitiame_core/js/pwa.js" for path in hooks.web_include_js)
 	assert "/assets/sitiame_core/css/sitiame_mobile.css" in hooks.app_include_css
 
 
