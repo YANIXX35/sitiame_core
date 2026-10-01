@@ -45,6 +45,8 @@
 		var actions = document.querySelector(".form-login .page-card-actions");
 		if (actions) {
 			p.style.maxWidth = "none";
+			p.style.marginTop = "14px";
+			p.style.marginBottom = "0";
 			actions.appendChild(p);
 		} else {
 			container.parentNode.insertBefore(p, container.nextSibling);
