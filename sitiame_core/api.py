@@ -429,6 +429,12 @@ def _provision_company_signup(
 				"create_chart_of_accounts_based_on": "Standard Template",
 			}
 		)
+		# HRMS's on_update hook (hrms.overrides.company.set_expense_claim_type_accounts)
+		# tries to link each Expense Claim Type to an "Expense Claims Payable" account
+		# that doesn't exist in the SYSCOHADA chart. ignore_links skips that nested
+		# validation so the Company is created cleanly; _apply_syscohada_defaults
+		# sets up every account we actually need right after.
+		company.flags.ignore_links = True
 		company.insert(ignore_permissions=True)
 		_apply_syscohada_defaults(company.name)
 
@@ -519,6 +525,19 @@ def _provision_company_signup(
 
 		frappe.db.commit()
 		_set_company_signup_progress(token, {"status": "success", "email": email})
+	except frappe.ValidationError as e:
+		# A ValidationError (weak password, duplicate name, ...) is a user
+		# mistake: send the human-readable message back instead of the generic
+		# "please try again", so the user can fix it and resubmit immediately.
+		frappe.db.rollback()
+		import re as _re
+		# Strip HTML tags from Frappe's formatted messages (e.g. password strength)
+		clean = _re.sub(r"<[^>]+>", " ", str(e)).strip()
+		clean = _re.sub(r"\s+", " ", clean)
+		_set_company_signup_progress(
+			token,
+			{"status": "failed", "email": email, "message": clean or str(e)},
+		)
 	except Exception:
 		frappe.db.rollback()
 		frappe.log_error(title="Company signup provisioning failed", message=frappe.get_traceback())
@@ -1757,7 +1776,13 @@ def _register_pme_in_pme360(name, email, company_name, phone, password, company_
 			message = response.text
 		frappe.throw(_("PME360 a refusé la demande : {0}").format(message))
 
-	return response.json()
+	try:
+		return response.json()
+	except ValueError:
+		# PME360 returned a 2xx with a non-JSON body (e.g. 201 Created with no
+		# content, or HTML). The registration succeeded on their side; return an
+		# empty dict so the caller gets a success response without crashing.
+		return {}
 
 
 # Masquage de menu par utilisateur individuel (page "Gérer le menu"), en
