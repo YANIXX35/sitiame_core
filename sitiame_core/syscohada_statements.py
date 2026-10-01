@@ -310,3 +310,413 @@ def previous_fiscal_year(fiscal_year):
 	return frappe.db.get_value(
 		"Fiscal Year", {"year_end_date": ["<", start]}, "name", order_by="year_end_date desc"
 	)
+
+
+# ---------------------------------------------------------------------------
+# TAFIRE — Tableau Financier des Ressources et des Emplois (SYSCOHADA révisé)
+# ---------------------------------------------------------------------------
+
+def get_period_movements(company, from_date, to_date):
+	"""Returns {account_number: {"debit": d, "credit": c}} for non-opening
+	GL entries in the period.  Opening entries (is_opening = 'Yes') are
+	excluded so that Tableaux 1 and 2 only show real movements."""
+	rows = frappe.db.sql(
+		"""
+		select acc.account_number,
+		       sum(gle.debit)  as debit,
+		       sum(gle.credit) as credit
+		from `tabGL Entry` gle
+		inner join `tabAccount` acc on acc.name = gle.account
+		where gle.company      = %(company)s
+		  and gle.is_cancelled = 0
+		  and gle.posting_date >= %(from_date)s
+		  and gle.posting_date <= %(to_date)s
+		  and (gle.is_opening is null or gle.is_opening = 'No')
+		group by acc.account_number
+		""",
+		{"company": company, "from_date": from_date, "to_date": to_date},
+		as_dict=True,
+	)
+	result = {}
+	for row in rows:
+		number = (row.account_number or "").strip()
+		if number:
+			result[number] = {"debit": flt(row.debit), "credit": flt(row.credit)}
+	return result
+
+
+def _mv_debit(movements, *prefixes):
+	"""Total debits on movements whose account_number starts with any prefix."""
+	return sum(v["debit"] for k, v in movements.items() if any(k.startswith(p) for p in prefixes))
+
+
+def _mv_credit(movements, *prefixes):
+	"""Total credits on movements whose account_number starts with any prefix."""
+	return sum(v["credit"] for k, v in movements.items() if any(k.startswith(p) for p in prefixes))
+
+
+def _bfe(actif_net, passif):
+	"""BFE = stocks + créances actif circulant − dettes passif circulant."""
+	actif_circ = actif_net["BA"] + actif_net["BB"] + actif_net["BC"]
+	dettes_circ = (passif["EA"] + passif["EB"] + passif["EC"]
+	               + passif["ED"] + passif["EE"])
+	return actif_circ - dettes_circ
+
+
+def _tresorerie_nette(actif_net, passif):
+	"""Trésorerie nette = trésorerie actif − trésorerie passif."""
+	return (actif_net["CA"] + actif_net["CB"] + actif_net["CC"]) - (
+		passif["FA"] + passif["FB"] + passif["FC"]
+	)
+
+
+def _assign_immo_code(number):
+	"""Longest-prefix match on class-2 brut rules → Tableau 1 row code."""
+	best = None
+	for rule in ACTIF_RULES:
+		prefixes, _side, code, component = rule
+		if component != "brut":
+			continue
+		if not code.startswith("A") or code == "AZ":
+			continue
+		for prefix in prefixes:
+			if number.startswith(prefix) and (best is None or len(prefix) > best[0]):
+				best = (len(prefix), code)
+	return best[1] if best else None
+
+
+def _assign_amort_code(number):
+	"""Longest-prefix match on class-28/29 amort rules → Tableau 2 row code."""
+	best = None
+	for rule in ACTIF_RULES:
+		prefixes, _side, code, component = rule
+		if component != "amort":
+			continue
+		if not code.startswith("A") or code == "AZ":
+			continue
+		for prefix in prefixes:
+			if number.startswith(prefix) and (best is None or len(prefix) > best[0]):
+				best = (len(prefix), code)
+	return best[1] if best else None
+
+
+def compute_tafire(company, from_date, to_date, dividendes=0):
+	"""Compute TAFIRE (Tableau Financier des Ressources et des Emplois).
+
+	Returns a dict with:
+	- rows: list of row dicts {ref, libelle, emplois, ressources, bold, indent, section}
+	- cafg, af, xc (variation BFE), xd (ETE), fu, fv, fw (trésorerie): float
+	- warning_dividendes: True when dividendes=0 was assumed (not supplied)
+
+	dividendes — distributions versées durant l'exercice (ne figurent pas dans
+	le GL standard; passer la valeur explicitement ou laisser à 0).
+	"""
+	import datetime as _dt
+
+	# ── N statements ─────────────────────────────────────────────────────────
+	stmts_n = compute_statements(company, from_date, to_date)
+	r = stmts_n["resultat"]
+	an = stmts_n["actif_net"]
+	pn = stmts_n["passif"]
+
+	# ── N-1 balance sheet (cumulative au jour précédant from_date) ────────────
+	prev_date = getdate(from_date) - _dt.timedelta(days=1)
+	# We only need BS positions from N-1; passing prev_date as both from/to
+	# gives a correct cumulative BS and an empty single-day P&L (unused here).
+	stmts_n1 = compute_statements(company, prev_date, prev_date)
+	an1 = stmts_n1["actif_net"]
+	pn1 = stmts_n1["passif"]
+
+	# ── Period movements (hors écritures d'ouverture) ─────────────────────────
+	mv = get_period_movements(company, from_date, to_date)
+
+	# ── Partie 1 : CAFG ───────────────────────────────────────────────────────
+	ebe = r["TD"]
+	charges_dec = r["UB"] + r["VB"] + r["WA"] + r["WB"]
+	produits_enc = r["RJ"] + r["UA"] + r["VA"]
+	cafg = ebe - charges_dec + produits_enc
+	div = flt(dividendes)
+	af = cafg - div
+
+	# ── Partie 1 : Variation BFE ──────────────────────────────────────────────
+	variation_stocks = an["BA"] - an1["BA"]
+	variation_creances = (an["BB"] + an["BC"]) - (an1["BB"] + an1["BC"])
+	variation_dettes = (
+		(pn["EA"] + pn["EB"] + pn["EC"] + pn["ED"] + pn["EE"])
+		- (pn1["EA"] + pn1["EB"] + pn1["EC"] + pn1["ED"] + pn1["EE"])
+	)
+	xc = variation_stocks + variation_creances - variation_dettes
+
+	# ── Partie 1 : ETE ────────────────────────────────────────────────────────
+	production_immo = r["RF"]
+	xd = ebe - xc - production_immo
+
+	# ── Partie 2 : Investissements ────────────────────────────────────────────
+	def _net_mv(*prefixes):
+		d = _mv_debit(mv, *prefixes)
+		c = _mv_credit(mv, *prefixes)
+		return max(0.0, d - c), max(0.0, c - d)  # (emplois, ressources)
+
+	fa_e, fa_r = _net_mv("20")
+	fb_e, fb_r = _net_mv("21")
+	fc_e, fc_r = _net_mv("22", "23", "24", "25")
+	fd_e, fd_r = _net_mv("26", "27")
+	ff_e = fa_e + fb_e + fc_e + fd_e
+	ff_r = fa_r + fb_r + fc_r + fd_r
+
+	fg_e = max(0.0, xc)   # BFE augmente = emploi
+	fg_r = max(0.0, -xc)  # BFE diminue  = ressource
+	fh_e = ff_e + fg_e
+	fh_r = ff_r + fg_r
+
+	# HAO: non suivi automatiquement
+	fi_e = fi_r = 0.0
+
+	# Remboursements d'emprunts = débits sur 16x, 17x, 18x
+	fj_e = _mv_debit(mv, "16", "17", "18")
+	fj_r = 0.0
+	fk_e = fh_e + fi_e + fj_e
+	fk_r = fh_r + fi_r + fj_r
+
+	# ── Partie 3 : Financement ────────────────────────────────────────────────
+	fl_e = div + max(0.0, -cafg)  # dividendes + CAFG négatif
+	fl_r = max(0.0, cafg)
+
+	fm_e = 0.0
+	fm_r = _mv_credit(mv, "101", "102", "103", "104")
+
+	fn_e = 0.0
+	fn_r = _mv_credit(mv, "14")
+
+	fp_e = _mv_debit(mv, "10", "11", "12", "13")
+	fp_r = 0.0
+
+	# Nouveaux emprunts = crédits sur 16x, 17x, 18x
+	fq_e = 0.0
+	fq_r = _mv_credit(mv, "16", "17", "18")
+
+	fr_e = fr_r = 0.0  # autres dettes financières non ventilées
+
+	fs_e = fl_e + fp_e
+	fs_r = fl_r + fm_r + fn_r + fq_r + fr_r
+
+	ft_net = fs_r - fk_e  # excédent (+) ou insuffisance (−)
+	ft_e = max(0.0, -ft_net)
+	ft_r = max(0.0, ft_net)
+
+	# ── Trésorerie ────────────────────────────────────────────────────────────
+	fu = _tresorerie_nette(an, pn)
+	fv = _tresorerie_nette(an1, pn1)
+	fw = fu - fv
+
+	# ── Build rows ────────────────────────────────────────────────────────────
+	def _r(ref, label, emploi, res, is_total=False, section=""):
+		return {
+			"ref": ref, "libelle": label,
+			"emplois": flt(emploi), "ressources": flt(res),
+			"bold": 1 if is_total else 0,
+			"indent": 0 if is_total else 1,
+			"section": section,
+		}
+
+	rows = [
+		_r("",     _("PARTIE 1 — SOLDES FINANCIERS DE SYNTHÈSE"), 0, 0, True, "titre"),
+		_r("TD",   _("Excédent Brut d'Exploitation (EBE)"),
+		   max(0.0, -ebe), max(0.0, ebe), False, "cafg"),
+		_r("UB",   _("(-) Frais financiers et charges assimilées"),
+		   r["UB"], 0, False, "cafg"),
+		_r("VB",   _("(-) Charges HAO décaissables"), r["VB"], 0, False, "cafg"),
+		_r("WA",   _("(-) Participation des travailleurs"), r["WA"], 0, False, "cafg"),
+		_r("WB",   _("(-) Impôts sur le résultat"), r["WB"], 0, False, "cafg"),
+		_r("RJ",   _("(+) Transferts de charges d'exploitation"),
+		   0, r["RJ"], False, "cafg"),
+		_r("UA",   _("(+) Revenus financiers et produits assimilés"),
+		   0, r["UA"], False, "cafg"),
+		_r("VA",   _("(+) Produits HAO encaissables"), 0, r["VA"], False, "cafg"),
+		_r("CAFG", _("CAPACITÉ D'AUTOFINANCEMENT GLOBALE (CAFG)"),
+		   max(0.0, -cafg), max(0.0, cafg), True, "cafg"),
+		_r("DIV",  _("(-) Distributions de dividendes"), div, 0, False, "cafg"),
+		_r("AF",   _("AUTOFINANCEMENT (AF)"),
+		   max(0.0, -af), max(0.0, af), True, "cafg"),
+		# BFE
+		_r("EC",   _("Variation globale nette des stocks (N − N-1)"),
+		   max(0.0, variation_stocks), max(0.0, -variation_stocks), False, "bfe"),
+		_r("ED",   _("Variation globale nette des créances (N − N-1)"),
+		   max(0.0, variation_creances), max(0.0, -variation_creances), False, "bfe"),
+		_r("EF",   _("Variation globale nette des dettes (N − N-1)"),
+		   max(0.0, -variation_dettes), max(0.0, variation_dettes), False, "bfe"),
+		_r("XC",   _("VARIATION DU B.F.E."),
+		   max(0.0, xc), max(0.0, -xc), True, "bfe"),
+		# ETE
+		_r("TQ",   _("Excédent Brut d'Exploitation (rappel)"),
+		   max(0.0, -ebe), max(0.0, ebe), False, "ete"),
+		_r("TR",   _("(-/+) Variation du B.F.E."),
+		   max(0.0, xc), max(0.0, -xc), False, "ete"),
+		_r("TF",   _("(-) Production immobilisée"), production_immo, 0, False, "ete"),
+		_r("XD",   _("EXCÉDENT DE TRÉSORERIE D'EXPLOITATION (ETE)"),
+		   max(0.0, -xd), max(0.0, xd), True, "ete"),
+		# Partie 2
+		_r("",     _("PARTIE 2 — TABLEAU EMPLOIS / RESSOURCES"), 0, 0, True, "titre"),
+		_r("FA",   _("I. Charges immobilisées"), fa_e, fa_r, False, "invest"),
+		_r("FB",   _("I. Immobilisations incorporelles"), fb_e, fb_r, False, "invest"),
+		_r("FC",   _("I. Immobilisations corporelles"), fc_e, fc_r, False, "invest"),
+		_r("FD",   _("I. Immobilisations financières"), fd_e, fd_r, False, "invest"),
+		_r("FF",   _("INVESTISSEMENT TOTAL (I)"), ff_e, ff_r, True, "invest"),
+		_r("FG",   _("II. Variation du BFE"), fg_e, fg_r, False, "invest"),
+		_r("FH",   _("A — EMPLOIS ÉCONOMIQUES (FF + II)"), fh_e, fh_r, True, "invest"),
+		_r("FI",   _("III. Emplois / Ressources HAO"), fi_e, fi_r, False, "invest"),
+		_r("FJ",   _("IV. Remboursements d'emprunts et dettes financières"),
+		   fj_e, fj_r, False, "invest"),
+		_r("FK",   _("B — EMPLOIS TOTAUX À FINANCER (A + III + IV)"),
+		   fk_e, fk_r, True, "invest"),
+		_r("FL",   _("V. Dividendes / CAFG"), fl_e, fl_r, False, "fin"),
+		_r("FM",   _("VI. Augmentations de capital par apports nouveaux"),
+		   fm_e, fm_r, False, "fin"),
+		_r("FN",   _("VI. Subventions d'investissement"), fn_e, fn_r, False, "fin"),
+		_r("FP",   _("VI. Prélèvements sur le capital"), fp_e, fp_r, False, "fin"),
+		_r("FQ",   _("VII. Emprunts nouveaux"), fq_e, fq_r, False, "fin"),
+		_r("FR",   _("VII. Autres dettes financières"), fr_e, fr_r, False, "fin"),
+		_r("FS",   _("C — RESSOURCES NETTES DE FINANCEMENT"),
+		   fs_e, fs_r, True, "fin"),
+		_r("FT",   _("D — EXCÉDENT (+) / INSUFFISANCE (−) DE RESSOURCES (C − B)"),
+		   ft_e, ft_r, True, "fin"),
+		# Trésorerie
+		_r("FU",   _("Trésorerie nette à la clôture"), 0, fu, False, "treso"),
+		_r("FV",   _("Trésorerie nette à l'ouverture"), 0, fv, False, "treso"),
+		_r("FW",   _("VARIATION DE LA TRÉSORERIE (FU − FV)"),
+		   max(0.0, -fw), max(0.0, fw), True, "treso"),
+	]
+
+	return {
+		"rows": rows,
+		"cafg": cafg,
+		"af": af,
+		"xc": xc,
+		"xd": xd,
+		"fu": fu,
+		"fv": fv,
+		"fw": fw,
+		"warning_dividendes": div == 0,
+	}
+
+
+# ---------------------------------------------------------------------------
+# Tableau 1 — Mouvements des immobilisations brutes (comptes classe 2)
+# ---------------------------------------------------------------------------
+
+def compute_tableau1(company, from_date, to_date):
+	"""Tableau 1 — Actif immobilisé brut.
+
+	Ouverture (A)       = solde cumulatif au jour précédant from_date
+	Acquisitions (B)    = débits de la période hors écritures d'ouverture
+	Cessions/sorties (C)= crédits de la période hors écritures d'ouverture
+	Clôture (D = A+B−C) = contrôlé contre le solde de fin de période
+	"""
+	import datetime as _dt
+
+	prev_date = getdate(from_date) - _dt.timedelta(days=1)
+	cumul_opening, _unnumbered = get_account_balances(company, prev_date)
+	mv = get_period_movements(company, from_date, to_date)
+
+	codes_order = ["AA", "AB", "AC", "AD", "AE", "AF", "AG", "AH"]
+	labels = {code: label for code, label, *_rest in ACTIF_LINES if code in codes_order}
+	data = {code: {"a": 0.0, "b": 0.0, "c": 0.0} for code in codes_order}
+
+	for number, balance in cumul_opening.items():
+		code = _assign_immo_code(number)
+		if code:
+			data[code]["a"] += max(0.0, balance)  # immos = débiteurs
+
+	for number, mv_row in mv.items():
+		code = _assign_immo_code(number)
+		if code:
+			data[code]["b"] += mv_row["debit"]
+			data[code]["c"] += mv_row["credit"]
+
+	rows = []
+	tot = {"a": 0.0, "b": 0.0, "c": 0.0}
+	for code in codes_order:
+		d = data[code]
+		cloture = d["a"] + d["b"] - d["c"]
+		rows.append({
+			"ref": code, "libelle": labels.get(code, code),
+			"bold": 0, "indent": 1,
+			"ouverture": flt(d["a"]),
+			"acquisitions": flt(d["b"]),
+			"cessions": flt(d["c"]),
+			"cloture": flt(cloture),
+		})
+		for k in ("a", "b", "c"):
+			tot[k] += d[k]
+
+	rows.append({
+		"ref": "AZ", "libelle": _("TOTAL ACTIF IMMOBILISÉ"),
+		"bold": 1, "indent": 0,
+		"ouverture": flt(tot["a"]),
+		"acquisitions": flt(tot["b"]),
+		"cessions": flt(tot["c"]),
+		"cloture": flt(tot["a"] + tot["b"] - tot["c"]),
+	})
+	return rows
+
+
+# ---------------------------------------------------------------------------
+# Tableau 2 — Mouvements des amortissements et dépréciations (comptes 28x/29x)
+# ---------------------------------------------------------------------------
+
+def compute_tableau2(company, from_date, to_date):
+	"""Tableau 2 — Amortissements et dépréciations cumulés.
+
+	Cumul ouverture (A) = solde créditeur cumulatif au jour précédant from_date
+	Dotations (B)       = crédits sur 28x/29x en cours d'exercice (hors AN)
+	Sorties (C)         = débits sur 28x/29x (extourne sur actifs cédés)
+	Cumul clôture (D = A+B−C)
+	"""
+	import datetime as _dt
+
+	prev_date = getdate(from_date) - _dt.timedelta(days=1)
+	cumul_opening, _unnumbered = get_account_balances(company, prev_date)
+	mv = get_period_movements(company, from_date, to_date)
+
+	codes_order = ["AA", "AB", "AC", "AD", "AE", "AF", "AG", "AH"]
+	labels = {code: label for code, label, *_rest in ACTIF_LINES if code in codes_order}
+	data = {code: {"a": 0.0, "b": 0.0, "c": 0.0} for code in codes_order}
+
+	# Opening: 28x/29x ont un solde créditeur → balance = débit - crédit < 0
+	for number, balance in cumul_opening.items():
+		code = _assign_amort_code(number)
+		if code:
+			data[code]["a"] += max(0.0, -balance)  # valeur absolue du crédit
+
+	for number, mv_row in mv.items():
+		code = _assign_amort_code(number)
+		if code:
+			data[code]["b"] += mv_row["credit"]  # nouvelles dotations → 681x / 28x
+			data[code]["c"] += mv_row["debit"]   # extournes sur cessions → 28x / 81x
+
+	rows = []
+	tot = {"a": 0.0, "b": 0.0, "c": 0.0}
+	for code in codes_order:
+		d = data[code]
+		cloture = d["a"] + d["b"] - d["c"]
+		rows.append({
+			"ref": code,
+			"libelle": _("{0} — amortissements").format(labels.get(code, code)),
+			"bold": 0, "indent": 1,
+			"cumul_ouverture": flt(d["a"]),
+			"dotations": flt(d["b"]),
+			"sorties": flt(d["c"]),
+			"cumul_cloture": flt(cloture),
+		})
+		for k in ("a", "b", "c"):
+			tot[k] += d[k]
+
+	rows.append({
+		"ref": "AZ", "libelle": _("TOTAL AMORTISSEMENTS ET DÉPRÉCIATIONS"),
+		"bold": 1, "indent": 0,
+		"cumul_ouverture": flt(tot["a"]),
+		"dotations": flt(tot["b"]),
+		"sorties": flt(tot["c"]),
+		"cumul_cloture": flt(tot["a"] + tot["b"] - tot["c"]),
+	})
+	return rows

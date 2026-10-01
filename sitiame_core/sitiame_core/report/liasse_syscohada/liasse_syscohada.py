@@ -12,11 +12,21 @@ from sitiame_core.syscohada_statements import (
 	RESULTAT_RULES,
 	RESULTAT_TOTALS,
 	compute_statements,
+	compute_tafire,
+	compute_tableau1,
+	compute_tableau2,
 	fiscal_year_dates,
 	previous_fiscal_year,
 )
 
-STATEMENTS = ("Bilan actif", "Bilan passif", "Compte de résultat")
+STATEMENTS = (
+	"Bilan actif",
+	"Bilan passif",
+	"Compte de résultat",
+	"TAFIRE",
+	"Tableau 1 — Actif immobilisé",
+	"Tableau 2 — Amortissements",
+)
 
 
 def execute(filters=None):
@@ -41,6 +51,13 @@ def execute(filters=None):
 		columns, data = _actif(current, previous)
 	elif statement == "Bilan passif":
 		columns, data = _passif(current, previous)
+	elif statement == "TAFIRE":
+		dividendes = flt(filters.get("dividendes") or 0)
+		columns, data = _tafire(filters.company, start, end, dividendes)
+	elif statement == "Tableau 1 — Actif immobilisé":
+		columns, data = _tableau1(filters.company, start, end)
+	elif statement == "Tableau 2 — Amortissements":
+		columns, data = _tableau2(filters.company, start, end)
 	else:
 		columns, data = _resultat(current, previous)
 
@@ -149,3 +166,58 @@ def _message(current):
 			_("Comptes sans numéro, ignorés : {0}").format(", ".join(current["unnumbered"]))
 		)
 	return "<br>".join(frappe.utils.escape_html(n) for n in notes) or None
+
+
+def _tafire(company, from_date, to_date, dividendes=0):
+	"""Render columns + rows for the TAFIRE report."""
+	columns = _ref_columns() + [
+		_money("emplois", _("Emplois")),
+		_money("ressources", _("Ressources")),
+	]
+	result = compute_tafire(company, from_date, to_date, dividendes=dividendes)
+	rows = result["rows"]
+	if result["warning_dividendes"]:
+		# Inject a warning row after DIV line
+		for i, row in enumerate(rows):
+			if row["ref"] == "DIV":
+				rows.insert(
+					i + 1,
+					{
+						"ref": "",
+						"libelle": _(
+							"⚠ Dividendes non renseignés (supposés 0). "
+							"Passez le filtre « Dividendes » pour affiner."
+						),
+						"emplois": 0,
+						"ressources": 0,
+						"bold": 0,
+						"indent": 2,
+						"section": "note",
+					},
+				)
+				break
+	return columns, rows
+
+
+def _tableau1(company, from_date, to_date):
+	"""Render columns + rows for Tableau 1 — Actif immobilisé."""
+	columns = _ref_columns() + [
+		_money("ouverture", _("Montant brut ouverture")),
+		_money("acquisitions", _("Acquisitions")),
+		_money("cessions", _("Cessions / sorties")),
+		_money("cloture", _("Montant brut clôture")),
+	]
+	data = compute_tableau1(company, from_date, to_date)
+	return columns, data
+
+
+def _tableau2(company, from_date, to_date):
+	"""Render columns + rows for Tableau 2 — Amortissements."""
+	columns = _ref_columns() + [
+		_money("cumul_ouverture", _("Cumul amort. ouverture")),
+		_money("dotations", _("Dotations de l'exercice")),
+		_money("sorties", _("Amort. sur éléments sortis")),
+		_money("cumul_cloture", _("Cumul amort. clôture")),
+	]
+	data = compute_tableau2(company, from_date, to_date)
+	return columns, data
