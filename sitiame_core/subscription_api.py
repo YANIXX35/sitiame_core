@@ -23,12 +23,16 @@ SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
 PENDING_EXPIRES_AFTER_DAYS = 7
 
 # Monthly price in FCFA. site_config "sitiame_subscription_amount" overrides
-# it, e.g. 20 for a real low-cost payment test (Jèko has no sandbox).
+# it, e.g. for a real low-cost payment test (Jèko has no sandbox).
 SUBSCRIPTION_AMOUNT = 15000
+# Hard floor: a misconfigured site_config (e.g. leftover test value of 20)
+# must never activate a real subscription for less than this amount.
+SUBSCRIPTION_AMOUNT_FLOOR = 1000
 
 
 def subscription_amount():
-	return int(frappe.conf.get("sitiame_subscription_amount") or SUBSCRIPTION_AMOUNT)
+	raw = int(frappe.conf.get("sitiame_subscription_amount") or SUBSCRIPTION_AMOUNT)
+	return max(SUBSCRIPTION_AMOUNT_FLOOR, raw)
 
 # Subscription Payment.payment_provider. Older payments (empty provider)
 # came from a previous provider and are no longer queried.
@@ -465,6 +469,19 @@ def jeko_subscription_webhook():
 	Jeko-Signature = HMAC-SHA256 of the raw body. Answers fast (Jèko waits 5
 	s): the signed body is trusted, no call back to Jèko. Transactions of
 	other stores or products are acknowledged and ignored."""
+	# Optional IP allowlist: set "jeko_allowed_ips": ["x.x.x.x", ...] in
+	# site_config.json to restrict this endpoint to Jèko's servers.
+	allowed_ips = frappe.conf.get("jeko_allowed_ips")
+	if allowed_ips:
+		client_ip = (
+			frappe.get_request_header("X-Real-IP")
+			or frappe.get_request_header("X-Forwarded-For", "").split(",")[0].strip()
+			or (frappe.request.remote_addr if frappe.request else "")
+		)
+		if client_ip not in allowed_ips:
+			frappe.log_error(title="Jèko webhook: IP non autorisée", message=f"IP: {client_ip!r}")
+			frappe.response["http_status_code"] = 403
+			return {"status": "forbidden"}
 	raw_body = frappe.request.get_data() if frappe.request else b""
 	if not jeko_client.valid_signature(raw_body, frappe.get_request_header("Jeko-Signature")):
 		frappe.log_error(title="Jèko webhook: signature invalide", message=(raw_body or b"")[:500])

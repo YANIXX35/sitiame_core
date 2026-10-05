@@ -52,8 +52,8 @@ _SIGNUP_CAPTCHA_TTL = 600  # 10 minutes
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=20, seconds=3600)
 def get_signup_captcha():
-	a = random.randint(2, 9)
-	b = random.randint(2, 9)
+	a = random.randint(2, 25)
+	b = random.randint(2, 25)
 	token = frappe.generate_hash(length=20)
 	frappe.cache().set_value(
 		_SIGNUP_CAPTCHA_CACHE_PREFIX + token, a + b, expires_in_sec=_SIGNUP_CAPTCHA_TTL
@@ -600,16 +600,14 @@ def get_company_signup_status(token):
 		return {"status": "not_found"}
 
 	if progress["status"] == "success":
-		# Deliberately NOT deleted here: if this response is lost in transit
-		# (dropped connection, browser tab backgrounded, a proxy retry that
-		# raced two identical requests -- observed directly during testing on
-		# 2026-09-23, where the second of two near-simultaneous polls saw
-		# not_found because the first had already deleted the key), the
-		# browser's next poll must still be able to see "success" and log
-		# in. login_as() is idempotent, so re-running it on a later poll is
-		# harmless. The 15-minute TTL on the cache entry is what eventually
-		# cleans this up, not an explicit delete.
-		frappe.local.login_manager.login_as(progress["email"])
+		# NOT deleted here: if this response is lost in transit, the browser's
+		# next poll must still see "success" (race observed 2026-09-23).
+		# The 15-minute TTL cleans it up. The auto_logged_in flag prevents
+		# the token from being replayed to log in a second session.
+		if not progress.get("auto_logged_in"):
+			frappe.local.login_manager.login_as(progress["email"])
+			progress["auto_logged_in"] = True
+			_set_company_signup_progress(token, progress)
 		return {"status": "success", "redirect": "/app"}
 
 	if progress["status"] == "failed":
@@ -1782,7 +1780,7 @@ def register_pme_from_erpnext(name, email, company_name, phone=None, password=No
 		pme360_data = _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
 		# Always return the email and password we used: PME360's response may
 		# omit the password, which would leave the admin form showing nothing.
-		return {"email": email, "password": password, **(pme360_data or {})}
+		return {"email": email, **(pme360_data or {})}
 	except Exception:
 		portfolio.forget_pending_pme(email)
 		frappe.db.commit()

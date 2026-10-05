@@ -243,8 +243,12 @@ def test_failed_payment_is_marked_failed(webhook):
 def test_price_defaults_to_15000_and_site_config_overrides_it(monkeypatch):
 	monkeypatch.setattr(frappe, "conf", frappe._dict(), raising=False)
 	assert sa.subscription_amount() == 15000
+	# A legitimate override above the floor passes through unchanged.
+	monkeypatch.setattr(frappe, "conf", frappe._dict(sitiame_subscription_amount="5000"), raising=False)
+	assert sa.subscription_amount() == 5000
+	# A dangerously low value (e.g. leftover test config) is clamped to the floor.
 	monkeypatch.setattr(frappe, "conf", frappe._dict(sitiame_subscription_amount="20"), raising=False)
-	assert sa.subscription_amount() == 20
+	assert sa.subscription_amount() == sa.SUBSCRIPTION_AMOUNT_FLOOR
 
 
 def test_link_below_jekos_minimum_is_refused_clearly(jeko, monkeypatch):
