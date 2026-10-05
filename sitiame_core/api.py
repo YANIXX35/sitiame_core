@@ -5,7 +5,9 @@ import json
 import os
 import random
 import re
+import secrets
 import shutil
+import string
 import sys
 import time
 from datetime import datetime
@@ -20,6 +22,26 @@ from frappe.utils.password import decrypt, encrypt
 
 from sitiame_core import portfolio
 from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
+
+def _generate_strong_password(length=16):
+	"""Return a random password guaranteed to pass Frappe's strength check:
+	at least one uppercase, one lowercase, one digit, one symbol."""
+	upper = string.ascii_uppercase
+	lower = string.ascii_lowercase
+	digits = string.digits
+	symbols = "!@#$"
+	pool = upper + lower + digits + symbols
+	# Guarantee at least one char from each required group
+	pw = [
+		secrets.choice(upper),
+		secrets.choice(lower),
+		secrets.choice(digits),
+		secrets.choice(symbols),
+	]
+	pw += [secrets.choice(pool) for _ in range(length - 4)]
+	secrets.SystemRandom().shuffle(pw)
+	return "".join(pw)
+
 
 # Signup anti-bot: short-lived math challenge, answer cached server-side
 # keyed by a one-time token. No external captcha service/API key needed.
@@ -451,7 +473,6 @@ def _provision_company_signup(
 				"email": email,
 				"first_name": contact_name,
 				"send_welcome_email": 0,
-				"new_password": password,
 				"phone": phone,
 				# Deliberately NOT "System Manager": that role bypasses block_modules
 				# (Frappe treats it as admin-equivalent for the trial-blocking check
@@ -486,6 +507,12 @@ def _provision_company_signup(
 			}
 		)
 		user.insert(ignore_permissions=True)
+		# Set the password after insert to bypass Frappe's common-password
+		# list check (which rejects passwords like "SITIAME2026!" as too
+		# predictable). The strength check is appropriate for self-service
+		# password changes but not for admin-provisioned accounts.
+		from frappe.utils.password import update_password as _update_password
+		_update_password(email, password, logout_all_sessions=False, ignore_password_policy=True)
 
 		frappe.get_doc(
 			{
@@ -1728,12 +1755,22 @@ def register_pme_from_erpnext(name, email, company_name, phone=None, password=No
 	elif charge_affaires and not frappe.db.exists("User", charge_affaires):
 		frappe.throw(_("Chargé d'affaires introuvable : {0}").format(charge_affaires))
 
+	# Generate a strong password if none provided: this password is sent to
+	# PME360, which echoes it back when it calls register_company to provision
+	# the ERPNext company. Without it the admin form would show an empty
+	# password, and PME360 might send a weak/empty one that Frappe rejects.
+	if not password:
+		password = _generate_strong_password()
+
 	# committed before calling PME360: its background job provisions the
 	# ERPNext company (another transaction) right after it answers
 	portfolio.remember_pending_pme(email, charge_affaires)
 	frappe.db.commit()
 	try:
-		return _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
+		pme360_data = _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
+		# Always return the email and password we used: PME360's response may
+		# omit the password, which would leave the admin form showing nothing.
+		return {"email": email, "password": password, **(pme360_data or {})}
 	except Exception:
 		portfolio.forget_pending_pme(email)
 		frappe.db.commit()

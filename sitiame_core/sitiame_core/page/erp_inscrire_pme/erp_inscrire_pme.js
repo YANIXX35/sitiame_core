@@ -31,7 +31,7 @@ frappe.pages["erp-inscrire-pme"].on_page_load = function (wrapper) {
 			"<div class='col-sm-6'><label class='control-label'>" + __("Ville") + "</label>" +
 			"<input class='form-control pme-city'></div>" +
 			"<div class='col-sm-6'><label class='control-label'>" + __("Mot de passe (optionnel)") + "</label>" +
-			"<input type='password' class='form-control pme-password' placeholder='" + __("défaut : SITIAME2026!") + "'></div>" +
+			"<input type='password' class='form-control pme-password' placeholder='" + __("vide = généré automatiquement") + "'></div>" +
 			"</div>" +
 			"<div class='pme-charge-affaires' style='margin-top:10px;'></div>" +
 			"<button class='btn btn-primary pme-submit' style='margin-top:18px;'>" + __("Inscrire la PME") + "</button>" +
