@@ -246,7 +246,7 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		var successBox = document.getElementById("signup-success");
 		var submitBtn = document.getElementById("signup-submit");
 		var attempts = 0;
-		var maxAttempts = 60; // ~2 minutes at 2s intervals
+		var maxAttempts = 120; // ~4 minutes at 2s intervals (SYSCOHADA chart ~1370 accounts takes 45–90s)
 		// A "not_found" read can happen as a transient blip right around job
 		// completion (observed directly during testing, 2026-09-23) even
 		// though the account was created successfully -- treating a single
@@ -300,7 +300,7 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 					if (attempts >= maxAttempts) {
 						clearInterval(interval);
 						successBox.style.display = "none";
-						errorBox.textContent = "La creation prend plus de temps que prevu. Contactez-nous si le probleme persiste.";
+						errorBox.textContent = "La creation prend plus de temps que prevu. Votre compte est probablement cree : essayez de vous connecter avec votre email et mot de passe. Si ca ne fonctionne pas, contactez-nous.";
 						errorBox.style.display = "block";
 						submitBtn.disabled = false;
 						submitBtn.textContent = "Créer mon compte";
