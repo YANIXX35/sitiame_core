@@ -553,13 +553,24 @@ def _provision_company_signup(
 
 		frappe.db.commit()
 		_set_company_signup_progress(token, {"status": "success", "email": email})
+	except frappe.DuplicateEntryError:
+		# In Frappe 16, DuplicateEntryError inherits from NameError (not
+		# ValidationError), so it does not fall into the block below. Catch
+		# it explicitly to give a clear message instead of the generic one.
+		frappe.db.rollback()
+		_set_company_signup_progress(
+			token,
+			{
+				"status": "failed",
+				"email": email,
+				"message": _("Ce nom de societe est deja utilise. Veuillez en choisir un autre."),
+			},
+		)
 	except frappe.ValidationError as e:
-		# A ValidationError (weak password, duplicate name, ...) is a user
-		# mistake: send the human-readable message back instead of the generic
-		# "please try again", so the user can fix it and resubmit immediately.
+		# A ValidationError is a user mistake: send the human-readable message
+		# back instead of the generic "please try again".
 		frappe.db.rollback()
 		import re as _re
-		# Strip HTML tags from Frappe's formatted messages (e.g. password strength)
 		clean = _re.sub(r"<[^>]+>", " ", str(e)).strip()
 		clean = _re.sub(r"\s+", " ", clean)
 		_set_company_signup_progress(
