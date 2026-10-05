@@ -507,12 +507,13 @@ def _provision_company_signup(
 			}
 		)
 		user.insert(ignore_permissions=True)
-		# Set the password after insert to bypass Frappe's common-password
-		# list check (which rejects passwords like "SITIAME2026!" as too
-		# predictable). The strength check is appropriate for self-service
-		# password changes but not for admin-provisioned accounts.
+		# Set the password via update_password instead of new_password on the
+		# User doc: new_password goes through User.before_save() which calls
+		# check_password_strength() and rejects common passwords (including
+		# "SITIAME2026!"). update_password writes directly to __Auth and
+		# bypasses that check, which is correct for admin-provisioned accounts.
 		from frappe.utils.password import update_password as _update_password
-		_update_password(email, password, logout_all_sessions=False, ignore_password_policy=True)
+		_update_password(email, password, logout_all_sessions=False)
 
 		frappe.get_doc(
 			{
