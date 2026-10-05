@@ -29,6 +29,16 @@
 	.signup-consent { display: flex; align-items: flex-start; gap: .5rem; margin-top: 1rem; font-size: .85rem; color: #333; }
 	.signup-consent input { margin-top: .2rem; }
 	#captcha-question { font-weight: 600; }
+	/* Progress indicator during background provisioning */
+	.signup-progress { margin-top: .5rem; }
+	.signup-progress-bar-wrap { background: #e0e4f7; border-radius: 8px; height: 8px; overflow: hidden; margin: .5rem 0; }
+	.signup-progress-bar { background: #05157c; height: 100%; border-radius: 8px; width: 5%;
+		transition: width 3s ease; }
+	.signup-progress-step { font-size: .82rem; color: #444; margin-top: .25rem; min-height: 1.2em; }
+	@keyframes spin { to { transform: rotate(360deg); } }
+	.signup-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #c3caeb;
+		border-top-color: #05157c; border-radius: 50%; animation: spin .8s linear infinite;
+		vertical-align: middle; margin-right: .4rem; }
 </style>
 
 <div class="signup-wrap">
@@ -124,7 +134,15 @@
 
 		<button type="submit" id="signup-submit">Créer mon compte</button>
 		<div id="signup-error"></div>
-		<div id="signup-success">Compte créé, connexion en cours...</div>
+		<div id="signup-success">
+			<span id="signup-success-msg"></span>
+			<div class="signup-progress" id="signup-progress" style="display:none;">
+				<div class="signup-progress-bar-wrap">
+					<div class="signup-progress-bar" id="signup-progress-bar"></div>
+				</div>
+				<div class="signup-progress-step" id="signup-progress-step"></div>
+			</div>
+		</div>
 	</form>
 </div>
 
@@ -221,7 +239,10 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		})
 		.then(function (result) {
 			if (result.ok && result.data.message && result.data.message.pending && result.data.message.token) {
-				successBox.textContent = "Compte en cours de creation (environ 1 minute)...";
+				document.getElementById("signup-success-msg").innerHTML =
+					'<span class="signup-spinner"></span>Création en cours (1 à 3 minutes)...';
+				document.getElementById("signup-progress").style.display = "block";
+				document.getElementById("signup-progress-step").textContent = "Initialisation du compte...";
 				successBox.style.display = "block";
 				pollSignupStatus(result.data.message.token);
 			} else {
@@ -242,22 +263,48 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 		});
 
 	function pollSignupStatus(token) {
-		var errorBox = document.getElementById("signup-error");
+		var errorBox   = document.getElementById("signup-error");
 		var successBox = document.getElementById("signup-success");
-		var submitBtn = document.getElementById("signup-submit");
+		var submitBtn  = document.getElementById("signup-submit");
+		var progressBar  = document.getElementById("signup-progress-bar");
+		var progressStep = document.getElementById("signup-progress-step");
+
 		var attempts = 0;
-		var maxAttempts = 120; // ~4 minutes at 2s intervals (SYSCOHADA chart ~1370 accounts takes 45–90s)
-		// A "not_found" read can happen as a transient blip right around job
-		// completion (observed directly during testing, 2026-09-23) even
-		// though the account was created successfully -- treating a single
-		// occurrence as final would wrongly tell a real user their signup
-		// failed. Only give up after several IN A ROW; an explicit "failed"
-		// from the backend (a real provisioning error) still stops right away.
+		var maxAttempts = 120; // ~4 min — SYSCOHADA (1 370 comptes) peut prendre 60-90 s
 		var consecutiveNotFound = 0;
-		var maxConsecutiveNotFound = 3;
+		var maxConsecutiveNotFound = 10; // 20 s de tolérance avant de considérer le token perdu
+
+		// Messages qui évoluent selon le temps écoulé (toutes les 2 s × tentatives)
+		var steps = [
+			{ after:  0, pct:  5, msg: "Création de l'utilisateur..." },
+			{ after:  5, pct: 15, msg: "Création de la société..." },
+			{ after: 10, pct: 30, msg: "Import du plan comptable SYSCOHADA (1 370 comptes)..." },
+			{ after: 25, pct: 50, msg: "Import du plan comptable en cours..." },
+			{ after: 40, pct: 65, msg: "Encore quelques instants..." },
+			{ after: 60, pct: 78, msg: "Finalisation des paramètres..." },
+			{ after: 80, pct: 88, msg: "Presque terminé..." },
+		];
+
+		function updateProgress(attempts) {
+			var elapsed = attempts; // 1 unité = 2 s
+			var current = steps[0];
+			for (var i = 0; i < steps.length; i++) {
+				if (elapsed >= steps[i].after) current = steps[i];
+			}
+			progressBar.style.width = current.pct + "%";
+			progressStep.textContent = current.msg;
+		}
+
+		function resetForm() {
+			successBox.style.display = "none";
+			submitBtn.disabled = false;
+			submitBtn.textContent = "Créer mon compte";
+		}
 
 		var interval = setInterval(function () {
 			attempts += 1;
+			updateProgress(attempts);
+
 			fetch("/api/method/sitiame_core.api.get_company_signup_status?token=" + encodeURIComponent(token))
 				.then(function (res) { return res.json(); })
 				.then(function (result) {
@@ -265,55 +312,52 @@ document.getElementById("signup-form").addEventListener("submit", function (e) {
 
 					if (status === "success") {
 						clearInterval(interval);
-						successBox.textContent = "Compte cree, connexion en cours...";
+						progressBar.style.width = "100%";
+						progressStep.textContent = "Compte créé !";
+						document.getElementById("signup-success-msg").textContent = "Compte créé, connexion en cours...";
 						window.location.href = result.message.redirect || "/app";
 						return;
 					}
 
 					if (status === "failed") {
 						clearInterval(interval);
-						successBox.style.display = "none";
+						resetForm();
 						errorBox.textContent = (result.message && result.message.message) ||
-							"La creation de votre compte a echoue. Veuillez reessayer ou nous contacter.";
+							"La création de votre compte a échoué. Veuillez réessayer ou nous contacter.";
 						errorBox.style.display = "block";
-						submitBtn.disabled = false;
-						submitBtn.textContent = "Créer mon compte";
 						loadCaptcha();
 						return;
 					}
 
 					if (status === "not_found") {
 						consecutiveNotFound += 1;
+						// Après 20 s sans token Redis : le job n'a peut-être pas encore démarré.
+						// On affiche un message rassurant (essayez de vous connecter) au lieu
+						// d'un "échec" qui affolera un utilisateur dont le compte a bien été créé.
 						if (consecutiveNotFound >= maxConsecutiveNotFound) {
 							clearInterval(interval);
-							successBox.style.display = "none";
-							errorBox.textContent = "La creation de votre compte a echoue. Veuillez reessayer ou nous contacter.";
+							resetForm();
+							errorBox.textContent = "Votre compte est probablement créé : essayez de vous connecter avec votre email et mot de passe. Si cela ne fonctionne pas, contactez-nous.";
 							errorBox.style.display = "block";
-							submitBtn.disabled = false;
-							submitBtn.textContent = "Créer mon compte";
-							loadCaptcha();
 						}
 						return;
 					}
+
 					consecutiveNotFound = 0;
 
 					if (attempts >= maxAttempts) {
 						clearInterval(interval);
-						successBox.style.display = "none";
-						errorBox.textContent = "La creation prend plus de temps que prevu. Votre compte est probablement cree : essayez de vous connecter avec votre email et mot de passe. Si ca ne fonctionne pas, contactez-nous.";
+						resetForm();
+						errorBox.textContent = "La création prend plus de temps que prévu. Votre compte est probablement créé : essayez de vous connecter avec votre email et mot de passe. Si cela ne fonctionne pas, contactez-nous.";
 						errorBox.style.display = "block";
-						submitBtn.disabled = false;
-						submitBtn.textContent = "Créer mon compte";
 					}
 				})
 				.catch(function () {
 					if (attempts >= maxAttempts) {
 						clearInterval(interval);
-						successBox.style.display = "none";
+						resetForm();
 						errorBox.textContent = "Impossible de contacter le serveur, veuillez réessayer.";
 						errorBox.style.display = "block";
-						submitBtn.disabled = false;
-						submitBtn.textContent = "Créer mon compte";
 					}
 				});
 		}, 2000);
