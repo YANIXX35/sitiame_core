@@ -61,10 +61,29 @@ def create_company_fields():
 
 
 def company_of(user):
-	"""The PME company of `user` (its Company User Permission), or None."""
+	"""The PME company of `user` (its Company User Permission), or None.
+
+	Excludes empty for_value rows (a malformed permission that would otherwise
+	propagate NULL into every document the user saves).  Logs a warning when
+	the user has more than one Company permission -- first created wins, but
+	the anomaly should be investigated.
+	"""
 	if not user:
 		return None
-	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
+	rows = frappe.get_all(
+		"User Permission",
+		filters={"user": user, "allow": "Company", "for_value": ["!=", ""]},
+		pluck="for_value",
+		order_by="creation asc",
+	)
+	if not rows:
+		return None
+	if len(rows) > 1:
+		frappe.log_error(
+			title="party_isolation: multiple Company permissions",
+			message=f"User {user!r} has {len(rows)} Company User Permissions: {rows}. First used.",
+		)
+	return rows[0]
 
 
 def _linked_party_company(doc):
@@ -109,21 +128,40 @@ def set_company(doc, method=None):
 		doc.set(COMPANY_FIELD, company)
 
 
+def protect_company(doc, method=None):
+	"""before_save: silently restores the company field if a PME tries to
+	re-assign an existing record to another tenant.  The field is set once on
+	creation (set_company / before_insert) and must never change after that.
+	On a new insert frappe.db.get_value returns None, so nothing happens.
+	"""
+	if not _has_field(doc.doctype):
+		return
+	original = frappe.db.get_value(doc.doctype, doc.name, COMPANY_FIELD)
+	if original and doc.get(COMPANY_FIELD) != original:
+		doc.set(COMPANY_FIELD, original)
+
+
 def attach_user_contacts(doc, method=None):
 	"""User Permission after_insert: a PME user's own Contact is created
 	with the User, before this permission exists -- it joins the PME's
 	company now."""
-	if doc.allow != "Company" or not doc.user or not _has_field("Contact"):
+	if doc.allow != "Company" or not doc.user or not doc.for_value or not _has_field("Contact"):
 		return
 	for name in frappe.get_all("Contact", filters={"user": doc.user}, pluck="name"):
 		frappe.db.set_value("Contact", name, COMPANY_FIELD, doc.for_value, update_modified=False)
 
 
-def own_party_filters():
+def own_party_filters(doctype=None):
 	"""For lookups that bypass permissions (OCR party matching): a PME only
-	matches its own parties. Staff lookups are unchanged."""
+	matches its own parties. Staff lookups are unchanged.
+
+	Pass `doctype` so the check uses the actual target doctype instead of
+	always probing Customer -- a partial migration (Customer field present,
+	Supplier not yet) would otherwise inject a filter on a missing column.
+	"""
 	company = company_of(frappe.session.user)
-	if company and _has_field("Customer"):
+	check_doctype = doctype or "Customer"
+	if company and _has_field(check_doctype):
 		return {COMPANY_FIELD: company}
 	return {}
 
@@ -135,7 +173,13 @@ def backfill_plan():
 	used by SITIAME only -- measured 2026-10-01)."""
 	pme_company = {}
 	for row in frappe.get_all("User Permission", filters={"allow": "Company"}, fields=["user", "for_value"], order_by="creation asc"):
-		pme_company.setdefault(row.user, row.for_value)
+		if row.user in pme_company:
+			frappe.log_error(
+				title="party_isolation backfill: duplicate Company permission",
+				message=f"User {row.user!r} already mapped to {pme_company[row.user]!r}; skipping {row.for_value!r}.",
+			)
+		else:
+			pme_company[row.user] = row.for_value
 
 	plan = []
 	for doctype in PARTY_DOCTYPES:
@@ -150,4 +194,5 @@ def backfill(dry_run=True):
 	if not dry_run:
 		for doctype, name, company in plan:
 			frappe.db.set_value(doctype, name, COMPANY_FIELD, company, update_modified=False)
+		frappe.db.commit()
 	return plan

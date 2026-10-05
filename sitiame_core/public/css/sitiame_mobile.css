@@ -121,6 +121,11 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons {
 		grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 	}
+	/* très petit écran : laisser la date se couper proprement sur 2 lignes */
+	#sitiame-subscription-banner span {
+		white-space: normal !important;
+		text-overflow: clip !important;
+	}
 }
 
 /* Sitiame's own desk pages (erp-*), forms and sidebar on phones ------- */

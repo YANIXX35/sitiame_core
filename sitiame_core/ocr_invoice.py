@@ -414,7 +414,7 @@ def _find_party(party_type, party_name):
 	from sitiame_core.party_isolation import own_party_filters
 
 	name_field = "supplier_name" if party_type == "Supplier" else "customer_name"
-	own = own_party_filters()
+	own = own_party_filters(doctype=party_type)
 	exact = frappe.db.get_value(party_type, {name_field: party_name, **own}, "name")
 	if exact:
 		return exact
