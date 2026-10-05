@@ -29,6 +29,57 @@
 
 	if ("serviceWorker" in navigator) {
 		navigator.serviceWorker.register("/sitiame-sw.js").catch(function () {});
+
+		// When a new service worker activates it posts SW_UPDATED to all open
+		// windows. Show a non-blocking "Mise à jour disponible" banner so
+		// installed-PWA users get the new version without having to know why
+		// the app looks stale. We reload immediately after the user confirms
+		// (or after 60 s if they ignore it) -- the ERP saves everything
+		// server-side, so a reload does not lose work.
+		navigator.serviceWorker.addEventListener("message", function (event) {
+			if (!event.data || event.data.type !== "SW_UPDATED") return;
+			if (document.getElementById("sitiame-update-banner")) return;
+
+			var wrap = document.createElement("div");
+			wrap.id = "sitiame-update-banner";
+			wrap.style.cssText =
+				"position:fixed;left:0;right:0;top:0;z-index:9999;display:flex;align-items:center;gap:10px;" +
+				"padding:10px 14px;background:#0a3d62;color:#fff;font-size:14px;line-height:1.35;" +
+				"box-shadow:0 4px 14px rgba(0,0,0,.22);";
+
+			var msg = document.createElement("span");
+			msg.style.flex = "1";
+			msg.textContent = t("Une mise à jour de Sitiame est disponible.");
+
+			var btn = document.createElement("button");
+			btn.type = "button";
+			btn.textContent = t("Recharger");
+			btn.style.cssText =
+				"flex:none;border:none;border-radius:6px;padding:7px 14px;" +
+				"background:#d4af37;color:#05157c;font-weight:700;font-size:13px;cursor:pointer;";
+			btn.addEventListener("click", function () { window.location.reload(); });
+
+			var close = document.createElement("button");
+			close.type = "button";
+			close.setAttribute("aria-label", t("Fermer"));
+			close.innerHTML = "&times;";
+			close.style.cssText =
+				"flex:none;border:none;background:none;color:#fff;font-size:22px;line-height:1;padding:0 4px;cursor:pointer;";
+			close.addEventListener("click", function () { wrap.remove(); });
+
+			wrap.appendChild(msg);
+			wrap.appendChild(btn);
+			wrap.appendChild(close);
+			document.body.appendChild(wrap);
+
+			// Auto-reload after 60 s if the user ignores the banner — the
+			// ERP is server-side so no unsaved work is lost.
+			setTimeout(function () {
+				if (document.getElementById("sitiame-update-banner")) {
+					window.location.reload();
+				}
+			}, 60000);
+		});
 	}
 
 	function dismissed() {

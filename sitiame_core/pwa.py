@@ -39,10 +39,12 @@ MANIFEST = {
 	],
 }
 
-SERVICE_WORKER = (
+_SERVICE_WORKER_TEMPLATE = (
 	"""// Sitiame Capital service worker (sitiame_core/pwa.py). Never caches
 // business data: pages and API calls always go to the network.
-const CACHE = "sitiame-v2";
+// Cache name embeds WEB_ASSETS_VERSION so every deploy that bumps it purges
+// stale bundles and sends SW_UPDATED to open windows (update banner in pwa.js).
+const CACHE = "sitiame-%(version)s";
 const OFFLINE_URL = "%(offline)s";
 // Files whose URL changes with their content -- Frappe's bundles carry an
 // UPPERCASE hash (frappe-web.bundle.B64X257C.js), hence no "i" flag: a
@@ -62,6 +64,10 @@ self.addEventListener("activate", (event) => {
 			.keys()
 			.then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
 			.then(() => self.clients.claim())
+			// Tell every open window that a new version is live so it can
+			// show the "Mise à jour disponible" banner (handled in pwa.js).
+			.then(() => self.clients.matchAll({ type: "window", includeUncontrolled: false }))
+			.then((clients) => clients.forEach((c) => c.postMessage({ type: "SW_UPDATED" })))
 	);
 });
 
@@ -94,12 +100,26 @@ self.addEventListener("fetch", (event) => {
 	);
 });
 """
-	% {"offline": OFFLINE_URL, "icon": f"{ICONS}/icon-192.png"}
 )
+
+
+def _build_service_worker():
+	import frappe as _frappe
+
+	try:
+		version = _frappe.get_hooks("WEB_ASSETS_VERSION")[0]
+	except Exception:
+		version = "1"
+	return _SERVICE_WORKER_TEMPLATE % {
+		"version": version,
+		"offline": OFFLINE_URL,
+		"icon": f"{ICONS}/icon-192.png",
+	}
+
 
 _ROUTES = {
 	"manifest.webmanifest": ("application/manifest+json", lambda: json.dumps(MANIFEST, ensure_ascii=False)),
-	"sitiame-sw.js": ("application/javascript", lambda: SERVICE_WORKER),
+	"sitiame-sw.js": ("application/javascript", _build_service_worker),
 }
 
 

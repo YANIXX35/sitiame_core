@@ -10,7 +10,7 @@ required_apps = ["erpnext"]
 # These files are served without a hash in their name: browsers kept an
 # old copy after a deploy (2026-10-01, login signup link). Bump WEB_ASSETS_VERSION
 # whenever one of them changes.
-WEB_ASSETS_VERSION = "2026100101"
+WEB_ASSETS_VERSION = "2026100501"
 
 web_include_js = [
 	f"/assets/sitiame_core/js/pwa.js?v={WEB_ASSETS_VERSION}",
@@ -80,9 +80,22 @@ doc_events = {
 	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Company": {"validate": "sitiame_core.portfolio.guard_portfolio_field"},
 	# a PME registered by a chargé d'affaires joins his portfolio once its
-	# company is provisioned (portfolio.py)
-	"User Permission": {"after_insert": "sitiame_core.portfolio.assign_pending_pme"},
+	# company is provisioned (portfolio.py); the PME user's own Contact
+	# joins its company (party_isolation.py)
+	"User Permission": {
+		"after_insert": [
+			"sitiame_core.portfolio.assign_pending_pme",
+			"sitiame_core.party_isolation.attach_user_contacts",
+		]
+	},
 }
+
+# A PME only sees its own customers, suppliers, contacts, addresses: each
+# gets a company on creation (party_isolation.py)
+from sitiame_core.party_isolation import PARTY_DOCTYPES as _PARTY_DOCTYPES
+
+for _doctype in _PARTY_DOCTYPES:
+	doc_events.setdefault(_doctype, {})["before_insert"] = "sitiame_core.party_isolation.set_company"
 
 extend_bootinfo ="sitiame_core.boot.extend_bootinfo"
 

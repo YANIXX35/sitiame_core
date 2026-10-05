@@ -53,11 +53,11 @@ def test_service_worker_is_served_for_the_whole_site():
 	assert response.mimetype == "application/javascript"
 	assert response.headers["Service-Worker-Allowed"] == "/"
 	assert response.headers["Cache-Control"] == "no-cache"
-	assert response.get_data(as_text=True) == pwa.SERVICE_WORKER
+	assert response.get_data(as_text=True) == pwa._build_service_worker()
 
 
 def test_service_worker_never_touches_business_data():
-	sw = pwa.SERVICE_WORKER
+	sw = pwa._build_service_worker()
 	assert 'request.method !== "GET"' in sw
 	assert "url.origin !== self.location.origin" in sw
 	assert "/api/" not in sw
@@ -69,7 +69,7 @@ def test_unversioned_assets_are_left_to_the_browser_cache():
 	(median 6.4s vs 5.0s without the worker) -- the browser's own HTTP
 	cache served them without a round trip. Only navigations and versioned
 	assets are intercepted now."""
-	sw = pwa.SERVICE_WORKER
+	sw = pwa._build_service_worker()
 	assert 'if (!url.pathname.startsWith("/assets/") || !VERSIONED.test(url.pathname)) return;' in sw
 	assert "network first" not in sw.lower()
 
@@ -87,12 +87,12 @@ def test_unversioned_assets_are_left_to_the_browser_cache():
 	],
 )
 def test_only_versioned_assets_are_served_cache_first(path, cached_first):
-	pattern, flags = re.search(r"const VERSIONED = /(.+)/(\w*);", pwa.SERVICE_WORKER).groups()
+	pattern, flags = re.search(r"const VERSIONED = /(.+)/(\w*);", pwa._build_service_worker()).groups()
 	assert bool(re.search(pattern, path, re.IGNORECASE if "i" in flags else 0)) is cached_first
 
 
 def test_offline_page_is_precached_and_exists():
-	assert pwa.OFFLINE_URL in pwa.SERVICE_WORKER
+	assert pwa.OFFLINE_URL in pwa._build_service_worker()
 	assert (PUBLIC / pwa.OFFLINE_URL.removeprefix("/assets/sitiame_core/")).is_file()
 
 
