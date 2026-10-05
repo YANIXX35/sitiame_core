@@ -64,39 +64,40 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 }
 
 @media (max-width: 570px) {
-	/* smaller tiles: 4 per row instead of 3 x 117px */
+	/* 3 tiles per row: ~119px each on a 390px screen, enough for full names */
 	.desktop-wrapper,
 	.desktop-modal-body {
-		--desktop-icon-dimension: 44px;
-		--folder-thumbnail-icon-height: 13px;
+		--desktop-icon-dimension: 50px;
+		--folder-thumbnail-icon-height: 15px;
 	}
 	.desktop-wrapper .desktop-container {
 		/* last row clear of the AI button and the install banner */
 		padding: 12px 8px 110px !important;
 	}
 	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons {
-		grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-		column-gap: 2px !important;
-		row-gap: 4px !important;
+		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+		column-gap: 6px !important;
+		row-gap: 8px !important;
 	}
 	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons > .desktop-icon {
 		width: 100% !important;
 		height: auto !important;
-		padding: 8px 2px !important;
+		padding: 10px 4px !important;
 		gap: 6px !important;
 	}
 	:is(.desktop-wrapper, .desktop-modal-body) .icon-caption {
 		height: auto;
 	}
-	/* full module names on up to 2 lines instead of "Subcontracti..." */
+	/* full module names on up to 2 lines, word breaks only between words */
 	:is(.desktop-wrapper, .desktop-modal-body) .icon-title {
-		font-size: 11.5px;
-		line-height: 1.2;
+		font-size: 12px;
+		line-height: 1.25;
 		white-space: normal;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
-		overflow-wrap: anywhere;
+		overflow-wrap: break-word;
+		word-break: normal;
 	}
 	:is(.desktop-wrapper, .desktop-modal-body) .icon-subtitle {
 		display: none;
@@ -118,7 +119,7 @@ body.sitiame-install-banner-shown #sitiame-ai-panel {
 
 @media (max-width: 340px) {
 	:is(.desktop-wrapper .desktop-container, .desktop-modal-body) > .icons-container > .icons {
-		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+		grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 	}
 }
 
