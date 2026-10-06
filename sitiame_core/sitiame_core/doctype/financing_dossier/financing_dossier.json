@@ -26,9 +26,149 @@
   "desired_disbursement_date",
   "financing_summary",
   "repayment_source",
+  "enterprise_section",
+  "legal_name",
+  "trade_name",
+  "legal_form",
+  "rccm_number",
+  "col_break_ent_1",
+  "taxpayer_number",
+  "incorporation_date",
+  "registered_office",
+  "city_country",
+  "business_sector",
+  "main_activity",
+  "col_break_ent_2",
+  "employee_count",
+  "website",
+  "company_history",
+  "share_capital",
+  "col_break_ent_3",
+  "major_shareholders",
+  "beneficial_owners",
+  "authorized_representative",
+  "promoters_section",
+  "manager_full_name",
+  "manager_role",
+  "col_break_prom_1",
+  "manager_birth_date",
+  "manager_nationality",
+  "manager_phone",
+  "manager_email",
+  "col_break_prom_2",
+  "manager_experience_years",
+  "manager_education",
+  "manager_background",
+  "management_team",
+  "succession_controls",
+  "project_section",
+  "project_name",
+  "project_location",
+  "col_break_proj_1",
+  "project_start_date",
+  "implementation_months",
+  "total_project_cost",
+  "col_break_proj_2",
+  "contingency_amount",
+  "project_problem",
+  "project_solution",
+  "expected_results",
+  "cost_breakdown_json",
+  "project_risks",
+  "mitigation_measures",
+  "market_section",
+  "market_description",
+  "target_customers",
+  "customer_need",
+  "market_trends",
+  "competitors",
+  "competitive_advantage",
+  "pricing_strategy",
+  "sales_channels",
+  "top_customers",
+  "col_break_mkt_1",
+  "customer_concentration",
+  "orders_contracts",
+  "historical_section",
+  "current_revenue_ytd",
+  "bank_balance",
+  "col_break_hist_1",
+  "customer_receivables",
+  "supplier_payables",
+  "inventory_value",
+  "col_break_hist_2",
+  "tax_social_debt",
+  "financial_history_json",
+  "existing_loans_json",
+  "payment_incidents",
+  "forecast_section",
+  "sales_assumptions",
+  "cost_assumptions",
+  "working_capital_assumptions",
+  "forecast_scenarios",
+  "annual_debt_service",
+  "cash_available_for_debt",
+  "col_break_fcast_1",
+  "dscr",
+  "break_even_revenue",
+  "forecast_json",
+  "funding_plan_section",
+  "total_uses",
+  "total_sources",
+  "col_break_fund_1",
+  "funding_gap",
+  "funding_uses_json",
+  "funding_sources_json",
+  "collateral_section",
+  "collateral_details",
+  "insurer_name",
+  "insurance_policy",
+  "col_break_coll_1",
+  "estimated_collateral_value",
+  "guarantee_coverage",
+  "collateral_json",
+  "documents_section",
+  "company_statutes",
+  "rccm_document",
+  "col_break_docs_1",
+  "tax_document",
+  "manager_id",
+  "clearance_certificates",
+  "col_break_docs_2",
+  "historical_financial_statements",
+  "current_trial_balance",
+  "bank_statements",
+  "col_break_docs_3",
+  "existing_loan_schedules",
+  "supplier_quotes",
+  "business_plan",
+  "col_break_docs_4",
+  "commercial_evidence",
+  "collateral_documents",
   "analyst_section",
+  "score_legal_fiscal",
+  "score_experience_governance",
+  "col_break_score_1",
+  "score_market",
+  "score_financial_performance",
+  "score_repayment_capacity",
+  "col_break_score_2",
+  "score_debt",
+  "score_payment_history",
+  "score_contribution_guarantees",
+  "total_score",
+  "analyst_opinion",
+  "col_break_anal_1",
+  "credit_opinion",
+  "approval_conditions",
   "status",
-  "analyst_notes"
+  "analyst_notes",
+  "col_break_val_1",
+  "assigned_analyst",
+  "approver",
+  "submission_date",
+  "col_break_val_2",
+  "target_financier"
  ],
  "fields": [
   {
@@ -79,18 +219,20 @@
   {
    "fieldname": "request_section",
    "fieldtype": "Section Break",
-   "label": "Demande de financement (synchronisee depuis PME360)"
+   "label": "Demande de financement",
+   "collapsible": 0
   },
   {
    "fieldname": "financing_type",
    "fieldtype": "Data",
    "label": "Type de financement",
-   "read_only": 1
+   "read_only": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "financing_purpose",
    "fieldtype": "Data",
-   "label": "Objet du financement",
+   "label": "Objet principal",
    "read_only": 1
   },
   {
@@ -102,6 +244,7 @@
    "fieldname": "amount_requested",
    "fieldtype": "Currency",
    "label": "Montant demande",
+   "options": "currency",
    "read_only": 1,
    "in_list_view": 1
   },
@@ -137,13 +280,14 @@
   {
    "fieldname": "repayment_frequency",
    "fieldtype": "Data",
-   "label": "Frequence de remboursement",
+   "label": "Periodicite de remboursement",
    "read_only": 1
   },
   {
    "fieldname": "promoter_contribution",
    "fieldtype": "Currency",
-   "label": "Apport du promoteur",
+   "label": "Apport de l'entreprise",
+   "options": "currency",
    "read_only": 1
   },
   {
@@ -154,37 +298,888 @@
   },
   {
    "fieldname": "financing_summary",
-   "fieldtype": "Small Text",
-   "label": "Resume du financement",
+   "fieldtype": "Long Text",
+   "label": "Resume de la demande",
    "read_only": 1
   },
   {
    "fieldname": "repayment_source",
+   "fieldtype": "Long Text",
+   "label": "Source principale de remboursement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "enterprise_section",
+   "fieldtype": "Section Break",
+   "label": "Entreprise",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "legal_name",
+   "fieldtype": "Data",
+   "label": "Raison sociale",
+   "read_only": 1
+  },
+  {
+   "fieldname": "trade_name",
+   "fieldtype": "Data",
+   "label": "Nom commercial",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legal_form",
+   "fieldtype": "Data",
+   "label": "Forme juridique",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rccm_number",
+   "fieldtype": "Data",
+   "label": "Numero RCCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_ent_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "taxpayer_number",
+   "fieldtype": "Data",
+   "label": "Numero de compte contribuable",
+   "read_only": 1
+  },
+  {
+   "fieldname": "incorporation_date",
+   "fieldtype": "Date",
+   "label": "Date de creation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "registered_office",
+   "fieldtype": "Data",
+   "label": "Adresse du siege",
+   "read_only": 1
+  },
+  {
+   "fieldname": "city_country",
+   "fieldtype": "Data",
+   "label": "Ville et pays",
+   "read_only": 1
+  },
+  {
+   "fieldname": "business_sector",
+   "fieldtype": "Data",
+   "label": "Secteur d'activite",
+   "read_only": 1
+  },
+  {
+   "fieldname": "main_activity",
+   "fieldtype": "Data",
+   "label": "Activite principale",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_ent_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "employee_count",
+   "fieldtype": "Int",
+   "label": "Nombre de salaries",
+   "read_only": 1
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Site internet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company_history",
+   "fieldtype": "Long Text",
+   "label": "Historique et principales realisations",
+   "read_only": 1
+  },
+  {
+   "fieldname": "share_capital",
+   "fieldtype": "Currency",
+   "label": "Capital social",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_ent_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "major_shareholders",
    "fieldtype": "Small Text",
-   "label": "Source de remboursement prevue",
+   "label": "Principaux associes et pourcentages",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficial_owners",
+   "fieldtype": "Small Text",
+   "label": "Beneficiaires effectifs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "authorized_representative",
+   "fieldtype": "Data",
+   "label": "Representant legal",
+   "read_only": 1
+  },
+  {
+   "fieldname": "promoters_section",
+   "fieldtype": "Section Break",
+   "label": "Promoteurs et dirigeants",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "manager_full_name",
+   "fieldtype": "Data",
+   "label": "Nom et prenoms du dirigeant",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_role",
+   "fieldtype": "Data",
+   "label": "Fonction",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_prom_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "manager_birth_date",
+   "fieldtype": "Date",
+   "label": "Date de naissance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_nationality",
+   "fieldtype": "Data",
+   "label": "Nationalite",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_phone",
+   "fieldtype": "Data",
+   "label": "Telephone",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_email",
+   "fieldtype": "Data",
+   "label": "Adresse e-mail",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_prom_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "manager_experience_years",
+   "fieldtype": "Int",
+   "label": "Experience dans le secteur (annees)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_education",
+   "fieldtype": "Data",
+   "label": "Formation principale",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_background",
+   "fieldtype": "Long Text",
+   "label": "Parcours professionnel du dirigeant",
+   "read_only": 1
+  },
+  {
+   "fieldname": "management_team",
+   "fieldtype": "Long Text",
+   "label": "Membres cles de l'equipe et responsabilites",
+   "read_only": 1
+  },
+  {
+   "fieldname": "succession_controls",
+   "fieldtype": "Long Text",
+   "label": "Delegations, suppleance et controle interne",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_section",
+   "fieldtype": "Section Break",
+   "label": "Projet a financer",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Intitule du projet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_location",
+   "fieldtype": "Data",
+   "label": "Lieu de realisation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_proj_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "project_start_date",
+   "fieldtype": "Date",
+   "label": "Date prevue de demarrage",
+   "read_only": 1
+  },
+  {
+   "fieldname": "implementation_months",
+   "fieldtype": "Int",
+   "label": "Duree de realisation (mois)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_project_cost",
+   "fieldtype": "Currency",
+   "label": "Cout total du projet",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_proj_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "contingency_amount",
+   "fieldtype": "Currency",
+   "label": "Provision pour imprevus",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_problem",
+   "fieldtype": "Long Text",
+   "label": "Besoin ou opportunite identifie(e)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_solution",
+   "fieldtype": "Long Text",
+   "label": "Solution et objectifs du projet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_results",
+   "fieldtype": "Long Text",
+   "label": "Resultats attendus et indicateurs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_breakdown_json",
+   "fieldtype": "Long Text",
+   "label": "Detail des couts (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "project_risks",
+   "fieldtype": "Long Text",
+   "label": "Principaux risques identifies",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mitigation_measures",
+   "fieldtype": "Long Text",
+   "label": "Mesures de prevention et d'attenuation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "market_section",
+   "fieldtype": "Section Break",
+   "label": "Marche et strategie",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "market_description",
+   "fieldtype": "Long Text",
+   "label": "Description et taille estimee du marche",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_customers",
+   "fieldtype": "Long Text",
+   "label": "Segments de clientele vises",
+   "read_only": 1
+  },
+  {
+   "fieldname": "customer_need",
+   "fieldtype": "Long Text",
+   "label": "Besoins clients auxquels repond l'offre",
+   "read_only": 1
+  },
+  {
+   "fieldname": "market_trends",
+   "fieldtype": "Long Text",
+   "label": "Tendances et perspectives du marche",
+   "read_only": 1
+  },
+  {
+   "fieldname": "competitors",
+   "fieldtype": "Long Text",
+   "label": "Principaux concurrents et positionnement",
+   "read_only": 1
+  },
+  {
+   "fieldname": "competitive_advantage",
+   "fieldtype": "Long Text",
+   "label": "Avantages concurrentiels",
+   "read_only": 1
+  },
+  {
+   "fieldname": "pricing_strategy",
+   "fieldtype": "Long Text",
+   "label": "Politique de prix",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_channels",
+   "fieldtype": "Long Text",
+   "label": "Canaux de vente et strategie commerciale",
+   "read_only": 1
+  },
+  {
+   "fieldname": "top_customers",
+   "fieldtype": "Data",
+   "label": "Principaux clients et part du CA",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_mkt_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "customer_concentration",
+   "fieldtype": "Data",
+   "label": "Part du plus gros client (%)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "orders_contracts",
+   "fieldtype": "Long Text",
+   "label": "Contrats, commandes et lettres d'intention",
+   "read_only": 1
+  },
+  {
+   "fieldname": "historical_section",
+   "fieldtype": "Section Break",
+   "label": "Finances historiques",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "current_revenue_ytd",
+   "fieldtype": "Currency",
+   "label": "Chiffre d'affaires cumule de l'annee",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_balance",
+   "fieldtype": "Currency",
+   "label": "Solde bancaire disponible",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_hist_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "customer_receivables",
+   "fieldtype": "Currency",
+   "label": "Creances clients",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supplier_payables",
+   "fieldtype": "Currency",
+   "label": "Dettes fournisseurs",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "inventory_value",
+   "fieldtype": "Currency",
+   "label": "Valeur des stocks",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_hist_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "tax_social_debt",
+   "fieldtype": "Currency",
+   "label": "Dettes fiscales et sociales",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "financial_history_json",
+   "fieldtype": "Long Text",
+   "label": "Synthese financiere historique (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "existing_loans_json",
+   "fieldtype": "Long Text",
+   "label": "Engagements financiers existants (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "payment_incidents",
+   "fieldtype": "Long Text",
+   "label": "Incidents, retards ou restructurations de dettes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "forecast_section",
+   "fieldtype": "Section Break",
+   "label": "Previsions financieres",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "sales_assumptions",
+   "fieldtype": "Long Text",
+   "label": "Hypotheses de ventes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_assumptions",
+   "fieldtype": "Long Text",
+   "label": "Hypotheses de couts et charges",
+   "read_only": 1
+  },
+  {
+   "fieldname": "working_capital_assumptions",
+   "fieldtype": "Long Text",
+   "label": "Delais clients, fournisseurs et rotation des stocks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "forecast_scenarios",
+   "fieldtype": "Long Text",
+   "label": "Scenarios retenus (prudent, central, optimiste)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "annual_debt_service",
+   "fieldtype": "Currency",
+   "label": "Annuite totale de la dette",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cash_available_for_debt",
+   "fieldtype": "Currency",
+   "label": "Tresorerie disponible pour la dette",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_fcast_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "dscr",
+   "fieldtype": "Float",
+   "label": "DSCR (ratio de couverture de la dette)",
+   "read_only": 1,
+   "description": "Tresorerie disponible pour la dette / Annuite totale. Calcule automatiquement."
+  },
+  {
+   "fieldname": "break_even_revenue",
+   "fieldtype": "Currency",
+   "label": "CA au seuil de rentabilite",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "forecast_json",
+   "fieldtype": "Long Text",
+   "label": "Compte de resultat previsionnel (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "funding_plan_section",
+   "fieldtype": "Section Break",
+   "label": "Plan de financement",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "total_uses",
+   "fieldtype": "Currency",
+   "label": "Total des emplois",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_sources",
+   "fieldtype": "Currency",
+   "label": "Total des ressources",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_fund_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "funding_gap",
+   "fieldtype": "Currency",
+   "label": "Ecart emplois / ressources",
+   "options": "currency",
+   "read_only": 1,
+   "description": "Doit etre nul pour qu'un dossier soit soumis."
+  },
+  {
+   "fieldname": "funding_uses_json",
+   "fieldtype": "Long Text",
+   "label": "Detail des emplois (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "funding_sources_json",
+   "fieldtype": "Long Text",
+   "label": "Detail des ressources (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "collateral_section",
+   "fieldtype": "Section Break",
+   "label": "Garanties et suretes",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "collateral_details",
+   "fieldtype": "Long Text",
+   "label": "Description complementaire des garanties",
+   "read_only": 1
+  },
+  {
+   "fieldname": "insurer_name",
+   "fieldtype": "Data",
+   "label": "Compagnie d'assurance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "insurance_policy",
+   "fieldtype": "Data",
+   "label": "Police d'assurance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_coll_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "estimated_collateral_value",
+   "fieldtype": "Currency",
+   "label": "Valeur totale estimee des garanties",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "guarantee_coverage",
+   "fieldtype": "Currency",
+   "label": "Montant couvert par un fonds de garantie",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collateral_json",
+   "fieldtype": "Long Text",
+   "label": "Detail des garanties (JSON)",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "documents_section",
+   "fieldtype": "Section Break",
+   "label": "Pieces justificatives",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "company_statutes",
+   "fieldtype": "Attach",
+   "label": "Statuts a jour",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rccm_document",
+   "fieldtype": "Attach",
+   "label": "RCCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_docs_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "tax_document",
+   "fieldtype": "Attach",
+   "label": "Document fiscal / DFE",
+   "read_only": 1
+  },
+  {
+   "fieldname": "manager_id",
+   "fieldtype": "Attach",
+   "label": "Piece d'identite du representant legal",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clearance_certificates",
+   "fieldtype": "Attach",
+   "label": "Attestations fiscale et sociale",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_docs_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "historical_financial_statements",
+   "fieldtype": "Attach",
+   "label": "Etats financiers des 3 derniers exercices",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_trial_balance",
+   "fieldtype": "Attach",
+   "label": "Balance recente / situation provisoire",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_statements",
+   "fieldtype": "Attach",
+   "label": "Releves bancaires 6-12 mois",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_docs_3",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "existing_loan_schedules",
+   "fieldtype": "Attach",
+   "label": "Echeanciers des credits en cours",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supplier_quotes",
+   "fieldtype": "Attach",
+   "label": "Devis et factures pro forma",
+   "read_only": 1
+  },
+  {
+   "fieldname": "business_plan",
+   "fieldtype": "Attach",
+   "label": "Business plan ou note de projet",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_docs_4",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "commercial_evidence",
+   "fieldtype": "Attach",
+   "label": "Contrats, bons de commande ou lettres d'intention",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collateral_documents",
+   "fieldtype": "Attach",
+   "label": "Titres et expertises des garanties",
    "read_only": 1
   },
   {
    "fieldname": "analyst_section",
    "fieldtype": "Section Break",
-   "label": "Analyse ERPNext"
+   "label": "Scoring et analyse ERPNext"
+  },
+  {
+   "fieldname": "score_legal_fiscal",
+   "fieldtype": "Int",
+   "label": "Regularite juridique et fiscale (max 10)",
+   "default": 0,
+   "description": "Note de 0 a 10"
+  },
+  {
+   "fieldname": "score_experience_governance",
+   "fieldtype": "Int",
+   "label": "Experience et gouvernance (max 10)",
+   "default": 0,
+   "description": "Note de 0 a 10"
+  },
+  {
+   "fieldname": "col_break_score_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "score_market",
+   "fieldtype": "Int",
+   "label": "Marche et position commerciale (max 15)",
+   "default": 0,
+   "description": "Note de 0 a 15"
+  },
+  {
+   "fieldname": "score_financial_performance",
+   "fieldtype": "Int",
+   "label": "Performance financiere (max 20)",
+   "default": 0,
+   "description": "Note de 0 a 20"
+  },
+  {
+   "fieldname": "score_repayment_capacity",
+   "fieldtype": "Int",
+   "label": "Capacite de remboursement (max 20)",
+   "default": 0,
+   "description": "Note de 0 a 20"
+  },
+  {
+   "fieldname": "col_break_score_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "score_debt",
+   "fieldtype": "Int",
+   "label": "Endettement (max 10)",
+   "default": 0,
+   "description": "Note de 0 a 10"
+  },
+  {
+   "fieldname": "score_payment_history",
+   "fieldtype": "Int",
+   "label": "Historique de paiement (max 10)",
+   "default": 0,
+   "description": "Note de 0 a 10"
+  },
+  {
+   "fieldname": "score_contribution_guarantees",
+   "fieldtype": "Int",
+   "label": "Apport et garanties (max 5)",
+   "default": 0,
+   "description": "Note de 0 a 5"
+  },
+  {
+   "fieldname": "total_score",
+   "fieldtype": "Int",
+   "label": "Score global / 100",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Calcule automatiquement : somme des 8 criteres."
+  },
+  {
+   "fieldname": "analyst_opinion",
+   "fieldtype": "Long Text",
+   "label": "Analyse motivee et conditions proposees"
+  },
+  {
+   "fieldname": "col_break_anal_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "credit_opinion",
+   "fieldtype": "Select",
+   "label": "Avis de credit",
+   "options": "\nFavorable\nFavorable sous conditions\nAjourne – informations complementaires\nDefavorable"
+  },
+  {
+   "fieldname": "approval_conditions",
+   "fieldtype": "Small Text",
+   "label": "Conditions prealables au decaissement"
   },
   {
    "fieldname": "status",
    "fieldtype": "Select",
-   "label": "Statut de l'analyse",
+   "label": "Statut du dossier",
    "default": "A examiner",
-   "options": "A examiner\nEn cours d'analyse\nAvis favorable\nAvis defavorable\nAjourne"
+   "options": "A examiner\nEn cours d'analyse\nAvis favorable\nAvis defavorable\nAjourne",
+   "in_list_view": 1
   },
   {
    "fieldname": "analyst_notes",
    "fieldtype": "Small Text",
-   "label": "Notes de l'analyste"
+   "label": "Notes internes de l'analyste"
+  },
+  {
+   "fieldname": "col_break_val_1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "assigned_analyst",
+   "fieldtype": "Link",
+   "label": "Analyste responsable",
+   "options": "User"
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Data",
+   "label": "Validateur"
+  },
+  {
+   "fieldname": "submission_date",
+   "fieldtype": "Date",
+   "label": "Date de soumission"
+  },
+  {
+   "fieldname": "col_break_val_2",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "target_financier",
+   "fieldtype": "Select",
+   "label": "Financeur cible",
+   "options": "\nBanque partenaire\nInstitution de microfinance\nFonds de garantie\nInvestisseur\nAutre"
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-09-29 16:00:00.000000",
+ "modified": "2026-10-06 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Sitiame Core",
  "name": "Financing Dossier",
