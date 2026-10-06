@@ -137,7 +137,7 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 		rows.forEach(function (row) {
 			html += "<tr>" +
 				"<td><b>" + esc(row.company_name) + "</b><br><span class='text-muted small'>" + esc(row.company) + "</span></td>" +
-				"<td>" + esc(row.city || "-") + "</td>" +
+				"<td>-</td>" +
 				"<td>" + (row.creation ? frappe.datetime.str_to_user(row.creation.substring(0, 10)) : "-") + "</td>" +
 				"<td style='white-space: nowrap;'>" +
 					"<button class='btn btn-xs btn-success ca-compta-hist' data-company='" + esc(row.company) + "'>" + __("Comptabilité") + "</button> " +

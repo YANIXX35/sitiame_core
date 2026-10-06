@@ -133,7 +133,7 @@ def get_charge_affaires_dashboard():
 		for row in frappe.get_all(
 			"Company",
 			filters={"name": ["in", companies]},
-			fields=["name", "company_name", "creation", "city", "phone_no"],
+			fields=["name", "company_name", "creation"],
 			ignore_permissions=True,
 		)
 	}
@@ -146,8 +146,6 @@ def get_charge_affaires_dashboard():
 				"company": company,
 				"company_name": meta.get("company_name") or company,
 				"creation": str(meta.get("creation") or ""),
-				"city": meta.get("city") or "",
-				"phone_no": meta.get("phone_no") or "",
 				"subscription": get_company_subscription(company),
 				"scoring": scorings.get(company),
 				"financing": financings.get(company),
@@ -155,7 +153,7 @@ def get_charge_affaires_dashboard():
 		)
 
 	historique = sorted(
-		[{"company": r["company"], "company_name": r["company_name"], "creation": r["creation"], "city": r["city"]} for r in pme if r["creation"]],
+		[{"company": r["company"], "company_name": r["company_name"], "creation": r["creation"]} for r in pme if r["creation"]],
 		key=lambda x: x["creation"],
 		reverse=True,
 	)
