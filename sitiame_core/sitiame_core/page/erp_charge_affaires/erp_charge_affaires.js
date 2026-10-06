@@ -80,6 +80,7 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 					"<button class='btn btn-xs btn-default ca-liasse' data-i='" + i + "' style='margin-top: 4px;'>" + __("Liasse") + "</button> " +
 					"<button class='btn btn-xs btn-default ca-kyc' style='margin-top: 4px;'>" + __("KYC") + "</button> " +
 					"<button class='btn btn-xs btn-primary ca-link' data-i='" + i + "' style='margin-top: 4px;'>" + __("Lien de paiement") + "</button>" +
+					"<br><button class='btn btn-xs btn-success ca-compta' data-i='" + i + "' style='margin-top: 4px;'>" + __("Comptabilité") + "</button>" +
 				"</td></tr>";
 		});
 		return html + "</tbody></table></div>";
@@ -110,6 +111,40 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 		});
 		return items.length ? "<ul style='margin: 0; padding-left: 18px;'>" + items.join("") + "</ul>"
 			: "<p class='text-muted' style='margin: 0;'>" + __("Tous vos dossiers sont complets.") + "</p>";
+	}
+
+	function openCompany(company, route) {
+		frappe.call({
+			method: "sitiame_core.api.set_default_company_for_user",
+			args: { company: company },
+			freeze: true,
+			freeze_message: __("Ouverture de la comptabilité..."),
+		}).then(function () {
+			frappe.defaults.update_user_default("company", company);
+			frappe.set_route(route || "Invoicing");
+		}).catch(function () {
+			frappe.set_route(route || "Invoicing");
+		});
+	}
+
+	function historiqueTable(rows) {
+		if (!rows || !rows.length) {
+			return "<p class='text-muted'>" + __("Aucune inscription enregistrée.") + "</p>";
+		}
+		var html = "<div style='overflow-x: auto;'><table class='table table-bordered' style='font-size: 13px; margin: 0; min-width: 560px;'><thead><tr>" +
+			"<th>" + __("PME") + "</th><th>" + __("Ville") + "</th><th>" + __("Date d'inscription") + "</th><th>" + __("Actions") + "</th>" +
+			"</tr></thead><tbody>";
+		rows.forEach(function (row) {
+			html += "<tr>" +
+				"<td><b>" + esc(row.company_name) + "</b><br><span class='text-muted small'>" + esc(row.company) + "</span></td>" +
+				"<td>" + esc(row.city || "-") + "</td>" +
+				"<td>" + (row.creation ? frappe.datetime.str_to_user(row.creation.substring(0, 10)) : "-") + "</td>" +
+				"<td style='white-space: nowrap;'>" +
+					"<button class='btn btn-xs btn-success ca-compta-hist' data-company='" + esc(row.company) + "'>" + __("Comptabilité") + "</button> " +
+					"<button class='btn btn-xs btn-default ca-open-company' data-company='" + esc(row.company) + "'>" + __("Fiche société") + "</button>" +
+				"</td></tr>";
+		});
+		return html + "</tbody></table></div>";
 	}
 
 	// A single-use Jèko link for one of his PMEs: the PME picks its operator
@@ -146,7 +181,8 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 				"<div class='row'>" +
 					"<div class='col-md-6'>" + card(__("Mes relances"), relances(data.relances || {})) + "</div>" +
 					"<div class='col-md-6'>" + card(__("Dossiers à compléter"), aCompleter(data.a_completer || {})) + "</div>" +
-				"</div>"
+				"</div>" +
+				card(__("Historique des inscriptions") + " <span class='text-muted' style='font-weight: 400;'>(" + (data.historique || []).length + ")</span>", historiqueTable(data.historique || []))
 			);
 
 			$body.find(".ca-open").on("click", function (e) {
@@ -171,6 +207,15 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 			});
 			$body.find(".ca-link").on("click", function () {
 				paymentLink(rows[$(this).data("i")]);
+			});
+			$body.find(".ca-compta").on("click", function () {
+				openCompany(rows[$(this).data("i")].company, "Invoicing");
+			});
+			$body.find(".ca-compta-hist").on("click", function () {
+				openCompany($(this).data("company"), "Invoicing");
+			});
+			$body.find(".ca-open-company").on("click", function () {
+				frappe.set_route("Form", "Company", $(this).data("company"));
 			});
 		});
 	}

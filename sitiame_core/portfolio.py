@@ -128,20 +128,41 @@ def get_charge_affaires_dashboard():
 		"Financing Dossier", companies, ["name", "company", "status", "amount_requested", "modified"]
 	)
 
+	company_meta = {
+		row.name: row
+		for row in frappe.get_all(
+			"Company",
+			filters={"name": ["in", companies]},
+			fields=["name", "company_name", "creation", "city", "phone_no"],
+			ignore_permissions=True,
+		)
+	}
+
 	pme = []
 	for company in companies:
+		meta = company_meta.get(company, frappe._dict())
 		pme.append(
 			{
 				"company": company,
-				"company_name": frappe.db.get_value("Company", company, "company_name") or company,
+				"company_name": meta.get("company_name") or company,
+				"creation": str(meta.get("creation") or ""),
+				"city": meta.get("city") or "",
+				"phone_no": meta.get("phone_no") or "",
 				"subscription": get_company_subscription(company),
 				"scoring": scorings.get(company),
 				"financing": financings.get(company),
 			}
 		)
 
+	historique = sorted(
+		[{"company": r["company"], "company_name": r["company_name"], "creation": r["creation"], "city": r["city"]} for r in pme if r["creation"]],
+		key=lambda x: x["creation"],
+		reverse=True,
+	)
+
 	return {
 		"pme": pme,
+		"historique": historique,
 		"en_inscription": pending_pmes(user),
 		"relances": {
 			"todos": frappe.get_all(

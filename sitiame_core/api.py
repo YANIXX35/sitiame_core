@@ -2368,3 +2368,15 @@ def list_pending_drafts(company=None):
 			"total": len(rows),
 		},
 	}
+
+
+@frappe.whitelist()
+def set_default_company_for_user(company):
+	"""Permet à un chargé d'affaires de basculer la société par défaut
+	vers une PME de son portefeuille, pour accéder à sa comptabilité."""
+	from sitiame_core.portfolio import check_company
+	check_company(company)
+	frappe.db.set_default("company", company, frappe.session.user)
+	frappe.db.commit()
+	return {"company": company}
+
