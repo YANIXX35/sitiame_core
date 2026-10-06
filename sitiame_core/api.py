@@ -554,9 +554,7 @@ def _provision_company_signup(
 		frappe.db.commit()
 		_set_company_signup_progress(token, {"status": "success", "email": email})
 	except frappe.DuplicateEntryError:
-		# In Frappe 16, DuplicateEntryError inherits from NameError (not
-		# ValidationError), so it does not fall into the block below. Catch
-		# it explicitly to give a clear message instead of the generic one.
+		# Frappe 16: DuplicateEntryError inherits NameError, not ValidationError.
 		frappe.db.rollback()
 		_set_company_signup_progress(
 			token,
@@ -577,8 +575,23 @@ def _provision_company_signup(
 			token,
 			{"status": "failed", "email": email, "message": clean or str(e)},
 		)
-	except Exception:
+	except Exception as _e:
 		frappe.db.rollback()
+		# Frappe 16 may raise DuplicateEntryError as a NameError subclass that
+		# the except clause above misses in some versions — catch it here too.
+		_e_name = type(_e).__name__
+		if "DuplicateEntry" in _e_name or (
+			hasattr(_e, "args") and _e.args and "Duplicate entry" in str(_e.args[0])
+		):
+			_set_company_signup_progress(
+				token,
+				{
+					"status": "failed",
+					"email": email,
+					"message": _("Ce nom de societe est deja utilise. Veuillez en choisir un autre."),
+				},
+			)
+			return
 		frappe.log_error(title="Company signup provisioning failed", message=frappe.get_traceback())
 		_set_company_signup_progress(
 			token,
