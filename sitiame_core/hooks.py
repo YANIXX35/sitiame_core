@@ -10,7 +10,7 @@ required_apps = ["erpnext"]
 # These files are served without a hash in their name: browsers kept an
 # old copy after a deploy (2026-10-01, login signup link). Bump WEB_ASSETS_VERSION
 # whenever one of them changes.
-WEB_ASSETS_VERSION = "2026100504"
+WEB_ASSETS_VERSION = "2026100601"
 
 web_include_js = [
 	f"/assets/sitiame_core/js/pwa.js?v={WEB_ASSETS_VERSION}",
