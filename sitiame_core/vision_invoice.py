@@ -25,7 +25,7 @@ import frappe
 from sitiame_core import gemini_assistant, mistral_ocr
 
 # Bump when the prompt or schema changes, so cached readings are redone.
-PROMPT_VERSION = 3
+PROMPT_VERSION = 4
 # each model has its own free daily quota (20 requests/day/model on the
 # free tier, 2026-09): the more models, the more invoices read. Fastest
 # first: on real invoices (2026-09-29) gemini-3.5-flash-lite read photos in
@@ -65,8 +65,25 @@ FIELD_KEYS = (
 	"subtotal",
 	"tax_amount",
 	"grand_total",
+	"vat_goods_amount",
+	"vat_services_amount",
+	"stamp_duty",
+	"non_vat_charges",
+	"previous_balance",
 )
-AMOUNT_KEYS = ("subtotal", "tax_amount", "grand_total")
+AMOUNT_KEYS = (
+	"subtotal",
+	"tax_amount",
+	"grand_total",
+	"vat_goods_amount",
+	"vat_services_amount",
+	"stamp_duty",
+	"non_vat_charges",
+	"previous_balance",
+)
+# printed on the invoice next to the VAT: part of its total, outside the VAT base
+NON_VAT_KEYS = ("stamp_duty", "non_vat_charges")
+LINE_TYPES = ("goods", "service", "fee", "discount")
 DATE_KEYS = ("invoice_date", "due_date")
 DOCUMENT_TYPES = ("invoice", "quotation", "credit_note", "purchase_order", "receipt", "unknown")
 
@@ -92,8 +109,25 @@ Regles :
   de ...") converti en nombre, ou null s'il n'y en a pas.
 - image_quality : good (tout se lit), medium (lisible avec effort), poor (flou, sombre,
   coupe : des chiffres sont devines).
-- line_items : une entree par ligne du tableau des articles (pas les lignes de total).
-  Une remise ou un rabais est une ligne a montant NEGATIF.
+- subtotal = le total HT soumis a la TVA (sans le timbre ni les taxes et redevances hors TVA).
+- tax_amount = le total de la TVA. Si la facture detaille sa TVA par nature (ex. "TVA sur fournitures"
+  et "TVA sur prestations"), vat_goods_amount = la TVA sur les biens, fournitures, pieces, marchandises,
+  et vat_services_amount = la TVA sur les prestations, main-d'oeuvre, services ; sinon null.
+- stamp_duty = le timbre fiscal / droit de timbre / timbre d'Etat ; non_vat_charges = le total des AUTRES
+  taxes et redevances non soumises a la TVA comprises dans le total (redevance electrification rurale,
+  redevance RTI, taxe d'enlevement des ordures menageres...) ; null s'il n'y en a pas.
+- grand_total = le total de CETTE facture (TTC, timbre et taxes compris) SANS les impayes anterieurs.
+  previous_balance = les impayes anterieurs, arrieres ou solde reporte de factures precedentes
+  ajoutes au "montant a regler" ; null s'il n'y en a pas. Ex. facture CIE : total facture 342300,
+  impayes anterieurs 32100, montant total a regler 374400 -> grand_total 342300, previous_balance 32100.
+- fne : true si le document porte les marques d'une facture normalisee electronique (FNE) de la DGI
+  de Cote d'Ivoire (QR code ou sticker electronique de la DGI, numero de FNE, identifiant unique,
+  mention "facture normalisee electronique") ; false s'il n'en porte aucune ; null si illisible.
+  fne_number = le numero de FNE ou l'identifiant unique imprime, sinon null.
+- line_items : une entree par ligne du tableau des articles (pas les lignes de total, ni la TVA).
+  Une remise ou un rabais est une ligne a montant NEGATIF. Le timbre et les redevances sont des lignes.
+  line_type : goods (marchandise, piece, fourniture, energie), service (prestation, main-d'oeuvre,
+  loyer, honoraires, reparation), fee (timbre, taxe ou redevance non soumise a la TVA), discount (remise).
 - raw_text : la transcription complete du document, ligne par ligne, dans l'ordre de lecture.
 - document_type : invoice (facture), quotation (devis), credit_note (avoir),
   purchase_order (bon de commande), receipt (recu de paiement, Mobile Money, virement), unknown.
@@ -132,6 +166,8 @@ RESPONSE_SCHEMA = {
 			},
 		},
 		"amount_in_words_value": _nullable("NUMBER"),
+		"fne": _nullable("BOOLEAN"),
+		"fne_number": _nullable("STRING"),
 		"image_quality": {"type": "STRING", "enum": ["good", "medium", "poor"]},
 		"raw_text": {"type": "STRING"},
 	},
@@ -277,19 +313,48 @@ def normalize(answer):
 		"confidence": confidence,
 		"line_items": _line_items(answer.get("line_items") or []),
 		"text": (answer.get("raw_text") or "").strip(),
+		"fne": _fne(answer),
 		"warnings": _check_amounts(fields, confidence, answer),
 	}
+
+
+def _fne(answer):
+	"""Marks of a facture normalisee electronique (DGI, mandatory since
+	December 2025): present True/False, or None when the model can't tell."""
+	present = answer.get("fne")
+	number = str(answer.get("fne_number") or "").strip()[:140] or None
+	if number and present is None:
+		present = True
+	return {"present": present if isinstance(present, bool) else None, "number": number}
 
 
 def _check_amounts(fields, confidence, answer):
 	"""Cross-checks the amounts read (HT + TVA = TTC, total in words) and
 	the photo quality; downgrades what doesn't add up. Returns warnings."""
 	warnings = []
-	subtotal, tax, total = (fields.get(key) for key in AMOUNT_KEYS)
+	subtotal, tax, total = (fields.get(key) for key in ("subtotal", "tax_amount", "grand_total"))
+	non_vat = sum(fields.get(key) or 0 for key in NON_VAT_KEYS)
+	previous = fields.get("previous_balance") or 0
 	in_words = _number(answer.get("amount_in_words_value"))
 	doubtful = False
 
-	if subtotal and tax and total and _amounts_differ(subtotal + tax, total):
+	if (
+		previous
+		and subtotal
+		and total
+		and _amounts_differ(subtotal + (tax or 0) + non_vat, total)
+		and not _amounts_differ(subtotal + (tax or 0) + non_vat + previous, total)
+	):
+		# "montant total a regler" read as the total: the past unpaid
+		# invoices are already booked, they are not this invoice
+		fields["grand_total"] = total = total - previous
+		warnings.append(
+			frappe._("Le total lu incluait {0} d'impayes anterieurs : total de la facture ramene a {1}.").format(
+				previous, total
+			)
+		)
+
+	if subtotal and tax and total and _amounts_differ(subtotal + tax + non_vat, total):
 		doubtful = True
 		warnings.append(
 			frappe._("Montants illisibles ou mal lus : HT {0} + TVA {1} ne font pas le TTC {2}.").format(
@@ -304,7 +369,7 @@ def _check_amounts(fields, confidence, answer):
 			)
 		)
 	if in_words and in_words > 0:
-		if total and _amounts_differ(in_words, total):
+		if total and _amounts_differ(in_words, total) and _amounts_differ(in_words, total + previous):
 			doubtful = True
 			warnings.append(
 				frappe._("Le TTC lu en chiffres ({0}) differe du montant ecrit en lettres ({1}).").format(total, in_words)
@@ -379,6 +444,8 @@ def _line_items(rows):
 			continue
 		qty, rate, amount = (_number(row.get(k)) for k in ("qty", "rate", "amount"))
 		entry = {"item_name": name}
+		if row.get("line_type") in LINE_TYPES:
+			entry["line_type"] = row["line_type"]
 		if qty is None and rate and amount:
 			qty = round(amount / rate, 2)
 		if qty is not None:

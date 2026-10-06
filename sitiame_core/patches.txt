@@ -6,3 +6,4 @@ sitiame_core.patches.create_charge_affaires_role
 sitiame_core.patches.map_mobile_money_modes
 sitiame_core.patches.default_company_for_pme_accounts
 sitiame_core.patches.user_default_company_for_pme_accounts
+sitiame_core.patches.party_company_field

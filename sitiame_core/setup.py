@@ -12,6 +12,7 @@ from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
 def after_migrate():
 	_create_subscription_fields()
 	_create_pay_on_submit_fields()
+	_create_party_company_fields()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
@@ -19,6 +20,7 @@ def after_migrate():
 	ensure_credit_analyst_role()
 	ensure_charge_affaires_role()
 	_create_portfolio_field()
+	_create_tax_regime_field()
 	_grant_crm_permissions()
 	ensure_charge_affaires_workspace()
 
@@ -55,6 +57,34 @@ def _create_portfolio_field():
 					"no_copy": 1,
 					"in_standard_filter": 1,
 					"description": "Membre de l'équipe Sitiame qui suit cette PME : lui seul (et les validateurs) la voit dans l'espace Chargé d'affaires.",
+				},
+			],
+		},
+		update=True,
+	)
+
+
+def _create_tax_regime_field():
+	"""Company.sitiame_regime_fiscal: the PME's Ivorian tax regime, which
+	decides whether the scanned-invoice import recovers the VAT (RSI/RNI)
+	or adds it to the cost (TEE/RME) -- see ocr_plan.py. Left empty on the
+	existing companies: the accountant fills it in."""
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": "sitiame_regime_fiscal",
+					"label": "Régime fiscal (Côte d'Ivoire)",
+					"fieldtype": "Select",
+					"options": "\nTEE\nRME\nRSI\nRNI",
+					"insert_after": "tax_id",
+					"in_standard_filter": 1,
+					"description": (
+						"TEE : Taxe d'État de l'entreprenant ; RME : Régime des microentreprises "
+						"(ni TVA facturée, ni TVA récupérée) ; RSI : Régime simplifié d'imposition ; "
+						"RNI : Régime normal d'imposition (TVA collectée et déductible). "
+						"Utilisé par l'import des factures scannées pour traiter la TVA."
+					),
 				},
 			],
 		},
@@ -362,6 +392,13 @@ def _create_pay_on_submit_fields():
 		},
 		update=True,
 	)
+
+
+def _create_party_company_fields():
+	"""Re-checked on every migrate (sitiame_core.party_isolation)."""
+	from sitiame_core.party_isolation import create_company_fields
+
+	create_company_fields()
 
 
 def _create_subscription_fields():

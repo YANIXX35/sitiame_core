@@ -76,7 +76,7 @@ def test_amounts_that_dont_add_up_are_flagged_and_downgraded():
 	fields = dict(ANSWER["fields"], subtotal=366250, tax_amount=76675, grand_total=397925)
 	data = vision.normalize(dict(ANSWER, fields=fields, confidence={"subtotal": 0.8, "tax_amount": 0.7, "grand_total": 0.8}))
 	assert "ne font pas le TTC" in data["warnings"][0]
-	assert all(data["confidence"][key] == vision.DOUBTFUL_CONFIDENCE for key in vision.AMOUNT_KEYS)
+	assert all(data["confidence"][key] == vision.DOUBTFUL_CONFIDENCE for key in ("subtotal", "tax_amount", "grand_total"))
 	assert data["confidence"]["invoice_number"] == 0.5  # untouched
 
 

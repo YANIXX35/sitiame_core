@@ -46,6 +46,9 @@ def env(monkeypatch):
 	monkeypatch.setattr(ocr_invoice, "read_invoice_file", read)
 	monkeypatch.setattr(ocr_invoice, "_check_direction", lambda *a: None)
 	monkeypatch.setattr(ocr_invoice, "_find_party", lambda party_type, name: "TRACTAFRIC MOTORS" if name == "TRACTAFRIC" else None)
+	monkeypatch.setattr(ocr_invoice, "remembered_account", lambda *a: None)
+	monkeypatch.setattr(ocr_invoice, "_company_vat_account", lambda *a: None)
+	monkeypatch.setattr(frappe, "get_cached_value", lambda doctype, name, field: "RNI" if field == "sitiame_regime_fiscal" else None, raising=False)
 	return frappe._dict(cache=cache, reads=reads)
 
 
@@ -58,6 +61,9 @@ def test_review_reads_without_creating_and_keeps_the_reading(env):
 	assert review["party_key"] == "supplier_name"
 	assert review["existing_party"] == "TRACTAFRIC MOTORS"
 	assert env.cache[ocr_invoice._review_cache_key("/private/files/f.jpg")]["source"] == "vision"
+	assert review["regime"] == "RNI"
+	assert review["plan"]["summary"]["regime"] == "RNI"
+	assert review["plan"]["lines"][0]["amount"] == 287634
 
 
 def test_review_of_a_non_invoice_warns_instead_of_refusing(env, monkeypatch):

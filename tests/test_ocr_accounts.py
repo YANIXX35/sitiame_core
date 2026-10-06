@@ -30,10 +30,46 @@ from sitiame_core import ocr_accounts as oa
 		("Frais bancaires trimestriels", "6318"),
 		("Formation Excel du personnel", "633"),
 		("Carton tomates 5kg", None),
+		("Main-d'œuvre", "6242"),
+		("Timbre d'État", "6462"),
+		("Energie tranche 1", "6052"),
+		("Gaz butane", "6042"),
+		("Assurance flotte automobile", "6252"),
+		("Prime d'assurance multirisque", "6258"),
+		("Déjeuner d'affaires restaurant", "6383"),
+		("Nuitée hôtel Ibis", "6181"),
+		("Location de véhicule avec chauffeur", "6223"),
+		("Frais de transit et dédouanement", "6015"),
+		("Sous-traitance gros œuvre", "621"),
+		("Frais Wave", "6317"),
 	],
 )
 def test_keyword_account_number(label, number):
 	assert oa.keyword_account_number(label) == number
+
+
+@pytest.mark.parametrize(
+	"label, number",
+	[
+		("Mission de conseil", "7061"),
+		("Travaux de plomberie", "7051"),
+		("Frais de livraison", "7071"),
+		("Vente de 10 cartons de savon", "7011"),
+		("Loyer bureau", None),
+	],
+)
+def test_sales_keyword_account_number(label, number):
+	assert oa.keyword_account_number(label, is_purchase=False) == number
+
+
+def test_special_lines():
+	assert oa.is_stamp("Timbre fiscal") and not oa.is_stamp("Energie")
+	assert oa.is_fee("Redevance RTI") and oa.is_fee("Taxe d'enlèvement des ordures ménagères")
+	assert not oa.is_fee("Redevance logiciel annuelle")
+	assert oa.is_vat_excluded("Repas restaurant") and oa.is_vat_excluded("x", "6383")
+	assert not oa.is_vat_excluded("Hébergement site internet")
+	assert oa.vat_nature(True, "6052") == "goods" and oa.vat_nature(True, "6242") == "service"
+	assert oa.vat_nature(True, "2441") == "fixed_asset" and oa.vat_nature(False, "7051") == "works"
 
 
 def test_information_is_not_formation():
@@ -101,7 +137,7 @@ def test_choose_account_priority(ledger):
 	assert oa.choose_account(True, "C", "Loyer bureau", default, remembered) == (remembered, "memoire")
 	assert oa.choose_account(True, "C", "Loyer bureau", default, None) == ("6222 - Locations de bâtiments - C", "mot-cle")
 	assert oa.choose_account(True, "C", "Carton tomates", default, None) == (default, "defaut")
-	# no keywords on sales: the income account depends on the PME's business
+	# a sale with no recognised wording keeps the company's income account
 	assert oa.choose_account(False, "C", "Loyer bureau", "7061 - C", None) == ("7061 - C", "defaut")
 
 

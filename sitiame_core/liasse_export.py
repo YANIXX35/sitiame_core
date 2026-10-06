@@ -79,6 +79,7 @@ def _get_balance_data(company: str, from_date: str, to_date: str) -> dict:
         """
         SELECT
             a.account_number,
+            a.account_name,
             SUM(gl.debit)  AS open_debit,
             SUM(gl.credit) AS open_credit
         FROM `tabGL Entry` gl
@@ -137,15 +138,27 @@ def _fill_excel(balance_data: dict, company: str, from_date: str, to_date: str) 
     wb = openpyxl.load_workbook(_get_template_path())
     ws = wb["Balance"]
 
+    # Col B de la feuille Balance contient des formules Excel du type
+    # =IFERROR(INDEX(Plan_Comptable!$B$2:$B$1456,ROW()-3),"")
+    # openpyxl lit la chaîne de la formule, pas la valeur calculée.
+    # On résout directement depuis Plan_Comptable : Balance row N → Plan_Comptable row (N-2).
+    plan_ws = wb["Plan_Comptable"]
+    # plan_codes[i] = valeur de Plan_Comptable!B(i+2), pour i >= 0
+    plan_codes = []
+    for pc_row in plan_ws.iter_rows(min_row=2, max_row=1456, min_col=2, max_col=2, values_only=True):
+        val = pc_row[0]
+        plan_codes.append(str(int(val)) if isinstance(val, (int, float)) else str(val).strip() if val else "")
+
     # Col indexes: A=1 B=2 C=3 D=4 E=5 F=6 G=7
     filled = 0
-    for row in ws.iter_rows(min_row=4, values_only=False):
-        b_cell = row[1]  # col B = Compte
-        val = b_cell.value
-        if val is None:
+    for row_idx, row in enumerate(ws.iter_rows(min_row=4, values_only=False)):
+        plan_idx = row_idx  # Balance row 4 → plan_codes[0], row 5 → plan_codes[1], …
+        if plan_idx >= len(plan_codes):
+            break
+        raw_code = plan_codes[plan_idx]
+        if not raw_code:
             continue
-        code = str(int(val)) if isinstance(val, (int, float)) else str(val).strip()
-        code = _normalize_to_7(code)
+        code = _normalize_to_7(raw_code)
         if code in balance_data:
             data = balance_data[code]
             row[3].value = data["debit_period"]   # D
