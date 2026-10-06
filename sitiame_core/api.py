@@ -2260,7 +2260,10 @@ def get_platform_users():
 			message = response.text
 		frappe.throw(_("PME360 a refuse la demande : {0}").format(message))
 
-	return response.json()
+	try:
+		return response.json()
+	except ValueError:
+		return {}
 
 
 # ERPNext drafts waiting for accountant validation (docstatus = 0):
