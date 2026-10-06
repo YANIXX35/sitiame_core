@@ -212,8 +212,18 @@ def test_other_user_permissions_are_ignored(pending):
 def registering(world, monkeypatch, pending):
 	calls = []
 	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
-	monkeypatch.setattr(frappe.db, "exists", lambda doctype, name: True, raising=False)
+	# Non-User doctypes always exist; for User, only return True for already-known
+	# accounts (those in world["roles"]) so new-PME emails pass the duplicate check.
+	monkeypatch.setattr(
+		frappe.db, "exists",
+		lambda doctype, name: doctype != "User" or name in world["roles"],
+		raising=False,
+	)
 	monkeypatch.setattr(api, "_register_pme_in_pme360", lambda *a: calls.append(a) or {"email": a[1]})
+	# Prevent _provision_company_signup from running during unit tests.
+	monkeypatch.setattr(frappe, "enqueue", lambda *a, **k: None, raising=False)
+	monkeypatch.setattr(frappe, "generate_hash", lambda length=20: "test_token", raising=False)
+	monkeypatch.setattr(frappe, "cache", lambda: frappe._dict(set_value=lambda *a, **k: None, get_value=lambda *a, **k: None, delete_value=lambda *a, **k: None), raising=False)
 	return calls
 
 

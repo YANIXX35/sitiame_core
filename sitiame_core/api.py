@@ -1778,26 +1778,54 @@ def register_pme_from_erpnext(name, email, company_name, phone=None, password=No
 	elif charge_affaires and not frappe.db.exists("User", charge_affaires):
 		frappe.throw(_("Chargé d'affaires introuvable : {0}").format(charge_affaires))
 
-	# Generate a strong password if none provided: this password is sent to
-	# PME360, which echoes it back when it calls register_company to provision
-	# the ERPNext company. Without it the admin form would show an empty
-	# password, and PME360 might send a weak/empty one that Frappe rejects.
 	if not password:
 		password = _generate_strong_password()
 
-	# committed before calling PME360: its background job provisions the
-	# ERPNext company (another transaction) right after it answers
+	email = (email or "").strip().lower()
+	if frappe.db.exists("User", email):
+		frappe.throw(_("Un compte existe deja avec cet email."))
+
 	portfolio.remember_pending_pme(email, charge_affaires)
 	frappe.db.commit()
 	try:
-		pme360_data = _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
-		# Always return the email and password we used: PME360's response may
-		# omit the password, which would leave the admin form showing nothing.
-		return {"email": email, **(pme360_data or {})}
+		_register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city)
 	except Exception:
 		portfolio.forget_pending_pme(email)
 		frappe.db.commit()
 		raise
+
+	# Provision ERPNext directly after PME360 confirms the registration.
+	# register_company (the public endpoint) requires a captcha that PME360
+	# cannot solve programmatically, so we bypass it here: this function is
+	# already authenticated (System Manager / Chargé d'affaires) and the
+	# standard provisioning job (_provision_company_signup) is identical.
+	prov_token = frappe.generate_hash(length=32)
+	_set_company_signup_progress(prov_token, {"status": "pending", "email": email})
+	frappe.cache().set_value(
+		_SIGNUP_PASSWORD_PREFIX + prov_token,
+		encrypt(password),
+		expires_in_sec=_COMPANY_SIGNUP_PROGRESS_TTL,
+	)
+	frappe.enqueue(
+		"sitiame_core.api._provision_company_signup",
+		queue="long",
+		timeout=300,
+		now=getattr(getattr(frappe, "flags", None), "in_test", False),
+		token=prov_token,
+		contact_name=name,
+		email=email,
+		company_name=company_name,
+		phone=phone,
+		company_sigle=None,
+		company_tax_id=company_tax_id,
+		sector=None,
+		rccm=rccm,
+		address=None,
+		city=city,
+		signup_ip=getattr(frappe.local, "request_ip", None),
+	)
+
+	return {"email": email, "password": password}
 
 
 def _register_pme_in_pme360(name, email, company_name, phone, password, company_tax_id, rccm, city):
