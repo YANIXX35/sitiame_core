@@ -113,18 +113,44 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 			: "<p class='text-muted' style='margin: 0;'>" + __("Tous vos dossiers sont complets.") + "</p>";
 	}
 
-	function openCompany(company, route) {
-		frappe.call({
-			method: "sitiame_core.api.set_default_company_for_user",
-			args: { company: company },
-			freeze: true,
-			freeze_message: __("Ouverture de la comptabilité..."),
-		}).then(function () {
-			frappe.defaults.update_user_default("company", company);
-			frappe.set_route(route || "Invoicing");
-		}).catch(function () {
-			frappe.set_route(route || "Invoicing");
+	function openCompany(company) {
+		frappe.defaults.update_user_default("company", company);
+		frappe.ui.Dialog && frappe.ui.Dialog.close_all && frappe.ui.Dialog.close_all();
+		var d = new frappe.ui.Dialog({
+			title: __("Comptabilité — {0}", [company]),
+			fields: [],
+			size: "small",
 		});
+		d.$wrapper.find(".modal-body").html(
+			"<div style='padding: 10px 0;'>" +
+			"<p style='margin-bottom: 14px;'>" + __("Que souhaitez-vous consulter pour cette société ?") + "</p>" +
+			"<div class='list-group'>" +
+			"<a href='#' class='list-group-item ca-go' data-route='query-report/Journal des écritures/' data-company='" + frappe.utils.escape_html(company) + "'>" + __("Journal des écritures") + "</a>" +
+			"<a href='#' class='list-group-item ca-go' data-route='query-report/General Ledger/' data-company='" + frappe.utils.escape_html(company) + "'>" + __("Grand livre") + "</a>" +
+			"<a href='#' class='list-group-item ca-go' data-route='List/Sales Invoice/List' data-company='" + frappe.utils.escape_html(company) + "'>" + __("Factures de vente") + "</a>" +
+			"<a href='#' class='list-group-item ca-go' data-route='List/Purchase Invoice/List' data-company='" + frappe.utils.escape_html(company) + "'>" + __("Factures d'achat") + "</a>" +
+			"<a href='#' class='list-group-item ca-go' data-route='List/Payment Entry/List' data-company='" + frappe.utils.escape_html(company) + "'>" + __("Paiements") + "</a>" +
+			"</div>" +
+			"</div>"
+		);
+		d.$wrapper.find(".ca-go").on("click", function (e) {
+			e.preventDefault();
+			var route = $(this).data("route").split("/");
+			var co = $(this).data("company");
+			frappe.call({
+				method: "sitiame_core.api.set_default_company_for_user",
+				args: { company: co },
+				async: false,
+			});
+			if (route[0] === "query-report") {
+				frappe.set_route("query-report", route[1]);
+			} else {
+				frappe.set_route("List", route[1]);
+			}
+			d.hide();
+		});
+		d.show();
+		d.$wrapper.find(".modal-footer").hide();
 	}
 
 	function historiqueTable(rows) {
@@ -209,10 +235,10 @@ frappe.pages["erp-charge-affaires"].on_page_load = function (wrapper) {
 				paymentLink(rows[$(this).data("i")]);
 			});
 			$body.find(".ca-compta").on("click", function () {
-				openCompany(rows[$(this).data("i")].company, "Invoicing");
+				openCompany(rows[$(this).data("i")].company);
 			});
 			$body.find(".ca-compta-hist").on("click", function () {
-				openCompany($(this).data("company"), "Invoicing");
+				openCompany($(this).data("company"));
 			});
 			$body.find(".ca-open-company").on("click", function () {
 				frappe.set_route("Form", "Company", $(this).data("company"));
