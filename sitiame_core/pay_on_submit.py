@@ -18,6 +18,7 @@ from frappe import _
 from frappe.utils import flt
 
 from sitiame_core.ocr_payment import _mode_account
+from sitiame_core.withholding_tax import apply_withholding
 
 
 def create_payment(doc, method=None):
@@ -26,6 +27,14 @@ def create_payment(doc, method=None):
 	mode = doc.get("sitiame_payment_mode")
 	if not mode:
 		frappe.throw(_("Choisissez le moyen de paiement de la facture payee."))
+
+	# Idempotence : ne pas créer un second paiement si un Payment Entry
+	# validé existe déjà pour cette facture (double soumission d'événement).
+	if frappe.db.exists(
+		"Payment Entry Reference",
+		{"reference_name": doc.name, "docstatus": 1},
+	):
+		return
 
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
@@ -36,11 +45,16 @@ def create_payment(doc, method=None):
 	# what bank reconciliation matches on
 	payment.reference_no = doc.get("bill_no") or doc.name
 	payment.remarks = _("Paiement cree a la validation de {0} {1}.").format(_(doc.doctype), doc.name)
+
+	# Retenue à la source (BNC/BIC 7,5% ou RME 2%) si le fournisseur y est assujetti
+	withheld = apply_withholding(payment, doc)
+
 	payment.insert()
 	payment.submit()
-	frappe.msgprint(
-		_("Paiement {0} cree et valide : la facture est payee.").format(
-			frappe.utils.get_link_to_form("Payment Entry", payment.name)
-		),
-		alert=True,
+
+	msg = _("Paiement {0} cree et valide : la facture est payee.").format(
+		frappe.utils.get_link_to_form("Payment Entry", payment.name)
 	)
+	if withheld:
+		msg += " " + _("Retenue a la source appliquee.")
+	frappe.msgprint(msg, alert=True)

@@ -35,6 +35,10 @@ def erp(monkeypatch):
 	monkeypatch.setattr(pay_on_submit, "_mode_account", lambda mode, company: {"Cash": "5711 - Caisse - S", "Wave": "5521 - Wave - S"}.get(mode))
 	monkeypatch.setattr(frappe, "msgprint", lambda message, **kwargs: state["alerts"].append(message), raising=False)
 	monkeypatch.setattr(frappe.utils, "get_link_to_form", lambda doctype, name: name, raising=False)
+	# Pas de paiement existant par défaut (idempotence check)
+	monkeypatch.setattr(frappe.db, "exists", lambda *a, **k: False, raising=False)
+	# Pas de retenue par défaut (withholding_tax)
+	monkeypatch.setattr(frappe.db, "get_value", lambda *a, **k: None, raising=False)
 	return state
 
 

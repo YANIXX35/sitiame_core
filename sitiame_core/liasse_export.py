@@ -186,6 +186,44 @@ def _fill_excel(balance_data: dict, company: str, from_date: str, to_date: str) 
     return buf.getvalue()
 
 
+# ── validation ───────────────────────────────────────────────────────────────
+
+def _check_balance_equilibre(company: str, from_date: str, to_date: str):
+    """Vérifie débit total = crédit total sur la période.
+    Affiche un avertissement orange si l'écart dépasse 1 XOF (arrondi)."""
+    row = frappe.db.sql(
+        """
+        SELECT
+            SUM(debit)            AS total_debit,
+            SUM(credit)           AS total_credit,
+            ABS(SUM(debit) - SUM(credit)) AS diff
+        FROM `tabGL Entry`
+        WHERE company = %(company)s
+          AND posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND is_cancelled = 0
+        """,
+        {"company": company, "from_date": from_date, "to_date": to_date},
+        as_dict=True,
+    )
+    if not row or not row[0].total_debit:
+        frappe.msgprint(
+            _("Aucune écriture pour cette période."),
+            indicator="orange",
+            title=_("Balance vide"),
+        )
+        return
+    diff = float(row[0].diff or 0)
+    if diff > 1:
+        frappe.msgprint(
+            _(
+                "La balance n'est pas équilibrée (écart {0} XOF). "
+                "Vérifiez les écritures avant d'utiliser la liasse."
+            ).format(f"{diff:,.0f}"),
+            indicator="orange",
+            title=_("Balance déséquilibrée"),
+        )
+
+
 # ── public API ────────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
@@ -196,6 +234,7 @@ def export_liasse(company: str, from_date: str, to_date: str):
     if not {"Accounts Manager", "System Manager"} & roles:
         frappe.throw(_("Réservé aux comptables et administrateurs."), frappe.PermissionError)
 
+    _check_balance_equilibre(company, from_date, to_date)
     balance = _get_balance_data(company, from_date, to_date)
     xlsx_bytes = _fill_excel(balance, company, from_date, to_date)
 

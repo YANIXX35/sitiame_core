@@ -13,6 +13,7 @@ def after_migrate():
 	_create_subscription_fields()
 	_create_pay_on_submit_fields()
 	_create_party_company_fields()
+	_create_withholding_field()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
@@ -399,6 +400,32 @@ def _create_party_company_fields():
 	from sitiame_core.party_isolation import create_company_fields
 
 	create_company_fields()
+
+
+def _create_withholding_field():
+	"""Supplier.sitiame_withholding_type : type de retenue à la source applicable
+	au fournisseur selon son régime fiscal ivoirien (BNC/BIC 7,5% ou RME 2%)."""
+	create_custom_fields(
+		{
+			"Supplier": [
+				{
+					"fieldname": "sitiame_withholding_type",
+					"label": "Retenue à la source (CI)",
+					"fieldtype": "Select",
+					"options": "\nBNC/BIC 7,5%\nRME 2%",
+					"insert_after": "tax_id",
+					"in_standard_filter": 1,
+					"description": (
+						"BNC/BIC 7,5% : retenue sur honoraires et prestations de professions libérales "
+						"ou entreprises sous régime BNC/BIC. "
+						"RME 2% : retenue sur achats auprès d'un fournisseur microentreprise. "
+						"Laissé vide si aucune retenue ne s'applique."
+					),
+				},
+			],
+		},
+		update=True,
+	)
 
 
 def _create_subscription_fields():

@@ -119,8 +119,11 @@ frappe.pages["erp-comptable"].on_page_load = function (wrapper) {
 					"<button class='btn btn-xs btn-default cp-gl' data-i='" + i + "' style='margin-right:4px'>" +
 						__("Grand livre") +
 					"</button>" +
-					"<button class='btn btn-xs btn-success cp-liasse' data-i='" + i + "'>" +
+					"<button class='btn btn-xs btn-success cp-liasse' data-i='" + i + "' style='margin-right:4px'>" +
 						__("Liasse SYSCOHADA") +
+					"</button>" +
+					"<button class='btn btn-xs btn-default cp-rapproch' data-i='" + i + "'>" +
+						__("Rapprochement") +
 					"</button>" +
 				"</td></tr>";
 		});
@@ -162,6 +165,11 @@ frappe.pages["erp-comptable"].on_page_load = function (wrapper) {
 			});
 			$body.find(".cp-liasse").on("click", function () {
 				exportLiasse(rows[$(this).data("i")].company);
+			});
+			$body.find(".cp-rapproch").on("click", function () {
+				var company = rows[$(this).data("i")].company;
+				frappe.defaults.update_user_default("company", company);
+				frappe.set_route("Form", "Bank Reconciliation Tool");
 			});
 		});
 	}
