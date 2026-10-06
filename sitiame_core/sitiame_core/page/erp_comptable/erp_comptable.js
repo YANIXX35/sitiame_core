@@ -43,6 +43,47 @@ frappe.pages["erp-comptable"].on_page_load = function (wrapper) {
 		frappe.set_route(route || "Accounting");
 	}
 
+	function exportLiasse(company) {
+		var today = frappe.datetime.get_today();
+		var year = today.slice(0, 4);
+		var d = new frappe.ui.Dialog({
+			title: __("Exporter Liasse SYSCOHADA"),
+			fields: [
+				{
+					label: __("Société"),
+					fieldname: "company",
+					fieldtype: "Data",
+					read_only: 1,
+					default: company,
+				},
+				{
+					label: __("Du"),
+					fieldname: "from_date",
+					fieldtype: "Date",
+					reqd: 1,
+					default: year + "-01-01",
+				},
+				{
+					label: __("Au"),
+					fieldname: "to_date",
+					fieldtype: "Date",
+					reqd: 1,
+					default: today,
+				},
+			],
+			primary_action_label: __("Télécharger"),
+			primary_action: function (values) {
+				d.hide();
+				var url = "/api/method/sitiame_core.liasse_export.export_liasse" +
+					"?company=" + encodeURIComponent(values.company) +
+					"&from_date=" + encodeURIComponent(values.from_date) +
+					"&to_date=" + encodeURIComponent(values.to_date);
+				window.open(url, "_blank");
+			},
+		});
+		d.show();
+	}
+
 	function buildTable(rows) {
 		if (!rows.length) {
 			return "<p class='text-muted'>" + __("Aucune société PME trouvée.") + "</p>";
@@ -75,8 +116,11 @@ frappe.pages["erp-comptable"].on_page_load = function (wrapper) {
 					"<button class='btn btn-xs btn-default cp-balance' data-i='" + i + "' style='margin-right:4px'>" +
 						__("Balance") +
 					"</button>" +
-					"<button class='btn btn-xs btn-default cp-gl' data-i='" + i + "'>" +
+					"<button class='btn btn-xs btn-default cp-gl' data-i='" + i + "' style='margin-right:4px'>" +
 						__("Grand livre") +
+					"</button>" +
+					"<button class='btn btn-xs btn-success cp-liasse' data-i='" + i + "'>" +
+						__("Liasse SYSCOHADA") +
 					"</button>" +
 				"</td></tr>";
 		});
@@ -115,6 +159,9 @@ frappe.pages["erp-comptable"].on_page_load = function (wrapper) {
 				var company = rows[$(this).data("i")].company;
 				frappe.defaults.update_user_default("company", company);
 				frappe.set_route("query-report", "General Ledger", { company: company });
+			});
+			$body.find(".cp-liasse").on("click", function () {
+				exportLiasse(rows[$(this).data("i")].company);
 			});
 		});
 	}
