@@ -6,6 +6,17 @@ import json
 import frappe
 
 
+_PME_ALLOWED_LABELS = {
+	"Comptabilité", "Accounting",
+	"Achat", "Buying",
+	"Vente", "Selling",
+	"Stock",
+	"Scoring",
+	"Financement",
+	"Tableau de Bord",
+}
+
+
 def extend_bootinfo(bootinfo):
 	"""Per-individual-user overrides (managed from the "Gérer le menu" admin
 	page), independent of roles -- on top of Frappe's normal role-based
@@ -21,6 +32,11 @@ def extend_bootinfo(bootinfo):
 	Must never raise: a boot failure here would break login for everyone.
 	"""
 	try:
+		_restrict_pme_client_desk(bootinfo)
+	except Exception:
+		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: PME client desk filter failed")
+
+	try:
 		_hide_sidebar_items(bootinfo)
 	except Exception:
 		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: sidebar items failed")
@@ -34,6 +50,32 @@ def extend_bootinfo(bootinfo):
 		_add_subscription_status(bootinfo)
 	except Exception:
 		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: subscription status failed")
+
+
+def _restrict_pme_client_desk(bootinfo):
+	"""Pour les utilisateurs avec le rôle PME Client : ne garder que les
+	modules autorisés et injecter la tuile Tableau de Bord en premier."""
+	if "PME Client" not in frappe.get_roles():
+		return
+
+	icons = bootinfo.get("desktop_icons") or []
+
+	# Garder uniquement les modules autorisés
+	filtered = [icon for icon in icons if icon.get("label") in _PME_ALLOWED_LABELS]
+
+	# Injecter la tuile Tableau de Bord si absente
+	has_tdb = any(icon.get("label") == "Tableau de Bord" for icon in filtered)
+	if not has_tdb:
+		filtered.insert(0, {
+			"label": "Tableau de Bord",
+			"icon": "octicon octicon-graph",
+			"link": "erp-tableau-de-bord",
+			"type": "page",
+			"color": "#1d4ed8",
+			"description": "Vue d'ensemble PME360",
+		})
+
+	bootinfo["desktop_icons"] = filtered
 
 
 def _add_subscription_status(bootinfo):
