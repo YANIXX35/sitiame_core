@@ -25,6 +25,7 @@ def after_migrate():
 	_grant_crm_permissions()
 	ensure_charge_affaires_workspace()
 	ensure_tableau_de_bord_icon()
+	ensure_plateforme_utilisateurs_icon()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -256,6 +257,50 @@ def ensure_tableau_de_bord_icon():
 					{"role": "PME Client"},
 					{"role": "Accounts Manager"},
 					{"role": "System Manager"},
+				],
+			}
+		).insert(ignore_permissions=True)
+
+	frappe.db.commit()
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
+
+
+PLATEFORME_USERS_SIDEBAR = "Utilisateurs de la plateforme"
+PLATEFORME_USERS_PAGE    = "erp-plateforme-utilisateurs"
+
+
+def ensure_plateforme_utilisateurs_icon():
+	"""Tuile 'Utilisateurs de la plateforme' visible pour tous les admins
+	(System Manager + Administrateur Plateforme Sitiame).
+	Ré-appliqué à chaque migrate (idempotent)."""
+	_ensure_sidebar(
+		PLATEFORME_USERS_SIDEBAR,
+		((PLATEFORME_USERS_SIDEBAR, "Page", PLATEFORME_USERS_PAGE),),
+	)
+
+	values = {
+		"idx": 95,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": PLATEFORME_USERS_SIDEBAR,
+		"link": None,
+		"icon": "users",
+		"icon_image": None,
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
+	if frappe.db.exists("Desktop Icon", PLATEFORME_USERS_SIDEBAR):
+		frappe.db.set_value("Desktop Icon", PLATEFORME_USERS_SIDEBAR, values)
+	else:
+		frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": PLATEFORME_USERS_SIDEBAR,
+				**values,
+				"roles": [
+					{"role": "System Manager"},
+					{"role": PLATFORM_ADMIN_ROLE},
 				],
 			}
 		).insert(ignore_permissions=True)
