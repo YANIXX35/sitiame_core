@@ -6,16 +6,23 @@ import json
 import frappe
 
 
-# Labels réels des Desktop Icon (en anglais dans la DB, traduits à l'affichage)
-# Accounting = Comptabilité, Buying = Achat, Selling = Vente
-_PME_ALLOWED_LABELS = {
-	"Accounting",   # Comptabilité (Folder avec Invoicing, Financial Reports…)
-	"Buying",       # Achat
-	"Selling",      # Vente
-	"Stock",
-	"Scoring",
-	"Financement",
-	"Tableau de Bord",
+# Modules internes à CACHER aux clients PME (labels DB en anglais).
+# Tout ce qui n'est pas dans cette liste reste visible — plus robuste
+# qu'une whitelist qui raterait un label traduit ou un nouveau module PME.
+_PME_HIDDEN_LABELS = {
+	# Administration interne Sitiame
+	"Abonnement", "Organization", "Utilisateurs de la plateforme",
+	"Chargé d'affaires", "Mon portefeuille", "Prospects", "Inscrire une PME",
+	# Modules non pertinents pour une PME cliente
+	"Assets", "Manufacturing", "Projects", "Quality", "Subcontracting",
+	"CRM", "Support", "Website",
+	# RH complet
+	"Frappe HR", "HR Setup", "Payroll", "Tenure", "Leaves",
+	"Recruitment", "Shift & Attendance", "Performance", "Tax & Benefits",
+	# Outils dev / paramètres système
+	"Build", "ERPNext Settings", "Integrations", "Automation",
+	"System", "Printing", "Data", "Email", "Framework",
+	"Users", "Home", "ERPNext", "My Workspaces",
 }
 
 
@@ -55,15 +62,15 @@ def extend_bootinfo(bootinfo):
 
 
 def _restrict_pme_client_desk(bootinfo):
-	"""Pour les utilisateurs avec le rôle PME Client : ne garder que les
-	modules autorisés et injecter la tuile Tableau de Bord en premier."""
+	"""Pour les utilisateurs avec le rôle PME Client : masquer les modules
+	internes (blacklist) et injecter la tuile Tableau de Bord en premier."""
 	if "PME Client" not in frappe.get_roles():
 		return
 
 	icons = bootinfo.get("desktop_icons") or []
 
-	# Garder uniquement les modules autorisés
-	filtered = [icon for icon in icons if icon.get("label") in _PME_ALLOWED_LABELS]
+	# Supprimer les modules internes/non-PME
+	filtered = [icon for icon in icons if icon.get("label") not in _PME_HIDDEN_LABELS]
 
 	# Injecter la tuile Tableau de Bord si absente
 	has_tdb = any(icon.get("label") == "Tableau de Bord" for icon in filtered)
