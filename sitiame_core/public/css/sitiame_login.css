@@ -245,3 +245,21 @@ body[data-path="login"] .forgot-password-message a {
 body[data-path="login"] .btn-login-with-email-link {
 	border-radius: 12px;
 }
+
+/* Remplacer "Powered by ERPNext" par Sitiame Capital */
+.footer-powered a[href*="erpnext"],
+.footer-powered a[href*="frappe"] {
+	display: none !important;
+}
+.footer-powered {
+	font-size: 13px;
+	color: #64748b;
+}
+.footer-powered::before {
+	content: "Propulsé par ";
+}
+.footer-powered::after {
+	content: "Sitiame Capital";
+	color: #ea580c;
+	font-weight: 600;
+}

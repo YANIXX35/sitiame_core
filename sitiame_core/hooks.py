@@ -10,7 +10,7 @@ required_apps = ["erpnext"]
 # These files are served without a hash in their name: browsers kept an
 # old copy after a deploy (2026-10-01, login signup link). Bump WEB_ASSETS_VERSION
 # whenever one of them changes.
-WEB_ASSETS_VERSION = "2026100601"
+WEB_ASSETS_VERSION = "2026100701"
 
 web_include_js = [
 	f"/assets/sitiame_core/js/pwa.js?v={WEB_ASSETS_VERSION}",
@@ -98,7 +98,9 @@ for _doctype in _PARTY_DOCTYPES:
 	doc_events.setdefault(_doctype, {})["before_insert"] = "sitiame_core.party_isolation.set_company"
 	doc_events[_doctype]["before_save"] = "sitiame_core.party_isolation.protect_company"
 
-extend_bootinfo ="sitiame_core.boot.extend_bootinfo"
+extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
+
+website_context = "sitiame_core.website_branding.get_context"
 
 after_migrate = "sitiame_core.setup.after_migrate"
 
