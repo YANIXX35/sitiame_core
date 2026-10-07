@@ -8,12 +8,14 @@ frappe.pages["erp-plateforme-utilisateurs"].on_page_load = function (wrapper) {
 	var $body = $("<div style='padding:0 15px;margin-top:15px;'></div>").appendTo(page.body);
 
 	function statusLabel(user) {
+		if (user.is_staff) return { text: __("Staff Sitiame"), cls: "blue" };
 		if (user.is_premium) return { text: __("Payant"), cls: "success" };
 		if (user.premium_trial_ends_at && moment(user.premium_trial_ends_at).isAfter(moment())) {
 			var days = moment(user.premium_trial_ends_at).diff(moment(), "days");
 			return { text: __("Essai gratuit ({0} j restants)", [days]), cls: "warning" };
 		}
-		return { text: __("Expire"), cls: "secondary" };
+		if (user.is_pme) return { text: __("PME"), cls: "green" };
+		return { text: __("Actif"), cls: "secondary" };
 	}
 
 	function fmt(date) {
@@ -28,14 +30,15 @@ frappe.pages["erp-plateforme-utilisateurs"].on_page_load = function (wrapper) {
 				var users = (r.message || {}).users || [];
 
 				if (!users.length) {
-					$body.html("<p class='text-muted'>" + __("Aucune PME inscrite.") + "</p>");
+					$body.html("<p class='text-muted'>" + __("Aucun utilisateur trouvé.") + "</p>");
 					return;
 				}
 
 				var html =
 					"<table class='table table-bordered bg-white'><thead><tr>" +
-					"<th>" + __("Societe") + "</th>" +
+					"<th>" + __("Nom") + "</th>" +
 					"<th>" + __("Email") + "</th>" +
+					"<th>" + __("Société") + "</th>" +
 					"<th>" + __("Statut") + "</th>" +
 					"<th>" + __("Fin d'essai gratuit") + "</th>" +
 					"<th>" + __("Fin d'abonnement") + "</th>" +
@@ -47,8 +50,9 @@ frappe.pages["erp-plateforme-utilisateurs"].on_page_load = function (wrapper) {
 					var status = statusLabel(u);
 					html +=
 						"<tr>" +
-						"<td class='fw-bold'>" + frappe.utils.escape_html(u.erpnext_company_name || u.company_name || "-") + "</td>" +
+						"<td class='fw-bold'>" + frappe.utils.escape_html(u.full_name || "-") + "</td>" +
 						"<td>" + frappe.utils.escape_html(u.email) + "</td>" +
+						"<td>" + frappe.utils.escape_html(u.erpnext_company_name || "-") + "</td>" +
 						"<td><span class='indicator-pill " + status.cls + "'>" + status.text + "</span></td>" +
 						"<td>" + fmt(u.premium_trial_ends_at) + "</td>" +
 						"<td>" + fmt(u.premium_ends_at) + "</td>" +

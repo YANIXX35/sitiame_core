@@ -2255,43 +2255,56 @@ def get_financing_dossier_from_pme360(company):
 
 @frappe.whitelist()
 def get_platform_users():
-	"""Liste toutes les PME provisionnees avec leur statut d'abonnement et
-	leur activite de connexion, pour la page admin "Utilisateurs de la
-	plateforme". Reserve au role PLATFORM_ADMIN_ROLE -- pas seulement
-	System Manager, meme un autre admin ERPNext n'y a pas acces. (Audit
-	M4 : c'etait une liste d'e-mails ecrite en dur dans ce depot public.)
+	"""Liste tous les utilisateurs ERPNext (PME et staff) avec leur société,
+	statut d'abonnement et activité de connexion — pour la page admin
+	"Utilisateurs de la plateforme". Réservé au rôle PLATFORM_ADMIN_ROLE
+	ou System Manager.
 	"""
 	from sitiame_core.setup import PLATFORM_ADMIN_ROLE
 
-	if PLATFORM_ADMIN_ROLE not in frappe.get_roles():
-		frappe.throw(_("Reserve a certains administrateurs."), frappe.PermissionError)
+	roles = frappe.get_roles()
+	if PLATFORM_ADMIN_ROLE not in roles and "System Manager" not in roles:
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
 
-	base_url = (frappe.conf.get("pme360_base_url") or "https://sitiame-capital.com").rstrip("/")
-	token = frappe.conf.get("pme360_webhook_token")
-	if not token:
-		frappe.throw(_("pme360_webhook_token n'est pas configure dans site_config.json."))
+	rows = frappe.db.sql("""
+		SELECT
+			u.name        AS email,
+			u.full_name,
+			u.creation    AS registered_at,
+			u.last_active AS last_login_at,
+			dv.defvalue   AS erpnext_company_name,
+			(SELECT GROUP_CONCAT(r.role ORDER BY r.role SEPARATOR ', ')
+			 FROM `tabUserRole` r WHERE r.parent = u.name) AS roles
+		FROM `tabUser` u
+		LEFT JOIN `tabDefaultValue` dv
+			ON dv.parent = u.name AND dv.defkey = 'company'
+		WHERE u.enabled = 1
+		  AND u.name NOT IN ('Administrator', 'Guest')
+		ORDER BY u.creation DESC
+	""", as_dict=True)
 
-	try:
-		response = requests.get(
-			f"{base_url}/webhooks/erpnext/platform-users",
-			headers={"X-PME360-Webhook-Token": token},
-			timeout=20,
-		)
-	except requests.RequestException as e:
-		frappe.throw(_("PME360 injoignable : {0}").format(str(e)))
+	users = []
+	for row in rows:
+		role_list = (row.roles or "").split(", ")
+		is_pme = "PME Client" in role_list
+		is_staff = any(r in role_list for r in [
+			"System Manager", "Accounts Manager", PLATFORM_ADMIN_ROLE
+		])
+		users.append({
+			"email":                row.email,
+			"full_name":            row.full_name,
+			"erpnext_company_name": row.erpnext_company_name,
+			"company_name":         row.erpnext_company_name,
+			"registered_at":        str(row.registered_at) if row.registered_at else None,
+			"last_login_at":        str(row.last_login_at) if row.last_login_at else None,
+			"is_pme":               is_pme,
+			"is_staff":             is_staff,
+			"is_premium":           False,
+			"premium_trial_ends_at": None,
+			"premium_ends_at":      None,
+		})
 
-	if response.status_code >= 400:
-		try:
-			detail = response.json()
-			message = detail.get("message") or detail
-		except ValueError:
-			message = response.text
-		frappe.throw(_("PME360 a refuse la demande : {0}").format(message))
-
-	try:
-		return response.json()
-	except ValueError:
-		return {}
+	return {"users": users}
 
 
 # ERPNext drafts waiting for accountant validation (docstatus = 0):
