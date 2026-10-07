@@ -71,19 +71,6 @@ def _restrict_pme_client_desk(bootinfo):
 
 	# Supprimer les modules internes/non-PME
 	filtered = [icon for icon in icons if icon.get("label") not in _PME_HIDDEN_LABELS]
-
-	# Injecter la tuile Tableau de Bord si absente
-	has_tdb = any(icon.get("label") == "Tableau de Bord" for icon in filtered)
-	if not has_tdb:
-		filtered.insert(0, {
-			"label": "Tableau de Bord",
-			"icon": "octicon octicon-graph",
-			"link": "erp-tableau-de-bord",
-			"type": "page",
-			"color": "#1d4ed8",
-			"description": "Vue d'ensemble PME360",
-		})
-
 	bootinfo["desktop_icons"] = filtered
 
 

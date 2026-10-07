@@ -24,6 +24,7 @@ def after_migrate():
 	_create_tax_regime_field()
 	_grant_crm_permissions()
 	ensure_charge_affaires_workspace()
+	ensure_tableau_de_bord_icon()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -216,6 +217,52 @@ def _ensure_charge_affaires_icon(label, icon, image, idx):
 			"roles": [{"role": CHARGE_AFFAIRES_ROLE}, {"role": "System Manager"}],
 		}
 	).insert(ignore_permissions=True)
+
+
+TDB_SIDEBAR = "Tableau de Bord"
+TDB_PAGE    = "erp-tableau-de-bord"
+
+
+def ensure_tableau_de_bord_icon():
+	"""Crée la tuile 'Tableau de Bord' sur le desk ERPNext pour les clients PME.
+
+	Même pattern que les tuiles standalone du chargé d'affaires :
+	  1. Un Workspace Sidebar avec un seul item → Page erp-tableau-de-bord
+	  2. Un Desktop Icon qui pointe vers ce sidebar (rôle : PME Client)
+	Ré-appliqué à chaque migrate pour rester idempotent.
+	"""
+	_ensure_sidebar(TDB_SIDEBAR, ((TDB_SIDEBAR, "Page", TDB_PAGE),))
+
+	values = {
+		"idx": 1,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": TDB_SIDEBAR,
+		"link": None,
+		"icon": "bar-chart",
+		"icon_image": None,
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
+	if frappe.db.exists("Desktop Icon", TDB_SIDEBAR):
+		frappe.db.set_value("Desktop Icon", TDB_SIDEBAR, values)
+	else:
+		frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": TDB_SIDEBAR,
+				**values,
+				"roles": [
+					{"role": "PME Client"},
+					{"role": "Accounts Manager"},
+					{"role": "System Manager"},
+				],
+			}
+		).insert(ignore_permissions=True)
+
+	frappe.db.commit()
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
 
 
 def _ensure_role(role):
