@@ -299,23 +299,16 @@ def ensure_plateforme_utilisateurs_icon():
 				"doctype": "Desktop Icon",
 				"label": PLATEFORME_USERS_SIDEBAR,
 				**values,
-				"roles": [
-					{"role": "System Manager"},
-					{"role": PLATFORM_ADMIN_ROLE},
-				],
 			}
 		).insert(ignore_permissions=True)
-		existing = frappe.db.get_value("Desktop Icon", {"label": PLATEFORME_USERS_SIDEBAR}, "name")
 
-	# Mettre à jour les rôles directement en SQL (idempotent)
-	frappe.db.sql("DELETE FROM `tabDesktop Icon Role` WHERE parent=%s", existing)
-	for role in ("System Manager", PLATFORM_ADMIN_ROLE):
-		frappe.db.sql(
-			"INSERT INTO `tabDesktop Icon Role` "
-			"(name, parent, parenttype, parentfield, role, creation, modified, owner, modified_by) "
-			"VALUES (MD5(RAND()), %s, 'Desktop Icon', 'roles', %s, NOW(), NOW(), 'Administrator', 'Administrator')",
-			(existing, role),
-		)
+	# S'assurer que l'icône est visible (non masquée) pour les admins
+	# en supprimant toute icône per-user masquée pour ce label
+	frappe.db.sql(
+		"UPDATE `tabDesktop Icon` SET hidden=0 "
+		"WHERE label=%s AND owner IS NOT NULL",
+		PLATEFORME_USERS_SIDEBAR,
+	)
 
 	frappe.db.commit()
 	frappe.cache().delete_value("desktop_icons")
