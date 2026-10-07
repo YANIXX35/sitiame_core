@@ -290,8 +290,9 @@ def ensure_plateforme_utilisateurs_icon():
 		"bg_color": "blue",
 		"app": "sitiame_core",
 	}
-	if frappe.db.exists("Desktop Icon", PLATEFORME_USERS_SIDEBAR):
-		frappe.db.set_value("Desktop Icon", PLATEFORME_USERS_SIDEBAR, values)
+	existing = frappe.db.get_value("Desktop Icon", {"label": PLATEFORME_USERS_SIDEBAR}, "name")
+	if existing:
+		frappe.db.set_value("Desktop Icon", existing, values)
 	else:
 		frappe.get_doc(
 			{
@@ -304,6 +305,17 @@ def ensure_plateforme_utilisateurs_icon():
 				],
 			}
 		).insert(ignore_permissions=True)
+		existing = frappe.db.get_value("Desktop Icon", {"label": PLATEFORME_USERS_SIDEBAR}, "name")
+
+	# Mettre à jour les rôles directement en SQL (idempotent)
+	frappe.db.sql("DELETE FROM `tabDesktop Icon Role` WHERE parent=%s", existing)
+	for role in ("System Manager", PLATFORM_ADMIN_ROLE):
+		frappe.db.sql(
+			"INSERT INTO `tabDesktop Icon Role` "
+			"(name, parent, parenttype, parentfield, role, creation, modified, owner, modified_by) "
+			"VALUES (MD5(RAND()), %s, 'Desktop Icon', 'roles', %s, NOW(), NOW(), 'Administrator', 'Administrator')",
+			(existing, role),
+		)
 
 	frappe.db.commit()
 	frappe.cache().delete_value("desktop_icons")
