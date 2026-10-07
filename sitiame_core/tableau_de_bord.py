@@ -189,7 +189,7 @@ def _scoring(company):
 	dossier = frappe.db.get_value(
 		"Financing Dossier",
 		{"company": company},
-		["score_global", "statut_dossier", "name"],
+		["total_score", "status", "name"],
 		order_by="modified desc",
 	)
 	return {
