@@ -26,6 +26,7 @@ def after_migrate():
 	ensure_charge_affaires_workspace()
 	ensure_tableau_de_bord_icon()
 	ensure_plateforme_utilisateurs_icon()
+	ensure_admin_dashboard_icon()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -308,6 +309,51 @@ def ensure_plateforme_utilisateurs_icon():
 		"UPDATE `tabDesktop Icon` SET hidden=0 "
 		"WHERE label=%s AND owner IS NOT NULL",
 		PLATEFORME_USERS_SIDEBAR,
+	)
+
+	frappe.db.commit()
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
+
+
+ADMIN_DASHBOARD_SIDEBAR = "Tableau de Bord Admin"
+ADMIN_DASHBOARD_PAGE    = "erp-admin-dashboard"
+
+
+def ensure_admin_dashboard_icon():
+	"""Tuile 'Tableau de Bord Admin' pour System Manager et Administrateur
+	Plateforme Sitiame. Cachée aux PME Client via boot.py. Idempotent."""
+	_ensure_sidebar(
+		ADMIN_DASHBOARD_SIDEBAR,
+		((ADMIN_DASHBOARD_SIDEBAR, "Page", ADMIN_DASHBOARD_PAGE),),
+	)
+
+	values = {
+		"idx": 2,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": ADMIN_DASHBOARD_SIDEBAR,
+		"link": None,
+		"icon": "dashboard",
+		"icon_image": None,
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
+	existing = frappe.db.get_value("Desktop Icon", {"label": ADMIN_DASHBOARD_SIDEBAR}, "name")
+	if existing:
+		frappe.db.set_value("Desktop Icon", existing, values)
+	else:
+		frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": ADMIN_DASHBOARD_SIDEBAR,
+				**values,
+			}
+		).insert(ignore_permissions=True)
+
+	frappe.db.sql(
+		"UPDATE `tabDesktop Icon` SET hidden=0 WHERE label=%s AND owner IS NOT NULL",
+		ADMIN_DASHBOARD_SIDEBAR,
 	)
 
 	frappe.db.commit()

@@ -2307,6 +2307,149 @@ def get_platform_users():
 	return {"users": users}
 
 
+@frappe.whitelist()
+def get_admin_dashboard_data():
+	"""Données pour le Tableau de Bord Admin : KPIs, activité, dossiers,
+	abonnements, chargés d'affaires, alertes."""
+	from sitiame_core.setup import PLATFORM_ADMIN_ROLE
+	roles = frappe.get_roles()
+	if PLATFORM_ADMIN_ROLE not in roles and "System Manager" not in roles:
+		frappe.throw(_("Réservé aux administrateurs."), frappe.PermissionError)
+
+	# ── KPIs ────────────────────────────────────────────────────────────────
+	total_users = frappe.db.sql(
+		"SELECT COUNT(*) FROM `tabUser` WHERE enabled=1 AND name NOT IN ('Administrator','Guest')"
+	)[0][0]
+
+	pme_actives = frappe.db.sql(
+		"SELECT COUNT(DISTINCT parent) FROM `tabDefaultValue` "
+		"WHERE defkey='company' AND defvalue IS NOT NULL AND defvalue != ''"
+	)[0][0]
+
+	abonnements_actifs = frappe.db.sql(
+		"SELECT COUNT(*) FROM `tabCompany` WHERE sitiame_subscription_ends_on >= CURDATE()"
+	)[0][0]
+
+	dossiers_en_attente = frappe.db.sql(
+		"SELECT COUNT(*) FROM `tabFinancing Dossier` WHERE status='A examiner' AND docstatus=0"
+	)[0][0]
+
+	# ── Dernières PME inscrites (10) ─────────────────────────────────────────
+	dernieres_pme = frappe.db.sql("""
+		SELECT
+			u.full_name,
+			u.name      AS email,
+			u.creation  AS inscrit_le,
+			u.last_active,
+			dv.defvalue AS company,
+			co.sitiame_charge_affaires AS charge_affaires
+		FROM `tabUser` u
+		LEFT JOIN `tabDefaultValue` dv ON dv.parent = u.name AND dv.defkey = 'company'
+		LEFT JOIN `tabCompany` co ON co.name = dv.defvalue
+		WHERE u.enabled = 1
+		  AND u.name NOT IN ('Administrator', 'Guest')
+		  AND EXISTS (
+			  SELECT 1 FROM `tabHas Role` r
+			  WHERE r.parent = u.name AND r.role = 'PME Client'
+		  )
+		ORDER BY u.creation DESC
+		LIMIT 10
+	""", as_dict=True)
+
+	# ── Dossiers financement par statut ──────────────────────────────────────
+	dossiers_financement = frappe.db.sql(
+		"SELECT status, COUNT(*) nb FROM `tabFinancing Dossier` GROUP BY status ORDER BY nb DESC",
+		as_dict=True,
+	)
+
+	# ── Scoring (tranches de score) ──────────────────────────────────────────
+	scoring_stats = frappe.db.sql("""
+		SELECT
+			CASE
+				WHEN total_score >= 80 THEN 'Excellent (80-100)'
+				WHEN total_score >= 60 THEN 'Bon (60-79)'
+				WHEN total_score >= 40 THEN 'Moyen (40-59)'
+				ELSE 'Faible (0-39)'
+			END AS tranche,
+			COUNT(*) nb
+		FROM `tabFinancing Dossier`
+		WHERE total_score > 0
+		GROUP BY tranche
+		ORDER BY MIN(total_score) DESC
+	""", as_dict=True)
+
+	# ── Prochaines expirations abonnement (30 j) ─────────────────────────────
+	expirations = frappe.db.sql("""
+		SELECT
+			c.name AS company,
+			c.sitiame_subscription_ends_on AS expires_on,
+			DATEDIFF(c.sitiame_subscription_ends_on, CURDATE()) AS jours_restants,
+			dv.parent AS email
+		FROM `tabCompany` c
+		LEFT JOIN `tabDefaultValue` dv ON dv.defvalue = c.name AND dv.defkey = 'company'
+		WHERE c.sitiame_subscription_ends_on BETWEEN CURDATE()
+		      AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+		ORDER BY c.sitiame_subscription_ends_on
+	""", as_dict=True)
+
+	# ── Chargés d'affaires (portefeuille) ────────────────────────────────────
+	portefeuilles = frappe.db.sql("""
+		SELECT
+			c.sitiame_charge_affaires AS charge_affaires,
+			u.full_name,
+			COUNT(*) nb_pme
+		FROM `tabCompany` c
+		JOIN `tabUser` u ON u.name = c.sitiame_charge_affaires
+		WHERE c.sitiame_charge_affaires IS NOT NULL
+		GROUP BY c.sitiame_charge_affaires, u.full_name
+		ORDER BY nb_pme DESC
+	""", as_dict=True)
+
+	# ── Alertes ──────────────────────────────────────────────────────────────
+	pme_sans_societe = frappe.db.sql("""
+		SELECT u.name AS email, u.full_name, u.creation AS inscrit_le
+		FROM `tabUser` u
+		WHERE u.enabled = 1
+		  AND u.name NOT IN ('Administrator', 'Guest')
+		  AND EXISTS (
+			  SELECT 1 FROM `tabHas Role` r WHERE r.parent = u.name AND r.role = 'PME Client'
+		  )
+		  AND NOT EXISTS (
+			  SELECT 1 FROM `tabDefaultValue` dv
+			  WHERE dv.parent = u.name AND dv.defkey = 'company' AND dv.defvalue IS NOT NULL AND dv.defvalue != ''
+		  )
+		ORDER BY u.creation DESC
+	""", as_dict=True)
+
+	jamais_connectes = frappe.db.sql("""
+		SELECT u.name AS email, u.full_name, u.creation AS inscrit_le
+		FROM `tabUser` u
+		WHERE u.enabled = 1
+		  AND u.name NOT IN ('Administrator', 'Guest')
+		  AND u.last_active IS NULL
+		ORDER BY u.creation DESC
+		LIMIT 20
+	""", as_dict=True)
+
+	return {
+		"kpis": {
+			"total_users": total_users,
+			"pme_actives": pme_actives,
+			"abonnements_actifs": abonnements_actifs,
+			"dossiers_en_attente": dossiers_en_attente,
+		},
+		"dernieres_pme": [dict(r) for r in dernieres_pme],
+		"dossiers_financement": [dict(r) for r in dossiers_financement],
+		"scoring_stats": [dict(r) for r in scoring_stats],
+		"expirations": [dict(r) for r in expirations],
+		"portefeuilles": [dict(r) for r in portefeuilles],
+		"alertes": {
+			"pme_sans_societe": [dict(r) for r in pme_sans_societe],
+			"jamais_connectes": [dict(r) for r in jamais_connectes],
+		},
+	}
+
+
 # ERPNext drafts waiting for accountant validation (docstatus = 0):
 # Purchase/Sales Invoices and Payment Entries created by the OCR pipeline.
 # The accountant submits them to generate GL entries that appear in the

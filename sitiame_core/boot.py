@@ -12,6 +12,7 @@ import frappe
 _PME_HIDDEN_LABELS = {
 	# Administration interne Sitiame
 	"Abonnement", "Organization", "Utilisateurs de la plateforme",
+	"Tableau de Bord Admin",
 	"Chargé d'affaires", "Mon portefeuille", "Prospects", "Inscrire une PME",
 	# Modules non pertinents pour une PME cliente
 	"Assets", "Manufacturing", "Projects", "Quality", "Subcontracting",
