@@ -6,10 +6,12 @@ import json
 import frappe
 
 
+# Labels réels des Desktop Icon (en anglais dans la DB, traduits à l'affichage)
+# Accounting = Comptabilité, Buying = Achat, Selling = Vente
 _PME_ALLOWED_LABELS = {
-	"Comptabilité", "Accounting",
-	"Achat", "Buying",
-	"Vente", "Selling",
+	"Accounting",   # Comptabilité (Folder avec Invoicing, Financial Reports…)
+	"Buying",       # Achat
+	"Selling",      # Vente
 	"Stock",
 	"Scoring",
 	"Financement",
