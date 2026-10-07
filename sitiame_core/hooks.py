@@ -100,7 +100,7 @@ for _doctype in _PARTY_DOCTYPES:
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
 
-website_context = "sitiame_core.website_branding.get_context"
+website_context = ["sitiame_core.website_branding.get_context"]
 
 after_migrate = "sitiame_core.setup.after_migrate"
 
