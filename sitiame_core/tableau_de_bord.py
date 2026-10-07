@@ -20,7 +20,8 @@ def get_dashboard_data():
 	frappe.only_for(["PME Client", "Accounts Manager", "System Manager"])
 	company = _company()
 	if not company:
-		frappe.throw(_("Aucune société active. Veuillez en sélectionner une."))
+		# Pas de société configurée : retourner un état vide lisible par le JS
+		return {"company": None, "no_company": True}
 
 	today = nowdate()
 	first_day = get_first_day(today)

@@ -106,6 +106,14 @@ frappe.pages["erp-tableau-de-bord"].on_page_load = function (wrapper) {
 					$body.html("<div style='padding:40px;color:#ef4444;'>Erreur lors du chargement des données.</div>");
 					return;
 				}
+				if (!r.message || r.message.no_company) {
+					$body.html("<div style='padding:60px;text-align:center;color:#94a3b8;'>"
+						+ "<div style='font-size:3rem;margin-bottom:16px;'>🏢</div>"
+						+ "<b style='color:#334155;font-size:1.1rem;'>Aucune société configurée</b><br><br>"
+						+ "<span style='font-size:.85rem;'>Associez une société à votre compte pour voir vos données financières.</span>"
+						+ "</div>");
+					return;
+				}
 				render(r.message);
 			},
 		});
