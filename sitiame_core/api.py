@@ -2274,7 +2274,7 @@ def get_platform_users():
 			u.last_active AS last_login_at,
 			dv.defvalue   AS erpnext_company_name,
 			(SELECT GROUP_CONCAT(r.role ORDER BY r.role SEPARATOR ', ')
-			 FROM `tabUserRole` r WHERE r.parent = u.name) AS roles
+			 FROM `tabUser Role` r WHERE r.parent = u.name) AS roles
 		FROM `tabUser` u
 		LEFT JOIN `tabDefaultValue` dv
 			ON dv.parent = u.name AND dv.defkey = 'company'
