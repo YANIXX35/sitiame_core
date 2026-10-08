@@ -1,91 +1,149 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
-"""Sitiame staff accounts do not see each other's business documents.
+"""Two isolation rules in one handler:
 
-A PME account is already confined to its own company by its Company User
-Permission. Staff accounts have none (they must keep seeing every company
-for scoring, financing and audit), so until now every staff member saw
-the invoices, payments, customers... that any other staff member had
-created in the shared SITIAME company.
+1. STAFF isolation: staff accounts do not see each other's business documents.
+   A staff member's own documents are visible; PME documents are visible to all
+   staff. Documents created by the API user or Administrator are always visible.
 
-Rule, for a staff user on the doctypes below: a document created by
-another staff member is hidden. Everything else stays visible: their own
-documents, and those created by PME accounts, the PME360 integration
-user or Administrator. PME accounts and the exempt users are untouched.
+2. PME isolation: a PME account only sees documents belonging to its own Company.
+   ERPNext's Company User Permission provides a first layer, but it is not
+   reliable on all transactional doctypes and can be absent for orphan accounts.
+   This hook adds an explicit SQL condition + has_permission check as a guarantee.
 
-"Staff" = a System User without a Company User Permission, other than
-the exempt users."""
+"Staff"  = System User without a Company User Permission, other than exempt users.
+"PME"    = System User with the "PME Client" role.
+"Orphan" = PME Client without a Company User Permission → sees nothing.
+"""
 
 import frappe
 
 ISOLATED_DOCTYPES = (
-	"Sales Invoice",
-	"Purchase Invoice",
-	"POS Invoice",
-	"Payment Entry",
-	"Journal Entry",
-	"Quotation",
-	"Sales Order",
-	"Delivery Note",
-	"Supplier Quotation",
-	"Request for Quotation",
-	"Purchase Order",
-	"Purchase Receipt",
-	"Material Request",
-	"Stock Entry",
-	"Stock Reconciliation",
-	"Customer",
-	"Supplier",
-	"Item",
+    "Sales Invoice",
+    "Purchase Invoice",
+    "POS Invoice",
+    "Payment Entry",
+    "Journal Entry",
+    "Quotation",
+    "Sales Order",
+    "Delivery Note",
+    "Supplier Quotation",
+    "Request for Quotation",
+    "Purchase Order",
+    "Purchase Receipt",
+    "Material Request",
+    "Stock Entry",
+    "Stock Reconciliation",
+    "Customer",
+    "Supplier",
+    "Item",
 )
 
-# See everything, and their documents are visible to all staff.
+# These users bypass all isolation: they see every company's documents and
+# their own documents are visible to all staff.
 EXEMPT_USERS = ("Administrator", "api-pme360@sitiame-capital.com")
 
+# Items are intentionally shared across PMEs: PME360 matches items by label
+# and a single item record can be on invoices of multiple PMEs.
+_PME_SHARED_DOCTYPES = frozenset(["Item"])
+
+_UNSET = object()  # sentinel distinguishing "not yet computed" from None
+
+
+# ---------------------------------------------------------------------------
+# Staff isolation helpers
+# ---------------------------------------------------------------------------
 
 def _staff_users():
-	"""Every staff account, cached for the request."""
-	if getattr(frappe.local, "sitiame_staff_users", None) is None:
-		frappe.local.sitiame_staff_users = set(
-			frappe.db.sql_list(
-				"""
-				select u.name from `tabUser` u
-				where u.user_type = 'System User'
-					and u.name not in %(exempt)s
-					and not exists (
-						select 1 from `tabUser Permission` up
-						where up.user = u.name and up.allow = 'Company'
-					)
-				""",
-				{"exempt": EXEMPT_USERS},
-			)
-		)
-	return frappe.local.sitiame_staff_users
+    """Every staff account, cached for the request."""
+    if getattr(frappe.local, "sitiame_staff_users", None) is None:
+        frappe.local.sitiame_staff_users = set(
+            frappe.db.sql_list(
+                """
+                select u.name from `tabUser` u
+                where u.user_type = 'System User'
+                    and u.name not in %(exempt)s
+                    and not exists (
+                        select 1 from `tabUser Permission` up
+                        where up.user = u.name and up.allow = 'Company'
+                    )
+                """,
+                {"exempt": EXEMPT_USERS},
+            )
+        )
+    return frappe.local.sitiame_staff_users
 
 
 def _hidden_owners(user):
-	"""Owners whose documents `user` must not see (empty if not staff)."""
-	staff = _staff_users()
-	if user not in staff:
-		return set()
-	return staff - {user}
+    """Owners whose documents `user` must not see (empty if not staff)."""
+    staff = _staff_users()
+    if user not in staff:
+        return set()
+    return staff - {user}
 
+
+# ---------------------------------------------------------------------------
+# PME isolation helpers
+# ---------------------------------------------------------------------------
+
+def _pme_company(user):
+    """Return the PME's Company, None if PME orphan, or _UNSET if staff/admin.
+
+    Cached in frappe.local for the lifetime of the HTTP request.
+    """
+    attr = f"_sitiame_iso_company_{user}"
+    cached = getattr(frappe.local, attr, _UNSET)
+    if cached is not _UNSET:
+        return cached
+
+    if user in EXEMPT_USERS or "PME Client" not in frappe.get_roles(user):
+        result = _UNSET  # not a PME → fall through to staff logic
+    else:
+        from sitiame_core.party_isolation import company_of
+        result = company_of(user)  # None when no Company User Permission
+
+    setattr(frappe.local, attr, result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Frappe hooks
+# ---------------------------------------------------------------------------
 
 def get_permission_query_conditions(user=None, doctype=None):
-	user = user or frappe.session.user
-	if doctype not in ISOLATED_DOCTYPES:
-		return ""
-	hidden = _hidden_owners(user)
-	if not hidden:
-		return ""
-	owners = ", ".join(frappe.db.escape(owner) for owner in sorted(hidden))
-	return f"`tab{doctype}`.`owner` not in ({owners})"
+    user = user or frappe.session.user
+    if doctype not in ISOLATED_DOCTYPES:
+        return ""
+
+    company = _pme_company(user)
+
+    # ── PME Client on a non-shared doctype ──────────────────────────────────
+    if company is not _UNSET and doctype not in _PME_SHARED_DOCTYPES:
+        if not company:
+            return "0 = 1"  # orphan PME → empty list
+        return f"`tab{doctype}`.`company` = {frappe.db.escape(company)}"
+
+    # ── Staff: hide other staff members' documents ───────────────────────────
+    hidden = _hidden_owners(user)
+    if not hidden:
+        return ""
+    owners = ", ".join(frappe.db.escape(owner) for owner in sorted(hidden))
+    return f"`tab{doctype}`.`owner` not in ({owners})"
 
 
 def has_permission(doc, ptype=None, user=None, debug=False):
-	# Frappe treats any falsy return as a refusal: always answer True/False.
-	user = user or frappe.session.user
-	if doc.doctype not in ISOLATED_DOCTYPES or not doc.get("owner"):
-		return True
-	return doc.owner not in _hidden_owners(user)
+    user = user or frappe.session.user
+    if doc.doctype not in ISOLATED_DOCTYPES or not doc.get("owner"):
+        return True
+
+    company = _pme_company(user)
+
+    # ── PME Client on a non-shared doctype ──────────────────────────────────
+    if company is not _UNSET and doc.doctype not in _PME_SHARED_DOCTYPES:
+        if not company:
+            return False  # orphan PME → no access
+        return doc.get("company") == company
+
+    # ── Staff ────────────────────────────────────────────────────────────────
+    return doc.owner not in _hidden_owners(user)
