@@ -71,6 +71,14 @@ permission_query_conditions.update(
 )
 has_permission.update({doctype: "sitiame_core.portfolio.has_permission" for doctype in _PORTFOLIO_DOCTYPES})
 
+# PME Client access restricted by offer level (offer_access.py)
+from sitiame_core.offer_access import OFFER_RESTRICTED_DOCTYPES as _OFFER_RESTRICTED_DOCTYPES
+
+permission_query_conditions.update(
+    {doctype: "sitiame_core.offer_access.get_permission_query_conditions" for doctype in _OFFER_RESTRICTED_DOCTYPES}
+)
+has_permission.update({doctype: "sitiame_core.offer_access.has_permission" for doctype in _OFFER_RESTRICTED_DOCTYPES})
+
 doc_events = {
 	# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
 	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
