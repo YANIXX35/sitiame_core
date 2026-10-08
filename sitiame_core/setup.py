@@ -17,6 +17,8 @@ def after_migrate():
 	_create_pay_on_submit_fields()
 	_create_party_company_fields()
 	_create_withholding_field()
+	_create_fne_fields()
+	_ensure_fne_print_format()
 	make_hr_icon_a_folder()
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
@@ -669,3 +671,175 @@ def _create_offer_field():
 		},
 		update=True,
 	)
+
+
+# ---------------------------------------------------------------------------
+# FNE — Facture Normalisée Électronique (DGI Côte d'Ivoire)
+# ---------------------------------------------------------------------------
+
+def _create_fne_fields():
+	"""Ajoute les champs FNE :
+	  - Company.sitiame_rccm  : numéro RCCM
+	  - Sales Invoice.sitiame_fne_number : numéro FNE attribué à la soumission
+	"""
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": "sitiame_rccm",
+					"label": "RCCM (Registre du Commerce)",
+					"fieldtype": "Data",
+					"insert_after": "tax_id",
+					"description": (
+						"Numéro d'immatriculation au Registre du Commerce et du Crédit Mobilier. "
+						"Mention obligatoire sur les Factures Normalisées Électroniques (FNE)."
+					),
+				},
+			],
+			"Sales Invoice": [
+				{
+					"fieldname": "sitiame_fne_number",
+					"label": "Numéro FNE",
+					"fieldtype": "Data",
+					"insert_after": "naming_series",
+					"read_only": 1,
+					"no_copy": 1,
+					"in_standard_filter": 1,
+					"description": (
+						"Numéro de la Facture Normalisée Électronique, attribué automatiquement "
+						"à la soumission. Format : FNE-{ABBR}-{YYYY}-{NNNNNN}."
+					),
+				},
+			],
+		},
+		update=True,
+	)
+
+
+_FNE_PRINT_FORMAT_NAME = "Facture Normalisée Électronique"
+
+_FNE_HTML = """\
+{%- set company = frappe.get_doc("Company", doc.company) -%}
+{%- set nif = company.tax_id or "" -%}
+{%- set rccm = company.get("sitiame_rccm") or "" -%}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<style>
+  body{font-family:Arial,sans-serif;font-size:11px;color:#1a1a1a;margin:0}
+  .fne-wrap{max-width:780px;margin:0 auto;padding:20px 24px}
+  .fne-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #006B3C;padding-bottom:12px;margin-bottom:16px}
+  .fne-company h1{font-size:15px;font-weight:700;margin:0 0 4px;color:#006B3C}
+  .fne-company p{margin:2px 0}
+  .fne-badge{background:#006B3C;color:#fff;padding:6px 14px;border-radius:4px;font-size:11px;font-weight:700;text-align:center;white-space:nowrap}
+  .fne-badge small{display:block;font-weight:400;font-size:9px;letter-spacing:.5px;margin-top:2px}
+  .fne-meta{display:flex;justify-content:space-between;margin-bottom:14px}
+  .fne-meta table{font-size:11px}
+  .fne-meta td{padding:2px 8px 2px 0}
+  .fne-meta td:first-child{color:#555;white-space:nowrap}
+  table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10.5px}
+  table.items th{background:#006B3C;color:#fff;padding:6px 8px;text-align:left}
+  table.items td{padding:5px 8px;border-bottom:1px solid #e8e8e8}
+  table.items tr:nth-child(even) td{background:#f6faf8}
+  .fne-totals{float:right;width:280px;margin-top:8px}
+  .fne-totals table{width:100%;font-size:11px}
+  .fne-totals td{padding:4px 6px}
+  .fne-totals td:last-child{text-align:right;font-weight:600}
+  .fne-totals tr.ttc{background:#006B3C;color:#fff;font-size:13px;font-weight:700}
+  .fne-footer{clear:both;margin-top:40px;border-top:1px solid #ccc;padding-top:10px;font-size:9px;color:#777;text-align:center}
+</style>
+</head>
+<body>
+<div class="fne-wrap">
+  <div class="fne-header">
+    <div class="fne-company">
+      <h1>{{ doc.company }}</h1>
+      {%- if nif %}<p><strong>NIF :</strong> {{ nif }}</p>{%- endif %}
+      {%- if rccm %}<p><strong>RCCM :</strong> {{ rccm }}</p>{%- endif %}
+      <p>{{ company.city or "" }}{% if company.country %}, {{ company.country }}{% endif %}</p>
+      {%- if company.phone_no %}<p>Tél : {{ company.phone_no }}</p>{%- endif %}
+    </div>
+    <div class="fne-badge">
+      FACTURE NORMALISÉE<br/>ÉLECTRONIQUE
+      {%- if doc.sitiame_fne_number %}<small>{{ doc.sitiame_fne_number }}</small>{%- endif %}
+    </div>
+  </div>
+  <div class="fne-meta">
+    <table>
+      <tr><td>Facture N° :</td><td><strong>{{ doc.name }}</strong></td></tr>
+      <tr><td>Date :</td><td>{{ frappe.format(doc.posting_date, "Date") }}</td></tr>
+      {%- if doc.due_date %}<tr><td>Échéance :</td><td>{{ frappe.format(doc.due_date, "Date") }}</td></tr>{%- endif %}
+    </table>
+    <table>
+      <tr><td>Client :</td><td><strong>{{ doc.customer }}</strong></td></tr>
+      {%- if doc.tax_id %}<tr><td>NIF client :</td><td>{{ doc.tax_id }}</td></tr>{%- endif %}
+      {%- if doc.customer_address %}<tr><td>Adresse :</td><td>{{ doc.customer_address }}</td></tr>{%- endif %}
+    </table>
+  </div>
+  <table class="items">
+    <thead>
+      <tr>
+        <th>Désignation</th>
+        <th style="text-align:right">Qté</th>
+        <th style="text-align:right">P.U. HT</th>
+        <th style="text-align:right">Montant HT</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for item in doc.items %}
+      <tr>
+        <td>{{ item.item_name or item.item_code }}
+          {%- if item.description and item.description != item.item_name %}
+          <br/><span style="color:#555;font-size:9.5px">{{ item.description | truncate(120) }}</span>
+          {%- endif %}
+        </td>
+        <td style="text-align:right">{{ item.qty | int if item.qty == item.qty | int else item.qty }}</td>
+        <td style="text-align:right">{{ frappe.format(item.rate, "Currency", options=doc.currency) }}</td>
+        <td style="text-align:right">{{ frappe.format(item.amount, "Currency", options=doc.currency) }}</td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  <div class="fne-totals">
+    <table>
+      <tr><td>Total HT</td><td>{{ frappe.format(doc.net_total, "Currency", options=doc.currency) }}</td></tr>
+      {%- for tax in doc.taxes %}
+      <tr><td>{{ tax.description or tax.account_head }}</td><td>{{ frappe.format(tax.tax_amount, "Currency", options=doc.currency) }}</td></tr>
+      {%- endfor %}
+      <tr class="ttc"><td>TOTAL TTC</td><td>{{ frappe.format(doc.grand_total, "Currency", options=doc.currency) }}</td></tr>
+    </table>
+  </div>
+  <div class="fne-footer">
+    <p>Document émis conformément à la réglementation fiscale de la République de Côte d'Ivoire.{%- if nif %} NIF émetteur : {{ nif }}.{%- endif %}{%- if rccm %} RCCM : {{ rccm }}.{%- endif %} Tout paiement doit référencer le numéro de facture.</p>
+    <p>Édité via PME360 — SITIAME CAPITAL &nbsp;|&nbsp; erp.sitiame-capital.com</p>
+  </div>
+</div>
+</body>
+</html>
+"""
+
+
+def _ensure_fne_print_format():
+	"""Crée ou met à jour le Print Format FNE pour Sales Invoice."""
+	name = _FNE_PRINT_FORMAT_NAME
+	exists = frappe.db.exists("Print Format", name)
+	if exists:
+		pf = frappe.get_doc("Print Format", name)
+	else:
+		pf = frappe.new_doc("Print Format")
+		pf.name = name
+
+	pf.doc_type = "Sales Invoice"
+	pf.module = "Sitiame Core"
+	pf.custom_format = 1
+	pf.print_format_type = "Jinja"
+	pf.html = _FNE_HTML
+	pf.css = ""
+	pf.disabled = 0
+
+	if exists:
+		pf.save(ignore_permissions=True)
+	else:
+		pf.insert(ignore_permissions=True)
+	frappe.db.commit()

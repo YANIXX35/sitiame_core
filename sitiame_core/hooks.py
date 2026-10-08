@@ -82,7 +82,11 @@ has_permission.update({doctype: "sitiame_core.offer_access.has_permission" for d
 doc_events = {
 	# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
 	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
-	"Sales Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
+	"Sales Invoice": {
+		# Assign FNE number (Facture Normalisée Électronique — DGI CI obligation)
+		"before_submit": "sitiame_core.fne.assign_fne_number",
+		"on_submit": "sitiame_core.pay_on_submit.create_payment",
+	},
 	# a chargé d'affaires proposes, a validator decides (portfolio.py)
 	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
