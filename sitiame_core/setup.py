@@ -12,6 +12,8 @@ from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
 def after_migrate():
 	_create_subscription_fields()
 	_create_offer_field()
+	_create_offer_roles()
+	_migrate_offer_roles()
 	_create_pay_on_submit_fields()
 	_create_party_company_fields()
 	_create_withholding_field()
@@ -598,6 +600,51 @@ def _create_subscription_fields():
 # Company so the accountant sets it once, at signup or upgrade.
 PME360_OFFERS = ("Essentiel", "Pilotage", "Transformation")
 PME360_OFFER_FIELD = "sitiame_offer"
+
+
+def _create_offer_roles():
+	"""Create the three offer roles. Idempotent: _ensure_role skips if exists."""
+	from sitiame_core.roles import PME360_OFFER_ROLES
+	for role in PME360_OFFER_ROLES:
+		_ensure_role(role)
+
+
+def _migrate_offer_roles():
+	"""Assign the right offer role to every existing PME account that doesn't
+	have one yet. Additive only: never removes ERPNext or other roles."""
+	from sitiame_core.roles import PME360_OFFER_ROLES, _OFFER_TO_ROLE
+
+	# All users with the PME Client role that are missing any offer role
+	pme_users = frappe.db.sql(
+		"""
+		SELECT u.name AS user, c.name AS company, c.sitiame_offer AS offer
+		FROM `tabUser` u
+		JOIN `tabUser Permission` up ON up.user = u.name AND up.allow = 'Company'
+		JOIN `tabCompany` c ON c.name = up.for_value
+		WHERE u.enabled = 1
+		  AND EXISTS (
+			SELECT 1 FROM `tabHas Role` hr
+			WHERE hr.parent = u.name AND hr.role = 'PME Client'
+		  )
+		  AND NOT EXISTS (
+			SELECT 1 FROM `tabHas Role` hr2
+			WHERE hr2.parent = u.name AND hr2.role IN ({roles})
+		  )
+		""".format(roles=", ".join(f"'{r}'" for r in PME360_OFFER_ROLES)),
+		as_dict=True,
+	)
+
+	for row in pme_users:
+		try:
+			offer = row.offer or "Essentiel"
+			role  = _OFFER_TO_ROLE.get(offer, _OFFER_TO_ROLE["Essentiel"])
+			user  = frappe.get_doc("User", row.user)
+			user.add_roles(role)
+		except Exception:
+			frappe.log_error(title=f"sitiame_core.setup._migrate_offer_roles: {row.user}")
+
+	if pme_users:
+		frappe.db.commit()
 
 
 def _create_offer_field():

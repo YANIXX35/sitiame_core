@@ -78,7 +78,11 @@ doc_events = {
 	# a chargé d'affaires proposes, a validator decides (portfolio.py)
 	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
-	"Company": {"validate": "sitiame_core.portfolio.guard_portfolio_field"},
+	"Company": {
+		"validate": "sitiame_core.portfolio.guard_portfolio_field",
+		# sync the PME's offer role when sitiame_offer changes on the Company
+		"on_update": "sitiame_core.offer_roles.sync_offer_role_on_company_update",
+	},
 	# a PME registered by a chargé d'affaires joins his portfolio once its
 	# company is provisioned (portfolio.py); the PME user's own Contact
 	# joins its company (party_isolation.py)

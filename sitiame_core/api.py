@@ -486,6 +486,7 @@ def _provision_company_signup(
 				# (Sitiame-internal/admin-only).
 				"roles": [
 					{"role": "PME Client"},
+					{"role": "PME360 Essentiel"},   # upgraded via offer_roles.sync_offer_role
 					{"role": "Accounts Manager"},
 					{"role": "Accounts User"},
 					{"role": "Sales Manager"},
