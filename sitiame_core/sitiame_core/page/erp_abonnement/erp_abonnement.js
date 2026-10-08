@@ -11,8 +11,15 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 	var $container = $(
 		"<div style='max-width: 580px; margin: 30px auto; padding: 35px 25px; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06); text-align: center; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;'>" +
 			"<div style='font-size: 46px; margin-bottom: 12px;'>\uD83D\uDCB3</div>" +
-			"<h3 style='font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 22px;'>" + __("Abonnement SITIAME CAPITAL") + "</h3>" +
-			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;'>" + __("Pack Premium Enterprise : <strong><span class='abonnement-price'>15 000</span> FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money : Wave, Orange Money, MTN, Moov, Djamo</span>") + "</p>" +
+			"<h3 style='font-weight: 700; color: #0f172a; margin-bottom: 6px; font-size: 22px;'>" + __("Abonnement PME360") + "</h3>" +
+			"<div id='abonnement-offer-badge' style='display:inline-block;margin-bottom:8px;padding:3px 14px;border-radius:99px;font-size:.78rem;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;'></div>" +
+			"<p style='color: #64748b; font-size: 14px; margin-bottom: 25px;' id='abonnement-price-line'>" +
+				__("Abonnement mensuel : <strong><span class='abonnement-price'>\u2014</span> FCFA</strong> / mois<br><span style='font-size: 13px; color: #94a3b8;'>Mobile Money : Wave, Orange Money, MTN, Moov, Djamo</span>") +
+			"</p>" +
+			"<div id='abonnement-devis-notice' style='display:none;margin-bottom:20px;padding:14px 18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;color:#c2410c;font-size:14px;font-weight:500;'>" +
+				"\uD83D\uDCDE " + __("Votre offre Transformation n\u00E9cessite un devis personnalis\u00E9.") + "<br>" +
+				"<a href='mailto:contact@sitiame-capital.com' style='color:#ea580c;font-weight:700;'>contact@sitiame-capital.com</a>" +
+			"</div>" +
 
 			// State: Loading
 			"<div id='abonnement-state-loading' style='padding: 20px 0;'>" +
@@ -47,7 +54,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				"<div style='font-size: 20px; font-weight: 700; color: #15803d; margin-bottom: 8px;'>" + __("Abonnement actif") + "</div>" +
 				"<div id='abonnement-active-desc' style='font-size: 14px; color: #475569; margin-bottom: 25px; line-height: 1.5;'></div>" +
 				"<button id='btn-extend-subscription' class='btn btn-primary' style='border-radius: 8px; padding: 11px 24px; font-weight: 600;'>" +
-					__("Prolonger d'un mois") + " (" + "<span class='abonnement-price'>15 000</span>" + " FCFA)" +
+					__("Prolonger d'un mois") + " (<span class='abonnement-price'>—</span> FCFA)" +
 				"</button>" +
 			"</div>" +
 
@@ -93,11 +100,25 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		"</div>"
 	).appendTo(page.body);
 
-	// The price is set on the server (site_config sitiame_subscription_amount):
-	// show what will really be charged.
+	// Fetch subscription info: offer name, price, devis flag.
 	frappe.call({ method: "sitiame_core.subscription_api.get_my_subscription" }).then(function (r) {
-		var amount = (r.message || {}).amount;
-		if (amount) $(".abonnement-price").text(format_number(amount, null, 0));
+		var msg = r.message || {};
+		var offer = msg.offer || "Essentiel";
+		var amount = msg.amount;
+		var is_devis = msg.is_devis;
+
+		// Badge offre
+		$("#abonnement-offer-badge").text(offer).show();
+
+		if (is_devis) {
+			// Offre sur devis : cacher le flux de paiement, afficher la notice
+			$("#abonnement-price-line").hide();
+			$("#abonnement-devis-notice").show();
+			// Bloquer les boutons de paiement
+			$("#btn-extend-subscription, #btn-retry-payment").prop("disabled", true).css("opacity", "0.4");
+		} else if (amount) {
+			$(".abonnement-price").text(format_number(amount, null, 0));
+		}
 	});
 
 	function receiptUrl(docname) {

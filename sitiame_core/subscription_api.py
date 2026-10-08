@@ -22,17 +22,56 @@ SUBSCRIPTION_ENDS_FIELD = "sitiame_subscription_ends_on"
 # abandoned checkout (see reconcile_pending_payments).
 PENDING_EXPIRES_AFTER_DAYS = 7
 
-# Monthly price in FCFA. site_config "sitiame_subscription_amount" overrides
-# it, e.g. for a real low-cost payment test (Jèko has no sandbox).
-SUBSCRIPTION_AMOUNT = 15000
 # Hard floor: a misconfigured site_config (e.g. leftover test value of 20)
 # must never activate a real subscription for less than this amount.
 SUBSCRIPTION_AMOUNT_FLOOR = 1000
 
+# Grille tarifaire mensuelle (FCFA) par offre et régime fiscal.
+# None = "sur devis" → le flux de paiement automatique est bloqué.
+# Régimes : TEE (Taxe d'État de l'entreprenant), RME (microentreprise),
+#           RSI (réel simplifié), RNI (réel normal).
+_TARIF = {
+	#             Essentiel   Pilotage    Transformation
+	"TEE":       (  15_000,    75_000,    None),
+	"RME":       (  25_000,   100_000,    None),
+	"RSI":       (  50_000,   175_000,  250_000),
+	"RNI":       (  80_000,   250_000,  400_000),
+}
+_TARIF_DEFAULT = _TARIF["TEE"]   # fallback si le régime n'est pas renseigné
+_OFFER_INDEX   = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
+
+
+def subscription_amount_for(company=None):
+	"""Return the monthly price in FCFA for a given company's offer+regime,
+	or None when the offer requires a custom quote (Transformation + TEE/RME).
+	Falls back to the flat amount in site_config when set (test mode)."""
+	override = frappe.conf.get("sitiame_subscription_amount")
+	if override:
+		raw = int(override)
+		return max(SUBSCRIPTION_AMOUNT_FLOOR, raw)
+
+	if not company:
+		return _TARIF_DEFAULT[0]   # Essentiel TEE par défaut
+
+	from sitiame_core.setup import PME360_OFFER_FIELD
+	row = frappe.db.get_value(
+		"Company", company,
+		[PME360_OFFER_FIELD, "sitiame_regime_fiscal"],
+		as_dict=True,
+	) or {}
+
+	offer   = row.get(PME360_OFFER_FIELD) or "Essentiel"
+	regime  = row.get("sitiame_regime_fiscal") or ""
+	tarifs  = _TARIF.get(regime, _TARIF_DEFAULT)
+	idx     = _OFFER_INDEX.get(offer, 0)
+	return tarifs[idx]   # peut être None (sur devis)
+
 
 def subscription_amount():
-	raw = int(frappe.conf.get("sitiame_subscription_amount") or SUBSCRIPTION_AMOUNT)
-	return max(SUBSCRIPTION_AMOUNT_FLOOR, raw)
+	"""Backward-compat shim used by legacy callers that don't pass a company.
+	Always returns a concrete amount (falls back to Essentiel TEE)."""
+	result = subscription_amount_for()
+	return result if result is not None else _TARIF_DEFAULT[0]
 
 # Subscription Payment.payment_provider. Older payments (empty provider)
 # came from a previous provider and are no longer queried.
@@ -142,12 +181,14 @@ def _restore_trial_roles(company):
 def get_my_subscription():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
-	# the price comes along so the pages show what will really be charged
+	company = get_user_company()
+	sub = get_company_subscription(company)
+	amount = subscription_amount_for(company)
 	return {
-		**get_company_subscription(get_user_company()),
-		"amount": subscription_amount(),
+		**sub,
+		"amount": amount,        # None quand l'offre est sur devis
+		"is_devis": amount is None,
 		"is_staff": is_sitiame_staff(),
-		# admins keep the overview; other staff pay like a PME, picking it
 		"is_admin": "System Manager" in frappe.get_roles(),
 	}
 
@@ -156,11 +197,17 @@ def get_my_subscription():
 
 
 def _new_payment(company):
+	amount = subscription_amount_for(company)
+	if amount is None:
+		frappe.throw(
+			_("L'offre Transformation de cette société nécessite un devis. Contactez SITIAME Capital."),
+			frappe.ValidationError,
+		)
 	doc = frappe.get_doc(
 		{
 			"doctype": "Subscription Payment",
 			"company": company,
-			"amount": subscription_amount(),
+			"amount": amount,
 			"duration_months": 1,
 			"status": PENDING,
 		}
