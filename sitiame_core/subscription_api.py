@@ -70,7 +70,18 @@ def _only_staff():
 
 
 def get_company_subscription(company):
-	ends_on = frappe.db.get_value("Company", company, SUBSCRIPTION_ENDS_FIELD) if company else None
+	from sitiame_core.setup import PME360_OFFER_FIELD
+
+	if company:
+		row = frappe.db.get_value(
+			"Company", company,
+			[SUBSCRIPTION_ENDS_FIELD, PME360_OFFER_FIELD, "sitiame_regime_fiscal"],
+			as_dict=True,
+		) or {}
+	else:
+		row = {}
+
+	ends_on = row.get(SUBSCRIPTION_ENDS_FIELD)
 	trial_ends_on = frappe.db.get_value("Company Signup", {"company": company}, "trial_ends_on") if company else None
 
 	return {
@@ -79,6 +90,8 @@ def get_company_subscription(company):
 		"active": bool(ends_on and getdate(ends_on) >= getdate(today())),
 		"trial_ends_on": str(trial_ends_on) if trial_ends_on else None,
 		"in_trial": bool(trial_ends_on and getdate(trial_ends_on) >= getdate(today())),
+		"offer": row.get(PME360_OFFER_FIELD) or "Essentiel",
+		"regime": row.get("sitiame_regime_fiscal") or "",
 	}
 
 

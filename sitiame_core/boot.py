@@ -62,9 +62,23 @@ def extend_bootinfo(bootinfo):
 		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: subscription status failed")
 
 
+# Modules réservés aux offres supérieures.
+# Clé = label du module, valeur = offre minimale requise.
+# "Essentiel" (absent de la liste) = visible dans tous les niveaux.
+_OFFER_REQUIRED = {
+	"Immobilisations":     "Pilotage",
+	"Ressources humaines": "Pilotage",
+	"Paie":                "Pilotage",
+	"Prévisions":          "Transformation",
+	"Budget":              "Transformation",
+}
+
+_OFFER_RANK = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
+
+
 def _restrict_pme_client_desk(bootinfo):
 	"""Pour les utilisateurs avec le rôle PME Client : masquer les modules
-	internes (blacklist) et injecter la tuile Tableau de Bord en premier."""
+	internes (blacklist) et filtrer selon l'offre souscrite."""
 	if "PME Client" not in frappe.get_roles():
 		return
 
@@ -72,6 +86,27 @@ def _restrict_pme_client_desk(bootinfo):
 
 	# Supprimer les modules internes/non-PME
 	filtered = [icon for icon in icons if icon.get("label") not in _PME_HIDDEN_LABELS]
+
+	# Filtrer selon l'offre de la PME (sans jamais bloquer, juste masquer)
+	try:
+		from sitiame_core.subscription_api import get_company_subscription, get_user_company
+		company = get_user_company()
+		sub = get_company_subscription(company) if company else {}
+		offer = sub.get("offer") or "Essentiel"
+		offer_rank = _OFFER_RANK.get(offer, 0)
+
+		def _allowed(icon):
+			required = _OFFER_REQUIRED.get(icon.get("label"))
+			if not required:
+				return True
+			return offer_rank >= _OFFER_RANK.get(required, 99)
+
+		filtered = [icon for icon in filtered if _allowed(icon)]
+		# Exposer l'offre au client JS (subscription_banner.js peut l'afficher)
+		bootinfo["sitiame_offer"] = offer
+	except Exception:
+		frappe.log_error(title="sitiame_core.boot: filtrage par offre échoué")
+
 	bootinfo["desktop_icons"] = filtered
 
 

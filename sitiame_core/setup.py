@@ -11,6 +11,7 @@ from sitiame_core.roles import CHARGE_AFFAIRES_ROLE, CREDIT_ANALYST_ROLE
 
 def after_migrate():
 	_create_subscription_fields()
+	_create_offer_field()
 	_create_pay_on_submit_fields()
 	_create_party_company_fields()
 	_create_withholding_field()
@@ -585,6 +586,37 @@ def _create_subscription_fields():
 					"read_only": 1,
 					"no_copy": 1,
 					"in_standard_filter": 1,
+				},
+			],
+		},
+		update=True,
+	)
+
+
+# Levels of service (Essentiel → Pilotage → Transformation). Controls which
+# modules are visible in the PME desk and which tariff applies. Stored on
+# Company so the accountant sets it once, at signup or upgrade.
+PME360_OFFERS = ("Essentiel", "Pilotage", "Transformation")
+PME360_OFFER_FIELD = "sitiame_offer"
+
+
+def _create_offer_field():
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": PME360_OFFER_FIELD,
+					"label": "Offre PME360",
+					"fieldtype": "Select",
+					"options": "\n" + "\n".join(PME360_OFFERS),
+					"insert_after": "sitiame_subscription_ends_on",
+					"default": "Essentiel",
+					"in_standard_filter": 1,
+					"description": (
+						"Essentiel : le dirigeant saisit, SITIAME supervise. "
+						"Pilotage : SITIAME tient la gestion admin et financière. "
+						"Transformation : SITIAME digitalise toute la gestion et prépare le financement."
+					),
 				},
 			],
 		},
