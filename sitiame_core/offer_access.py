@@ -18,6 +18,8 @@ import functools
 
 import frappe
 
+_UNSET = object()  # sentinel pour le cache request-local dans _pme_offer
+
 # ---------------------------------------------------------------------------
 # Tables de correspondance offre ↔ doctypes
 # ---------------------------------------------------------------------------
@@ -63,15 +65,30 @@ _OFFER_RANK = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
 # ---------------------------------------------------------------------------
 
 def _pme_offer(user=None):
-    """Retourne l'offre active d'un utilisateur PME, ou None si staff/admin."""
+    """Retourne l'offre active d'un utilisateur PME, ou None si staff/admin.
+
+    Résultat mis en cache dans frappe.local pour la durée de la requête HTTP
+    (has_permission peut être appelé une fois par document dans une liste).
+    """
     user = user or frappe.session.user
+    # Cache request-local : frappe.local est réinitialisé à chaque requête HTTP
+    cache_attr = f"_sitiame_offer_{user}"
+    cached = getattr(frappe.local, cache_attr, _UNSET)
+    if cached is not _UNSET:
+        return cached
+
     roles = frappe.get_roles(user)
     if "PME Client" not in roles:
-        return None  # staff ou Administrator — pas soumis au contrôle offre
-    for offer in ("Transformation", "Pilotage", "Essentiel"):
-        if f"PME360 {offer}" in roles:
-            return offer
-    return "Essentiel"  # fallback conservateur (jamais en production normale)
+        result = None  # staff ou Administrator — pas soumis au contrôle offre
+    else:
+        result = "Essentiel"  # fallback conservateur
+        for offer in ("Transformation", "Pilotage", "Essentiel"):
+            if f"PME360 {offer}" in roles:
+                result = offer
+                break
+
+    setattr(frappe.local, cache_attr, result)
+    return result
 
 
 def _rank(offer):
