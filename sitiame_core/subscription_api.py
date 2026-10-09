@@ -41,17 +41,20 @@ _TARIF_DEFAULT = _TARIF["TEE"]   # fallback si le régime n'est pas renseigné
 _OFFER_INDEX   = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
 
 
-def subscription_amount_for(company=None):
+def subscription_amount_for(company=None, offer=None):
 	"""Return the monthly price in FCFA for a given company's offer+regime,
 	or None when the offer requires a custom quote (Transformation + TEE/RME).
-	Falls back to the flat amount in site_config when set (test mode)."""
+	Falls back to the flat amount in site_config when set (test mode).
+	If offer is provided explicitly, it overrides the stored offer."""
 	override = frappe.conf.get("sitiame_subscription_amount")
 	if override:
 		raw = int(override)
 		return max(SUBSCRIPTION_AMOUNT_FLOOR, raw)
 
 	if not company:
-		return _TARIF_DEFAULT[0]   # Essentiel TEE par défaut
+		tarifs = _TARIF_DEFAULT
+		idx = _OFFER_INDEX.get(offer or "Essentiel", 0)
+		return tarifs[idx]
 
 	from sitiame_core.setup import PME360_OFFER_FIELD
 	row = frappe.db.get_value(
@@ -60,10 +63,10 @@ def subscription_amount_for(company=None):
 		as_dict=True,
 	) or {}
 
-	offer   = row.get(PME360_OFFER_FIELD) or "Essentiel"
+	resolved_offer = offer or row.get(PME360_OFFER_FIELD) or "Essentiel"
 	regime  = row.get("sitiame_regime_fiscal") or ""
 	tarifs  = _TARIF.get(regime, _TARIF_DEFAULT)
-	idx     = _OFFER_INDEX.get(offer, 0)
+	idx     = _OFFER_INDEX.get(resolved_offer, 0)
 	return tarifs[idx]   # peut être None (sur devis)
 
 
@@ -304,10 +307,12 @@ def get_company_subscription_for(company):
 
 
 @frappe.whitelist()
-def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=None):
+def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=None, offer=None):
 	"""The PME pays its own subscription with the operator it picked on
 	the Abonnement page; Sitiame staff pick the PME first (`company`).
-	force_new is ignored (kept for old clients)."""
+	force_new is ignored (kept for old clients). offer: quand le client
+	choisit une offre différente, elle est mise à jour sur la Company
+	avant la création du paiement."""
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
@@ -315,6 +320,13 @@ def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=Non
 	company = _paying_company(company)
 	if payment_method not in jeko_client.PAYMENT_METHODS:
 		frappe.throw(_("Choisissez votre moyen de paiement (Wave, Orange Money, MTN, Moov ou Djamo)."))
+
+	# Si le client a sélectionné une offre, la persister avant tout
+	# (comme ça si le paiement réussit, l'offre en base est déjà correcte)
+	if offer and offer in _OFFER_INDEX:
+		from sitiame_core.setup import PME360_OFFER_FIELD
+		frappe.db.set_value("Company", company, PME360_OFFER_FIELD, offer)
+		frappe.db.commit()
 
 	# A payment still open may have gone through in the meantime: never
 	# make the PME pay twice.
