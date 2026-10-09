@@ -32,6 +32,7 @@ def after_migrate():
 	ensure_tableau_de_bord_icon()
 	ensure_plateforme_utilisateurs_icon()
 	ensure_admin_dashboard_icon()
+	ensure_offres_pme_icon()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -359,6 +360,52 @@ def ensure_admin_dashboard_icon():
 	frappe.db.sql(
 		"UPDATE `tabDesktop Icon` SET hidden=0 WHERE label=%s AND owner IS NOT NULL",
 		ADMIN_DASHBOARD_SIDEBAR,
+	)
+
+	frappe.db.commit()
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
+
+
+OFFRES_PME_SIDEBAR = "Offres PME360"
+OFFRES_PME_PAGE    = "erp-offres-pme"
+
+
+def ensure_offres_pme_icon():
+	"""Tuile 'Offres PME360' pour System Manager et Administrateur Plateforme
+	Sitiame : permet de gérer l'offre d'abonnement de chaque client PME.
+	Ré-appliqué à chaque migrate (idempotent)."""
+	_ensure_sidebar(
+		OFFRES_PME_SIDEBAR,
+		((OFFRES_PME_SIDEBAR, "Page", OFFRES_PME_PAGE),),
+	)
+
+	values = {
+		"idx": 3,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": OFFRES_PME_SIDEBAR,
+		"link": None,
+		"icon": "tag",
+		"icon_image": None,
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
+	existing = frappe.db.get_value("Desktop Icon", {"label": OFFRES_PME_SIDEBAR}, "name")
+	if existing:
+		frappe.db.set_value("Desktop Icon", existing, values)
+	else:
+		frappe.get_doc(
+			{
+				"doctype": "Desktop Icon",
+				"label": OFFRES_PME_SIDEBAR,
+				**values,
+			}
+		).insert(ignore_permissions=True)
+
+	frappe.db.sql(
+		"UPDATE `tabDesktop Icon` SET hidden=0 WHERE label=%s AND owner IS NOT NULL",
+		OFFRES_PME_SIDEBAR,
 	)
 
 	frappe.db.commit()

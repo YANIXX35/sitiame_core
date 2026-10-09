@@ -2537,3 +2537,84 @@ def set_default_company_for_user(company):
 	frappe.db.commit()
 	return {"company": company}
 
+
+# ---------------------------------------------------------------------------
+# Offres PME360 — gestion depuis le desk ERPNext
+# ---------------------------------------------------------------------------
+
+def _require_platform_admin():
+	"""Réserve l'accès aux System Manager et Administrateur Plateforme Sitiame.
+	Lève frappe.PermissionError sinon."""
+	from sitiame_core.setup import PLATFORM_ADMIN_ROLE
+	roles = set(frappe.get_roles())
+	if not (roles & {"System Manager", "Administrator", PLATFORM_ADMIN_ROLE}):
+		frappe.throw(
+			_("Accès réservé aux administrateurs de la plateforme Sitiame."),
+			frappe.PermissionError,
+		)
+
+
+@frappe.whitelist()
+def get_pme_users_with_offers():
+	"""Retourne la liste des utilisateurs PME Client actifs avec leur société,
+	régime fiscal et offre actuelle. Réservé aux admins plateforme."""
+	_require_platform_admin()
+
+	rows = frappe.db.sql(
+		"""
+		SELECT
+			u.name        AS user,
+			u.full_name,
+			c.name        AS company,
+			c.sitiame_offer             AS offer,
+			c.sitiame_regime_fiscal     AS regime_fiscal,
+			c.sitiame_subscription_ends_on AS subscription_ends_on
+		FROM `tabUser` u
+		JOIN `tabUser Permission` up ON up.user = u.name AND up.allow = 'Company'
+		JOIN `tabCompany` c ON c.name = up.for_value
+		WHERE u.enabled = 1
+		  AND EXISTS (
+			SELECT 1 FROM `tabHas Role` hr
+			WHERE hr.parent = u.name AND hr.role = 'PME Client'
+		  )
+		ORDER BY c.name
+		""",
+		as_dict=True,
+	)
+	return rows
+
+
+@frappe.whitelist()
+def apply_offer_to_user(user, offer):
+	"""Change l'offre PME360 d'un utilisateur : met à jour Company.sitiame_offer
+	et bascule le rôle PME360 correspondant. Réservé aux admins plateforme."""
+	_require_platform_admin()
+
+	from sitiame_core.roles import PME360_OFFER_ROLES, _OFFER_TO_ROLE
+
+	if offer not in _OFFER_TO_ROLE:
+		frappe.throw(
+			_(f"Offre invalide : {offer}. Valeurs acceptées : {', '.join(_OFFER_TO_ROLE.keys())}")
+		)
+
+	# Société liée à l'utilisateur (première permission Company trouvée)
+	company = frappe.db.get_value(
+		"User Permission",
+		{"user": user, "allow": "Company"},
+		"for_value",
+	)
+	if not company:
+		frappe.throw(_(f"Aucune société liée à l'utilisateur {user}."))
+
+	# Mise à jour du champ offre sur la société
+	frappe.db.set_value("Company", company, "sitiame_offer", offer)
+
+	# Remplacement du rôle PME360 sur l'utilisateur
+	user_doc = frappe.get_doc("User", user)
+	user_doc.roles = [r for r in user_doc.roles if r.role not in PME360_OFFER_ROLES]
+	user_doc.append("roles", {"role": _OFFER_TO_ROLE[offer]})
+	user_doc.save(ignore_permissions=True)
+
+	frappe.db.commit()
+	return {"user": user, "company": company, "offer": offer}
+
