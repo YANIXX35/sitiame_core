@@ -2556,65 +2556,98 @@ def _require_platform_admin():
 
 @frappe.whitelist()
 def get_pme_users_with_offers():
-	"""Retourne la liste des utilisateurs PME Client actifs avec leur société,
-	régime fiscal et offre actuelle. Réservé aux admins plateforme."""
+	"""Liste tous les utilisateurs PME avec leur société, offre actuelle et régime fiscal.
+	Réservé aux System Manager et Administrateur Plateforme Sitiame."""
 	_require_platform_admin()
 
-	rows = frappe.db.sql(
+	from sitiame_core.roles import PME360_OFFER_ROLES
+
+	pme_users = frappe.db.sql(
 		"""
-		SELECT
-			u.name        AS user,
-			u.full_name,
-			c.name        AS company,
-			c.sitiame_offer             AS offer,
-			c.sitiame_regime_fiscal     AS regime_fiscal,
-			c.sitiame_subscription_ends_on AS subscription_ends_on
+		SELECT DISTINCT u.name AS user, u.full_name
 		FROM `tabUser` u
-		JOIN `tabUser Permission` up ON up.user = u.name AND up.allow = 'Company'
-		JOIN `tabCompany` c ON c.name = up.for_value
-		WHERE u.enabled = 1
-		  AND EXISTS (
-			SELECT 1 FROM `tabHas Role` hr
-			WHERE hr.parent = u.name AND hr.role = 'PME Client'
-		  )
-		ORDER BY c.name
+		JOIN `tabHas Role` hr ON hr.parent = u.name
+		WHERE hr.role = 'PME Client' AND u.enabled = 1
+		ORDER BY u.full_name
 		""",
 		as_dict=True,
 	)
-	return rows
+
+	# Mapping des libellés de régime fiscal ERPNext vers des slugs courts utilisés
+	# dans l'interface pour afficher les tarifs (voir erp_offres_pme.js).
+	_REGIME_MAP = {
+		"TEE":  "tee",
+		"RME":  "synth",
+		"RSI":  "reel_s",
+		"RNI":  "reel_n",
+	}
+
+	results = []
+	for u in pme_users:
+		user_email = u.user
+
+		# Société liée par User Permission
+		company = frappe.db.get_value(
+			"User Permission",
+			{"allow": "Company", "for_value": ["!=", ""], "user": user_email},
+			"for_value",
+		)
+
+		regime = None
+		if company:
+			regime_raw = frappe.db.get_value("Company", company, "sitiame_regime_fiscal") or ""
+			regime = _REGIME_MAP.get(regime_raw)
+
+		# Offre actuelle via les rôles (évite une requête Company supplémentaire)
+		user_roles = frappe.get_roles(user_email)
+		offer = None
+		for role in PME360_OFFER_ROLES:
+			if role in user_roles:
+				offer = role.replace("PME360 ", "")
+				break
+
+		results.append({
+			"user":      user_email,
+			"full_name": u.full_name or user_email,
+			"company":   company or "",
+			"regime":    regime or "",
+			"offer":     offer or "",
+		})
+
+	return results
 
 
 @frappe.whitelist()
-def apply_offer_to_user(user, offer):
-	"""Change l'offre PME360 d'un utilisateur : met à jour Company.sitiame_offer
+def apply_offer_to_user(user_email, offer):
+	"""Applique une offre PME360 à un utilisateur : met à jour Company.sitiame_offer
 	et bascule le rôle PME360 correspondant. Réservé aux admins plateforme."""
 	_require_platform_admin()
 
-	from sitiame_core.roles import PME360_OFFER_ROLES, _OFFER_TO_ROLE
+	from sitiame_core.roles import _OFFER_TO_ROLE
+	from sitiame_core.offer_roles import sync_offer_role
 
 	if offer not in _OFFER_TO_ROLE:
-		frappe.throw(
-			_(f"Offre invalide : {offer}. Valeurs acceptées : {', '.join(_OFFER_TO_ROLE.keys())}")
-		)
+		return {"ok": False, "error": f"Offre invalide : {offer}."}
 
-	# Société liée à l'utilisateur (première permission Company trouvée)
+	if not frappe.db.exists("User", user_email):
+		return {"ok": False, "error": "Utilisateur introuvable."}
+
+	if "PME Client" not in frappe.get_roles(user_email):
+		return {"ok": False, "error": "Ce compte n'est pas un client PME."}
+
+	# Synchronise le rôle d'offre (retire les anciens, ajoute le nouveau)
+	sync_offer_role(user_email, offer)
+
+	# Met à jour le champ offre sur la société liée
 	company = frappe.db.get_value(
 		"User Permission",
-		{"user": user, "allow": "Company"},
+		{"allow": "Company", "for_value": ["!=", ""], "user": user_email},
 		"for_value",
 	)
-	if not company:
-		frappe.throw(_(f"Aucune société liée à l'utilisateur {user}."))
+	if company:
+		frappe.db.set_value("Company", company, "sitiame_offer", offer)
+		frappe.db.commit()
 
-	# Mise à jour du champ offre sur la société
-	frappe.db.set_value("Company", company, "sitiame_offer", offer)
-
-	# Remplacement du rôle PME360 sur l'utilisateur
-	user_doc = frappe.get_doc("User", user)
-	user_doc.roles = [r for r in user_doc.roles if r.role not in PME360_OFFER_ROLES]
-	user_doc.append("roles", {"role": _OFFER_TO_ROLE[offer]})
-	user_doc.save(ignore_permissions=True)
-
-	frappe.db.commit()
-	return {"user": user, "company": company, "offer": offer}
+	frappe.logger().info(f"sitiame_core.apply_offer_to_user: {user_email} -> {offer} (company={company})")
+	return {"ok": True, "user": user_email, "offer": offer, "company": company}
 

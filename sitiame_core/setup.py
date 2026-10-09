@@ -647,7 +647,7 @@ def _create_subscription_fields():
 # Levels of service (Essentiel → Pilotage → Transformation). Controls which
 # modules are visible in the PME desk and which tariff applies. Stored on
 # Company so the accountant sets it once, at signup or upgrade.
-PME360_OFFERS = ("Essentiel", "Pilotage", "Transformation")
+PME360_OFFERS = ("Essentiel", "Conformite", "Pilotage", "Transformation")
 PME360_OFFER_FIELD = "sitiame_offer"
 
 
