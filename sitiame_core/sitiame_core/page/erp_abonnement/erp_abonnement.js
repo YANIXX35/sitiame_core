@@ -21,6 +21,9 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				"<a href='mailto:contact@sitiame-capital.com' style='color:#ea580c;font-weight:700;'>contact@sitiame-capital.com</a>" +
 			"</div>" +
 
+			// Grille informative : prix de toutes les offres (actuellement sélectionnée mise en évidence)
+			"<div id='abonnement-offres-grid' style='margin:0 0 20px;display:none;'></div>" +
+
 			// State: Loading
 			"<div id='abonnement-state-loading' style='padding: 20px 0;'>" +
 				"<div class='spinner-border text-primary' role='status' style='width: 3rem; height: 3rem; margin-bottom: 15px;'></div>" +
@@ -114,6 +117,8 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 
 		// Badge offre
 		$("#abonnement-offer-badge").text(offer).show();
+		// Grille tarifaire informative (toujours visible)
+		_renderOffresGrid(offer, msg.regime || "TEE");
 
 		if (is_devis) {
 			// Offre sur devis : cacher le flux de paiement, afficher la notice
@@ -178,9 +183,9 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 		"RNI": [80000, 250000, 400000],
 	};
 	var _OFFRES_DEF = [
-		{ key: "Essentiel",       label: "Essentiel" },
-		{ key: "Pilotage",        label: "Pilotage" },
-		{ key: "Transformation",  label: "Transformation" },
+		{ key: "Essentiel",      label: "Essentiel",      color: "#0ea5e9" },
+		{ key: "Pilotage",       label: "Pilotage",       color: "#8b5cf6" },
+		{ key: "Transformation", label: "Transformation", color: "#f59e0b" },
 	];
 	var selectedOffer = null;  // initialisé depuis get_my_subscription
 	var currentRegime = "";    // régime fiscal de la PME
@@ -321,7 +326,7 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			"<div style='max-width: 1000px; margin: 24px auto; padding: 0 16px;'>" +
 				"<div style='background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); padding: 20px 22px; margin-bottom: 20px;'>" +
 					"<h4 style='font-weight: 700; margin: 0 0 4px;'>" + __("Générer un lien de paiement") + "</h4>" +
-					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien Jèko (1 mois, à usage unique) et envoyez-le-lui : elle choisira son opérateur en l'ouvrant.") + " " + __("Montant : {0} FCFA.", ["<span class='abonnement-price'>15 000</span>"]) + "</p>" +
+					"<p style='color: #64748b; font-size: 13px; margin-bottom: 12px;'>" + __("Choisissez la PME, générez le lien Jèko (1 mois, à usage unique) et envoyez-le-lui : elle choisira son opérateur en l'ouvrant.") + "<br><span style='font-size:13px;'>" + __("Montant selon l'offre :") + " <strong id='admin-prix-par-offre' style='color:#0f172a;'>—</strong></span>" + "</p>" +
 					"<div style='display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;'>" +
 						"<div class='admin-company-field' style='min-width: 280px; flex: 1;'></div>" +
 						"<button class='btn btn-primary btn-generate-link' style='margin-bottom: 15px;'>" + __("Générer le lien") + "</button>" +
@@ -350,6 +355,27 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 				label: __("Société (PME)"),
 				get_query: function () {
 					return { filters: { name: ["!=", "SITIAME"] } };
+				},
+				change: function () {
+					var company = this.get_value();
+					if (!company) {
+						$("#admin-prix-par-offre").text("—");
+						return;
+					}
+					frappe.call({
+						method: "sitiame_core.subscription_api.get_company_subscription_for",
+						args: { company: company },
+					}).then(function (r) {
+						var sub = r.message || {};
+						var _IDX = { "Essentiel": 0, "Pilotage": 1, "Transformation": 2 };
+						var tarifs = _TARIF_JS[sub.regime] || _TARIF_JS["TEE"];
+						var idx = _IDX[sub.offer] !== undefined ? _IDX[sub.offer] : 0;
+						var prix = tarifs[idx];
+						var priceStr = prix
+							? format_number(prix, null, 0) + " FCFA — " + (sub.offer || "Essentiel") + " / " + (sub.regime || "TEE")
+							: __("Sur devis (Transformation)");
+						$("#admin-prix-par-offre").text(priceStr);
+					});
 				},
 			},
 			render_input: true,
@@ -468,6 +494,35 @@ frappe.pages["erp-abonnement"].on_page_load = function (wrapper) {
 			render_input: true,
 		});
 	}
+
+	// ── Grille informative ────────────────────────────────────────────────────
+	// Affichée en haut de la page : prix de chaque offre, offre actuelle surlignée.
+	function _renderOffresGrid(currentOffer, regime) {
+		var tarifs = _TARIF_JS[regime] || _TARIF_JS["TEE"];
+		var html = "<div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;\">";
+		_OFFRES_DEF.forEach(function (o, i) {
+			var prix = tarifs[i];
+			var isCurrent = (o.key === currentOffer);
+			var priceStr = prix ? format_number(prix, null, 0) + " FCFA" : __("Sur devis");
+			html +=
+				"<div style=\"padding:12px 14px;border-radius:10px;border:2px solid " +
+				(isCurrent ? o.color : "#e2e8f0") +
+				";background:" + (isCurrent ? "#f0f9ff" : "#f8fafc") +
+				";position:relative;text-align:left;\">" +
+				(isCurrent
+					? "<span style=\"position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:" +
+					  o.color + ";color:#fff;font-size:10px;font-weight:700;padding:1px 8px;" +
+					  "border-radius:99px;white-space:nowrap;\">" + __("Actuelle") + "</span>"
+					: "") +
+				"<div style=\"font-size:12px;font-weight:700;color:" + o.color + ";margin-bottom:2px;\">" + __(o.key) + "</div>" +
+				"<div style=\"font-size:17px;font-weight:800;color:#0f172a;\">" + priceStr + "</div>" +
+				"<div style=\"font-size:11px;color:#94a3b8;\">" + __("/mois") + "</div>" +
+				"</div>";
+		});
+		html += "</div>";
+		$("#abonnement-offres-grid").html(html).show();
+	}
+	// ── Fin grille informative ─────────────────────────────────────────────────
 
 	function renderOffreButtons(currentOffer, regime) {
 		var tarifs = _TARIF_JS[regime] || _TARIF_JS["TEE"];
