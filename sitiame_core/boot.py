@@ -9,19 +9,21 @@ import frappe
 # Modules internes à CACHER aux clients PME (labels DB en anglais).
 # Tout ce qui n'est pas dans cette liste reste visible — plus robuste
 # qu'une whitelist qui raterait un label traduit ou un nouveau module PME.
+# Note : Assets, Payroll et Integrations ne sont PAS ici — ils sont gérés
+# par _OFFER_REQUIRED (visibles selon le niveau d'offre souscrit).
 _PME_HIDDEN_LABELS = {
 	# Administration interne Sitiame
 	"Abonnement", "Organization", "Utilisateurs de la plateforme",
 	"Tableau de Bord Admin",
 	"Chargé d'affaires", "Mon portefeuille", "Prospects", "Inscrire une PME",
 	# Modules non pertinents pour une PME cliente
-	"Assets", "Manufacturing", "Projects", "Quality", "Subcontracting",
+	"Manufacturing", "Projects", "Quality", "Subcontracting",
 	"CRM", "Support", "Website",
-	# RH complet
-	"Frappe HR", "HR Setup", "Payroll", "Tenure", "Leaves",
+	# RH non opérationnel pour un client PME (Payroll géré par _OFFER_REQUIRED)
+	"Frappe HR", "HR Setup", "Tenure", "Leaves",
 	"Recruitment", "Shift & Attendance", "Performance", "Tax & Benefits",
-	# Outils dev / paramètres système
-	"Build", "ERPNext Settings", "Integrations", "Automation",
+	# Outils dev / paramètres système (Integrations géré par _OFFER_REQUIRED)
+	"Build", "ERPNext Settings", "Automation",
 	"System", "Printing", "Data", "Email", "Framework",
 	"Users", "Home", "ERPNext", "My Workspaces",
 }
@@ -63,17 +65,22 @@ def extend_bootinfo(bootinfo):
 
 
 # Modules réservés aux offres supérieures.
-# Clé = label du module, valeur = offre minimale requise.
-# "Essentiel" (absent de la liste) = visible dans tous les niveaux.
+# Clé = name du Workspace ERPNext (anglais, tel que stocké en DB).
+# Valeur = offre minimale requise pour voir ce module.
+# Tout module absent de cette liste est visible dès Essentiel.
+# Ordre des offres : Essentiel < Conformite < Pilotage < Transformation.
 _OFFER_REQUIRED = {
-	"Immobilisations":     "Pilotage",
-	"Ressources humaines": "Pilotage",
-	"Paie":                "Pilotage",
-	"Prévisions":          "Transformation",
-	"Budget":              "Transformation",
+	# Immobilisations : ouvert à partir de Conformité (spec cartographie E.)
+	"Assets":       "Conformite",
+	# Paie : ouvert à partir de Pilotage (option dans la spec G.)
+	"Payroll":      "Pilotage",
+	# API / Intégrations : Transformation uniquement (spec L.)
+	"Integrations": "Transformation",
 }
 
-_OFFER_RANK = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
+# Rang ordinal des offres — "Conformite" s'intercale entre Essentiel et Pilotage.
+# La valeur DB est sans accent ("Conformite") conformément à PME360_OFFERS dans setup.py.
+_OFFER_RANK = {"Essentiel": 0, "Conformite": 1, "Pilotage": 2, "Transformation": 3}
 
 
 def _restrict_pme_client_desk(bootinfo):
