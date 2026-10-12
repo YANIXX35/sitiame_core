@@ -89,7 +89,18 @@ def get_user_company(user=None):
 	# (both signup paths create it). No fallback on the "default company"
 	# user setting: a staff account's default would point at the wrong PME.
 	user = user or frappe.session.user
-	return frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
+	company = frappe.db.get_value("User Permission", {"user": user, "allow": "Company"}, "for_value")
+	if company:
+		return company
+	# Fallback: Company Signup (handles accounts created before the automated
+	# provisioning path or where the User Permission was accidentally removed).
+	company = frappe.db.get_value("Company Signup", {"email": user}, "company")
+	if company:
+		frappe.logger("sitiame_core.boot").warning(
+			f"get_user_company: no User Permission for {user!r}, "
+			f"fell back to Company Signup -> {company!r}"
+		)
+	return company
 
 
 # Staff accounts such as accountants or credit analysts. PME accounts have
