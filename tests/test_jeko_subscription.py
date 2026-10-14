@@ -13,6 +13,9 @@ import pytest
 
 from sitiame_core import jeko_client, subscription_api as sa
 
+# What Jèko reports for a paid 15 000 FCFA transaction
+PAID_15000 = {"amount": {"amount": 15000, "currency": "XOF"}, "fees": {"amount": 150, "currency": "XOF"}}
+
 CONF = frappe._dict(jeko_api_key="key", jeko_api_key_id="key-id", jeko_store_id="store-uuid", jeko_webhook_secret="s3cret")
 
 
@@ -141,14 +144,14 @@ def settle(monkeypatch):
 
 	monkeypatch.setattr(frappe, "cache", lambda: Cache(), raising=False)
 	monkeypatch.setattr(frappe, "log_error", lambda title=None, message=None: state["logged"].append(title), raising=False)
-	monkeypatch.setattr(sa, "_mark_paid", lambda name: state["paid"].append(name))
+	monkeypatch.setattr(sa, "_mark_paid", lambda name, paid=None: state["paid"].append(name) or True)
 	monkeypatch.setattr(frappe.db, "set_value", lambda dt, name, field, value: state["set"].__setitem__(name, value), raising=False)
 	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
 	return state
 
 
 def test_a_closed_link_stays_pending_and_is_flagged_once(settle, monkeypatch):
-	monkeypatch.setattr(sa, "_live_status", lambda provider, tid: sa.LINK_CLOSED)
+	monkeypatch.setattr(sa, "_live_check", lambda provider, tid: (sa.LINK_CLOSED, None))
 	row = frappe._dict(name="SUB-LINK", payment_provider=sa.LINK, transaction_id="pl-1")
 	assert sa._settle(row) == sa.PENDING
 	assert sa._settle(row) == sa.PENDING
@@ -158,7 +161,7 @@ def test_a_closed_link_stays_pending_and_is_flagged_once(settle, monkeypatch):
 
 def test_a_paid_link_webhook_still_activates(settle, monkeypatch):
 	"""Non-regression: the checkout path is unchanged."""
-	monkeypatch.setattr(sa, "_live_status", lambda provider, tid: sa.PAID)
+	monkeypatch.setattr(sa, "_live_check", lambda provider, tid: (sa.PAID, PAID_15000))
 	assert sa._settle(frappe._dict(name="SUB-CO", payment_provider=sa.CHECKOUT, transaction_id="pr-1")) == sa.PAID
 	assert settle["paid"] == ["SUB-CO"]
 
@@ -181,7 +184,7 @@ def webhook(monkeypatch, jeko):
 	monkeypatch.setattr(frappe, "get_request_header", lambda name, default=None: state["signature"], raising=False)
 	monkeypatch.setattr(frappe, "response", {}, raising=False)
 	monkeypatch.setattr(frappe, "log_error", lambda title=None, message=None: state["logged"].append(title), raising=False)
-	monkeypatch.setattr(sa, "_mark_paid", lambda name: state["paid"].append(name))
+	monkeypatch.setattr(sa, "_mark_paid", lambda name, paid=None: state["paid"].append(name) or True)
 	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
 
 	def get_value(doctype, filters, field=None, **kw):
@@ -202,14 +205,14 @@ def _post(webhook, body, secret="s3cret"):
 
 def test_paid_checkout_activates_the_subscription(webhook):
 	webhook["payments"][(sa.CHECKOUT, "pr-1")] = "SUB-2026-00023"
-	result = _post(webhook, {"status": "success", "paymentMethod": "wave", "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-00023"}})
+	result = _post(webhook, {"status": "success", "paymentMethod": "wave", **PAID_15000, "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-00023"}})
 	assert result == {"status": "ok"} and webhook["paid"] == ["SUB-2026-00023"]
 	assert webhook["set"][("SUB-2026-00023", "payment_method")] == "wave"
 
 
 def test_paid_staff_link_activates_the_subscription(webhook):
 	webhook["payments"][(sa.LINK, "pl-9")] = "SUB-2026-00024"
-	_post(webhook, {"status": "success", "paymentMethod": "orange", "transactionDetails": {"paymentLinkId": "pl-9"}})
+	_post(webhook, {"status": "success", "paymentMethod": "orange", **PAID_15000, "transactionDetails": {"paymentLinkId": "pl-9"}})
 	assert webhook["paid"] == ["SUB-2026-00024"]
 
 
@@ -240,9 +243,11 @@ def test_failed_payment_is_marked_failed(webhook):
 # -- price --
 
 
-def test_price_defaults_to_15000_and_site_config_overrides_it(monkeypatch):
+def test_price_defaults_to_the_catalogue_and_site_config_overrides_it(monkeypatch):
+	"""15 000 FCFA is no longer a universal price: without a company, the
+	default offer (Essentiel) at the default regime (impôt synthétique)."""
 	monkeypatch.setattr(frappe, "conf", frappe._dict(), raising=False)
-	assert sa.subscription_amount() == 15000
+	assert sa.subscription_amount() == 25000
 	# A legitimate override above the floor passes through unchanged.
 	monkeypatch.setattr(frappe, "conf", frappe._dict(sitiame_subscription_amount="5000"), raising=False)
 	assert sa.subscription_amount() == 5000
@@ -281,7 +286,7 @@ def test_staff_view_is_for_sitiame_accounts_only(monkeypatch, roles, company, st
 def test_suffixed_reference_is_accepted_but_not_a_longer_name(webhook):
 	webhook["payments"][(sa.CHECKOUT, "pr-1")] = "SUB-2026-00023"
 	assert _post(webhook, {"status": "success", "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-000231"}}) == {"status": "ignored"}
-	_post(webhook, {"status": "success", "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-00023-a1b2c3"}})
+	_post(webhook, {"status": "success", **PAID_15000, "transactionDetails": {"id": "pr-1", "reference": "SUB-2026-00023-a1b2c3"}})
 	assert webhook["paid"] == ["SUB-2026-00023"]
 
 

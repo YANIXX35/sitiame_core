@@ -26,55 +26,138 @@ PENDING_EXPIRES_AFTER_DAYS = 7
 # must never activate a real subscription for less than this amount.
 SUBSCRIPTION_AMOUNT_FLOOR = 1000
 
-# Grille tarifaire mensuelle (FCFA) par offre et régime fiscal.
-# None = "sur devis" → le flux de paiement automatique est bloqué.
-# Régimes : TEE (Taxe d'État de l'entreprenant), RME (microentreprise),
-#           RSI (réel simplifié), RNI (réel normal).
-_TARIF = {
-	#             Essentiel   Pilotage    Transformation
-	"TEE":       (  15_000,    75_000,    None),
-	"RME":       (  25_000,   100_000,    None),
-	"RSI":       (  50_000,   175_000,  250_000),
-	"RNI":       (  80_000,   250_000,  400_000),
+# Catalogue officiel des offres PME360 : la seule source des prix. Le
+# navigateur n'envoie que la clé de l'offre ; le montant payé est toujours
+# lu ici (pages Abonnement et Offres PME360 via get_offer_catalog).
+# Prix mensuels en FCFA par régime fiscal de la PME :
+#   TEE (entreprenant), RME (microentreprise, ex-impôt synthétique),
+#   RSI (réel simplifié), RNI (réel normal).
+# Les clés sont celles de Company.sitiame_offer (setup.PME360_OFFERS).
+PME360_CATALOG = {
+	"Essentiel": {
+		"label": "PME360 Essentiel",
+		"active": True,
+		"prices": {"TEE": 15_000, "RME": 25_000, "RSI": 50_000, "RNI": 80_000},
+		"color": "#0ea5e9",
+		"badge": "",
+		"promise": "Vous tenez votre comptabilité, nous la supervisons.",
+		"users": "1 utilisateur",
+		"pieces": "100 pièces/mois",
+		"features": ["Tableau de bord dirigeant", "Facturation & Achats", "Caisse & Mobile Money", "Stock", "Revue mensuelle SITIAME"],
+	},
+	"Conformite": {
+		"label": "PME360 Conformité",
+		"active": True,
+		"prices": {"TEE": 30_000, "RME": 45_000, "RSI": 85_000, "RNI": 130_000},
+		"color": "#8b5cf6",
+		"badge": "RECOMMANDÉ",
+		"promise": "Vous saisissez, nous certifions et nous déposons.",
+		"users": "3 utilisateurs",
+		"pieces": "200 pièces/mois",
+		"features": ["Tout Essentiel", "Validation des écritures", "Dépôt TVA", "États SYSCOHADA", "Clôture mensuelle", "Expert-comptable référent"],
+	},
+	"Pilotage": {
+		"label": "PME360 Pilotage",
+		"active": True,
+		"prices": {"TEE": 75_000, "RME": 100_000, "RSI": 175_000, "RNI": 250_000},
+		"color": "#f59e0b",
+		"badge": "",
+		"promise": "Nous tenons votre gestion administrative et financière.",
+		"users": "5 utilisateurs",
+		"pieces": "300 pièces/mois",
+		"features": ["Tout Conformité", "Tenue complète", "Relances clients", "Trésorerie prévisionnelle", "Chargé de compte dédié"],
+	},
+	"Transformation": {
+		"label": "PME360 Transformation",
+		"active": True,
+		"prices": {"TEE": 200_000, "RME": 250_000, "RSI": 300_000, "RNI": 400_000},
+		"color": "#10b981",
+		"badge": "PREMIUM",
+		"promise": "Nous digitalisons votre gestion et préparons votre financement.",
+		"users": "Illimité",
+		"pieces": "Illimité",
+		"features": ["Tout Pilotage", "Paie & bulletins", "Immobilisations", "Dossier de financement", "Formation équipes", "Comité trimestriel"],
+	},
 }
-_TARIF_DEFAULT = _TARIF["TEE"]   # fallback si le régime n'est pas renseigné
-_OFFER_INDEX   = {"Essentiel": 0, "Pilotage": 1, "Transformation": 2}
+REGIMES = ("TEE", "RME", "RSI", "RNI")
+REGIME_LABELS = {"TEE": "Entreprenant / TEE", "RME": "Impôt synthétique", "RSI": "Réel simplifié", "RNI": "Réel normal"}
+# Company.sitiame_regime_fiscal is empty until the accountant fills it in
+# (every PME on 2026-10-14): those pay the "impôt synthétique" column.
+DEFAULT_REGIME = "RME"
+DEFAULT_OFFER = "Essentiel"
+CURRENCY = "XOF"
+BILLING_MONTHS = 1
+
+
+def billing_regime(regime):
+	return regime if regime in REGIMES else DEFAULT_REGIME
+
+
+def check_offer(offer):
+	"""The catalogue key of an offer a client asked for, or an error: an
+	unknown or withdrawn offer is never priced."""
+	entry = PME360_CATALOG.get(offer or "")
+	if not entry:
+		frappe.throw(_("Offre inconnue : {0}").format(offer), frappe.ValidationError)
+	if not entry["active"]:
+		frappe.throw(_("L'offre {0} n'est plus proposée.").format(entry["label"]), frappe.ValidationError)
+	return offer
+
+
+def offer_price(offer, regime=None):
+	"""Monthly price in FCFA of an offer for a tax regime."""
+	return PME360_CATALOG[check_offer(offer)]["prices"][billing_regime(regime)]
+
+
+def _company_offer_and_regime(company):
+	from sitiame_core.setup import PME360_OFFER_FIELD
+
+	row = frappe.db.get_value("Company", company, [PME360_OFFER_FIELD, "sitiame_regime_fiscal"], as_dict=True) or {}
+	offer = row.get(PME360_OFFER_FIELD)
+	return (offer if offer in PME360_CATALOG else DEFAULT_OFFER), row.get("sitiame_regime_fiscal") or ""
 
 
 def subscription_amount_for(company=None, offer=None):
-	"""Return the monthly price in FCFA for a given company's offer+regime,
-	or None when the offer requires a custom quote (Transformation + TEE/RME).
-	Falls back to the flat amount in site_config when set (test mode).
-	If offer is provided explicitly, it overrides the stored offer."""
+	"""Monthly price in FCFA of `offer` (default: the company's current
+	offer) at the company's tax regime. site_config
+	"sitiame_subscription_amount" forces a flat amount (test mode)."""
 	override = frappe.conf.get("sitiame_subscription_amount")
 	if override:
-		raw = int(override)
-		return max(SUBSCRIPTION_AMOUNT_FLOOR, raw)
+		return max(SUBSCRIPTION_AMOUNT_FLOOR, int(override))
 
-	if not company:
-		tarifs = _TARIF_DEFAULT
-		idx = _OFFER_INDEX.get(offer or "Essentiel", 0)
-		return tarifs[idx]
-
-	from sitiame_core.setup import PME360_OFFER_FIELD
-	row = frappe.db.get_value(
-		"Company", company,
-		[PME360_OFFER_FIELD, "sitiame_regime_fiscal"],
-		as_dict=True,
-	) or {}
-
-	resolved_offer = offer or row.get(PME360_OFFER_FIELD) or "Essentiel"
-	regime  = row.get("sitiame_regime_fiscal") or ""
-	tarifs  = _TARIF.get(regime, _TARIF_DEFAULT)
-	idx     = _OFFER_INDEX.get(resolved_offer, 0)
-	return tarifs[idx]   # peut être None (sur devis)
+	current, regime = _company_offer_and_regime(company) if company else (DEFAULT_OFFER, "")
+	return offer_price(offer or current, regime)
 
 
 def subscription_amount():
-	"""Backward-compat shim used by legacy callers that don't pass a company.
-	Always returns a concrete amount (falls back to Essentiel TEE)."""
-	result = subscription_amount_for()
-	return result if result is not None else _TARIF_DEFAULT[0]
+	"""Price of the default offer, for callers that have no company."""
+	return subscription_amount_for()
+
+
+def offer_catalog(regime=None):
+	"""The offers as the pages show them, priced for one tax regime."""
+	regime = billing_regime(regime)
+	return [
+		{
+			"key": key,
+			"label": entry["label"],
+			"price": entry["prices"][regime],
+			"prices": entry["prices"],
+			"currency": CURRENCY,
+			"months": BILLING_MONTHS,
+			**{field: entry[field] for field in ("color", "badge", "promise", "users", "pieces", "features")},
+		}
+		for key, entry in PME360_CATALOG.items()
+		if entry["active"]
+	]
+
+
+@frappe.whitelist()
+def get_offer_catalog():
+	"""Every active offer with its price for each regime (Offres PME360 page)."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Connexion requise."), frappe.PermissionError)
+	return {"offers": offer_catalog(), "regimes": REGIME_LABELS, "default_regime": DEFAULT_REGIME}
 
 # Subscription Payment.payment_provider. Older payments (empty provider)
 # came from a previous provider and are no longer queried.
@@ -82,6 +165,9 @@ CHECKOUT = "Jèko Checkout"  # the PME pays from the Abonnement page
 LINK = "Jèko Lien"  # a single-use link sent by Sitiame staff
 
 PAID, FAILED, PENDING = "Payé", "Échoué", "En attente"
+# Jèko confirmed a payment that does not match what was asked (amount,
+# currency): nothing is activated, Sitiame staff check it in Jèko.
+TO_CHECK = "À vérifier"
 
 
 def get_user_company(user=None):
@@ -148,19 +234,77 @@ def get_company_subscription(company):
 	}
 
 
-def _mark_paid(docname):
+def _amount_mismatch(doc, paid):
+	"""Why a payment Jèko reports as successful does not settle `doc`, or
+	None when it matches. `paid` is Jèko's transaction amount:
+	{"amount": {"amount", "currency"}, "fees": {"amount", ...}}. Jèko's docs
+	state neither the unit of that amount (requests are in "cents") nor
+	whether it is net of fees, so the expected price is accepted in FCFA
+	or in cents, gross or net of the fees -- anything else is refused."""
+	money = (paid or {}).get("amount")
+	if not isinstance(money, dict) or money.get("amount") in (None, ""):
+		return _("Jèko n'a pas transmis le montant payé.")
+
+	expected_currency = doc.get("currency") or CURRENCY
+	if (money.get("currency") or "").upper() != expected_currency:
+		return _("Devise payée {0}, attendue {1}.").format(money.get("currency"), expected_currency)
+
+	try:
+		amount = float(money["amount"])
+		fees = float(((paid.get("fees") or {}).get("amount")) or 0)
+	except (TypeError, ValueError):
+		return _("Montant payé illisible : {0}.").format(money.get("amount"))
+
+	expected = int(round(float(doc.amount or 0)))
+	if expected and any(round(value) in (expected, expected * 100) for value in (amount, amount + fees)):
+		return None
+	return _("Montant payé {0}, attendu {1} FCFA.").format(money.get("amount"), expected)
+
+
+def _flag_to_check(docname, reason):
+	frappe.db.set_value("Subscription Payment", docname, {"status": TO_CHECK, "verification_note": reason})
+	frappe.db.commit()
+	frappe.log_error(title="Jèko : paiement à vérifier", message=f"{docname} : {reason}")
+
+
+def _apply_paid_offer(doc):
+	"""The offer the PME paid for becomes its offer, and every account of
+	the PME gets the matching offer role (offer_access.py checks the role).
+	Payments made before the offer was recorded leave the offer as is."""
+	from sitiame_core.offer_roles import sync_offer_role
+	from sitiame_core.setup import PME360_OFFER_FIELD
+
+	if doc.get("offer") not in PME360_CATALOG:
+		return
+	frappe.db.set_value("Company", doc.company, PME360_OFFER_FIELD, doc.offer)
+	for user in frappe.get_all(
+		"User Permission", filters={"allow": "Company", "for_value": doc.company}, pluck="user"
+	):
+		if "PME Client" in frappe.get_roles(user):
+			sync_offer_role(user, doc.offer)
+
+
+def _mark_paid(docname, paid=None):
 	"""Single entry point once Jèko confirms a payment (webhook, return
-	page, 10-minute check): flags the Subscription Payment as paid,
-	extends the Company's subscription and gives back any access the
-	trial expiry had removed. Row-locked so the webhook and the return page
-	racing each other can never extend the subscription twice."""
+	page, 10-minute check): checks the amount Jèko reports (`paid`, see
+	_amount_mismatch), flags the Subscription Payment as paid, switches the
+	PME to the offer it paid for, extends the Company's subscription and
+	gives back any access the trial expiry had removed. Row-locked so the
+	webhook and the return page racing each other can never extend the
+	subscription twice. Returns True when the payment is (now) paid."""
 	status = frappe.db.get_value("Subscription Payment", docname, "status", for_update=True)
 	if status == PAID:
-		return
+		return True
 
 	doc = frappe.get_doc("Subscription Payment", docname)
+	reason = _amount_mismatch(doc, paid)
+	if reason:
+		_flag_to_check(docname, reason)
+		return False
+
 	doc.db_set("status", PAID)
 	doc.db_set("paid_at", frappe.utils.now())
+	_apply_paid_offer(doc)
 
 	# Stack on top of whatever access the PME still has (running
 	# subscription or free trial) so paying early never loses days.
@@ -177,6 +321,7 @@ def _mark_paid(docname):
 
 	_restore_trial_roles(doc.company)
 	frappe.db.commit()
+	return True
 
 
 def _restore_trial_roles(company):
@@ -196,33 +341,43 @@ def get_my_subscription():
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
 	company = get_user_company()
-	sub = get_company_subscription(company)
-	amount = subscription_amount_for(company)
 	return {
-		**sub,
-		"amount": amount,        # None quand l'offre est sur devis
-		"is_devis": amount is None,
+		**_priced_subscription(company),
 		"is_staff": is_sitiame_staff(),
 		"is_admin": "System Manager" in frappe.get_roles(),
+	}
+
+
+def _priced_subscription(company):
+	"""A company's subscription, with the offers priced at its regime."""
+	sub = get_company_subscription(company)
+	return {
+		**sub,
+		"amount": subscription_amount_for(company) if company else None,
+		"billing_regime": billing_regime(sub["regime"]),
+		"billing_regime_label": REGIME_LABELS[billing_regime(sub["regime"])],
+		"offers": offer_catalog(sub["regime"]),
 	}
 
 
 # -- Creating payments --
 
 
-def _new_payment(company):
-	amount = subscription_amount_for(company)
-	if amount is None:
-		frappe.throw(
-			_("L'offre Transformation de cette société nécessite un devis. Contactez SITIAME Capital."),
-			frappe.ValidationError,
-		)
+def _new_payment(company, offer=None):
+	"""A pending payment for `offer` (default: the company's current offer),
+	priced here from the catalogue. The offer is only applied to the
+	company once Jèko confirms the payment (_mark_paid)."""
+	current, regime = _company_offer_and_regime(company)
+	offer = check_offer(offer or current)
 	doc = frappe.get_doc(
 		{
 			"doctype": "Subscription Payment",
 			"company": company,
-			"amount": amount,
-			"duration_months": 1,
+			"offer": offer,
+			"regime": billing_regime(regime),
+			"amount": subscription_amount_for(company, offer),
+			"currency": CURRENCY,
+			"duration_months": BILLING_MONTHS,
 			"status": PENDING,
 		}
 	)
@@ -249,7 +404,8 @@ def _create_checkout(doc, payment_method):
 def _create_link(doc):
 	"""Single-use Jèko payment link, for Sitiame staff to send to the PME:
 	the payer picks the operator on Jèko's page."""
-	result = jeko_client.create_payment_link(f"Abonnement Sitiame - {doc.company}", doc.amount)
+	offer = PME360_CATALOG.get(doc.get("offer") or "", {}).get("label") or "Abonnement Sitiame"
+	result = jeko_client.create_payment_link(f"{offer} - {doc.company}", doc.amount)
 	_save_payment(doc, LINK, result.get("id"), result.get("link"))
 	return result.get("link")
 
@@ -313,17 +469,18 @@ def _paying_company(company=None):
 
 @frappe.whitelist()
 def get_company_subscription_for(company):
-	"""Staff paying for a PME: that PME's current state."""
-	return get_company_subscription(_paying_company(company))
+	"""Staff paying for a PME: that PME's current state and prices."""
+	return _priced_subscription(_paying_company(company))
 
 
 @frappe.whitelist()
 def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=None, offer=None):
 	"""The PME pays its own subscription with the operator it picked on
 	the Abonnement page; Sitiame staff pick the PME first (`company`).
-	force_new is ignored (kept for old clients). offer: quand le client
-	choisit une offre différente, elle est mise à jour sur la Company
-	avant la création du paiement."""
+	force_new is ignored (kept for old clients). offer: the catalogue key
+	the client picked (default: its current offer). Only the key comes from
+	the browser: the price is the catalogue's, and the offer is applied to
+	the company once the payment is confirmed, never before."""
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Connexion requise."), frappe.PermissionError)
@@ -331,13 +488,8 @@ def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=Non
 	company = _paying_company(company)
 	if payment_method not in jeko_client.PAYMENT_METHODS:
 		frappe.throw(_("Choisissez votre moyen de paiement (Wave, Orange Money, MTN, Moov ou Djamo)."))
-
-	# Si le client a sélectionné une offre, la persister avant tout
-	# (comme ça si le paiement réussit, l'offre en base est déjà correcte)
-	if offer and offer in _OFFER_INDEX:
-		from sitiame_core.setup import PME360_OFFER_FIELD
-		frappe.db.set_value("Company", company, PME360_OFFER_FIELD, offer)
-		frappe.db.commit()
+	if offer:
+		check_offer(offer)
 
 	# A payment still open may have gone through in the meantime: never
 	# make the PME pay twice.
@@ -351,7 +503,7 @@ def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=Non
 		if _settle(row) == PAID:
 			return {"status": PAID, "already_paid": True, "docname": row.name, "company": company}
 
-	doc = _new_payment(company)
+	doc = _new_payment(company, offer)
 	return {
 		"payment_url": _create_checkout(doc, payment_method),
 		"docname": doc.name,
@@ -361,16 +513,23 @@ def get_or_create_pme_checkout_url(payment_method=None, force_new=0, company=Non
 
 
 @frappe.whitelist()
-def create_company_payment_link(company):
+def create_company_payment_link(company, offer=None):
 	"""Sitiame staff: always a fresh single-use Jèko link for the chosen
-	PME, to send it to them (WhatsApp, e-mail...). A chargé d'affaires:
-	for a PME of his portfolio."""
+	PME and offer (default: its current offer), to send it to them
+	(WhatsApp, e-mail...). A chargé d'affaires: for a PME of his portfolio."""
 	_only_staff()
 	if not frappe.db.exists("Company", company):
 		frappe.throw(_("Societe introuvable : {0}").format(company))
 	portfolio.check_company(company)
-	doc = _new_payment(company)
-	return {"payment_url": _create_link(doc), "docname": doc.name, "company": company, "is_new": True}
+	doc = _new_payment(company, offer)
+	return {
+		"payment_url": _create_link(doc),
+		"docname": doc.name,
+		"company": company,
+		"offer": doc.offer,
+		"amount": doc.amount,
+		"is_new": True,
+	}
 
 
 @frappe.whitelist()
@@ -425,9 +584,20 @@ def list_company_subscriptions():
 
 def _live_status(provider, transaction_id):
 	"""What Jèko says now: PAID, FAILED, PENDING, or LINK_CLOSED."""
+	return _live_check(provider, transaction_id)[0]
+
+
+def _live_check(provider, transaction_id):
+	"""(status, paid): _live_status's answer, plus the transaction Jèko
+	attached to a paid checkout (its amount and fees, see _amount_mismatch)."""
 	if provider == CHECKOUT:
-		status = (jeko_client.get_payment_request(transaction_id).get("status") or "").lower()
-		return {"success": PAID, "error": FAILED}.get(status, PENDING)
+		data = jeko_client.get_payment_request(transaction_id)
+		status = {"success": PAID, "error": FAILED}.get((data.get("status") or "").lower(), PENDING)
+		return status, data.get("transaction") if status == PAID else None
+	return _link_status(provider, transaction_id), None
+
+
+def _link_status(provider, transaction_id):
 	if provider == LINK:
 		# A link is only ever paid by its signed "success" webhook. Jèko
 		# answers canReceivePayments = false for a used link, but also for
@@ -464,10 +634,12 @@ def _flag_closed_link(name):
 
 
 def _settle(row):
-	"""Applies Jèko's current answer to a pending payment; returns it."""
-	status = _live_status(row.payment_provider, row.transaction_id)
+	"""Applies Jèko's current answer to a pending payment; returns it
+	(TO_CHECK when Jèko's paid amount does not match the payment)."""
+	status, paid = _live_check(row.payment_provider, row.transaction_id)
 	if status == PAID:
-		_mark_paid(row.name)
+		if not _mark_paid(row.name, paid):
+			status = TO_CHECK
 	elif status == FAILED:
 		frappe.db.set_value("Subscription Payment", row.name, "status", FAILED)
 		frappe.db.commit()
@@ -585,7 +757,11 @@ def jeko_subscription_webhook():
 	if status == "success":
 		if body.get("paymentMethod") and not frappe.db.get_value("Subscription Payment", name, "payment_method"):
 			frappe.db.set_value("Subscription Payment", name, "payment_method", body["paymentMethod"])
-		_mark_paid(name)
+		if body.get("amount") is None and not (body.get("transactionDetails") or {}).get("paymentLinkId"):
+			# a checkout's amount is read from Jèko by the 10-minute check
+			# (_settle); a link has no other proof, so _mark_paid flags it
+			return {"status": "ok"}
+		_mark_paid(name, {"amount": body.get("amount"), "fees": body.get("fees")})
 	elif status == "error" and frappe.db.get_value("Subscription Payment", name, "status") == PENDING:
 		frappe.db.set_value("Subscription Payment", name, "status", FAILED)
 		frappe.db.commit()

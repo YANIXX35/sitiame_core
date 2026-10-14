@@ -154,7 +154,7 @@ def test_payment_link_refused_outside_the_portfolio(world, monkeypatch):
 def test_payment_link_allowed_in_the_portfolio(world, monkeypatch):
 	monkeypatch.setattr(frappe, "only_for", lambda roles: None, raising=False)
 	monkeypatch.setattr(frappe.db, "exists", lambda doctype, name: True, raising=False)
-	monkeypatch.setattr(subscription_api, "_new_payment", lambda company: frappe._dict(name="SUB-1"))
+	monkeypatch.setattr(subscription_api, "_new_payment", lambda company, offer=None: frappe._dict(name="SUB-1"))
 	monkeypatch.setattr(subscription_api, "_create_link", lambda doc: "https://pay.jeko.africa/l/1")
 	assert subscription_api.create_company_payment_link("PME A")["payment_url"] == "https://pay.jeko.africa/l/1"
 

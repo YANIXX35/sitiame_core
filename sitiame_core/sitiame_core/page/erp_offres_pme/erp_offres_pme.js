@@ -12,48 +12,15 @@ frappe.pages["erp-offres-pme"].on_page_load = function (wrapper) {
 	});
 	page.add_action_item(__("Rafraichir"), function () { render(); });
 
-	const OFFERS = [
-		{
-			key: "Essentiel",
-			color: "#0ea5e9",
-			badge: "",
-			promise: "Vous tenez votre comptabilite, nous la supervisons.",
-			users: "1 utilisateur",
-			pieces: "100 pieces/mois",
-			prices: { tee: 15000, synth: 25000, reel_s: 50000, reel_n: 80000 },
-			features: ["Tableau de bord dirigeant", "Facturation & Achats", "Caisse & Mobile Money", "Stock", "Revue mensuelle SITIAME"],
-		},
-		{
-			key: "Conformite",
-			color: "#8b5cf6",
-			badge: "RECOMMANDE",
-			promise: "Vous saisissez, nous certifions et nous deposons.",
-			users: "3 utilisateurs",
-			pieces: "200 pieces/mois",
-			prices: { tee: 30000, synth: 45000, reel_s: 85000, reel_n: 130000 },
-			features: ["Tout Essentiel", "Validation des ecritures", "Depot TVA", "Etats SYSCOHADA", "Cloture mensuelle", "Expert-comptable referent"],
-		},
-		{
-			key: "Pilotage",
-			color: "#f59e0b",
-			badge: "",
-			promise: "Nous tenons votre gestion administrative et financiere.",
-			users: "5 utilisateurs",
-			pieces: "300 pieces/mois",
-			prices: { tee: 75000, synth: 100000, reel_s: 175000, reel_n: 250000 },
-			features: ["Tout Conformite", "Tenue complete", "Relances clients", "Tresorerie previsionnelle", "Charge de compte dedie"],
-		},
-		{
-			key: "Transformation",
-			color: "#10b981",
-			badge: "PREMIUM",
-			promise: "Nous digitalisons votre gestion et preparons votre financement.",
-			users: "Illimite",
-			pieces: "Illimite",
-			prices: { tee: 200000, synth: 250000, reel_s: 300000, reel_n: 400000 },
-			features: ["Tout Pilotage", "Paie & bulletins", "Immobilisations", "Dossier de financement", "Formation equipes", "Comite trimestriel"],
-		},
-	];
+	// Offers and prices: subscription_api.PME360_CATALOG (get_offer_catalog),
+	// the same catalogue the Abonnement page charges from. Its regimes
+	// (TEE/RME/RSI/RNI) map to this page's columns as api._REGIME_MAP does.
+	var OFFERS = [];
+
+	function fromCatalog(o) {
+		var p = o.prices || {};
+		return $.extend({}, o, { prices: { tee: p.TEE, synth: p.RME, reel_s: p.RSI, reel_n: p.RNI } });
+	}
 
 	const REGIME_LABELS = {
 		tee: "Entreprenant/TEE",
@@ -93,7 +60,7 @@ frappe.pages["erp-offres-pme"].on_page_load = function (wrapper) {
 		}
 
 		var offerOptions = OFFERS.map(function (o) {
-			return "<option value='" + o.key + "'>" + o.key + "</option>";
+			return "<option value='" + o.key + "'>" + frappe.utils.escape_html(o.label.replace("PME360 ", "")) + "</option>";
 		}).join("");
 
 		var tbody = rows.map(function (u, i) {
@@ -187,7 +154,7 @@ frappe.pages["erp-offres-pme"].on_page_load = function (wrapper) {
 			}).join("");
 			return "<div style='background:#fff;border-radius:14px;box-shadow:0 1px 6px rgba(0,0,0,.08);padding:20px;border-top:4px solid " + o.color + ";position:relative;'>" +
 				badgeHtml +
-				"<div style='font-size:1.05rem;font-weight:700;color:" + o.color + ";margin-bottom:6px;'>PME360 " + o.key + "</div>" +
+				"<div style='font-size:1.05rem;font-weight:700;color:" + o.color + ";margin-bottom:6px;'>" + frappe.utils.escape_html(o.label) + "</div>" +
 				"<div style='font-size:.8rem;color:#6b7280;margin-bottom:12px;min-height:40px;'>" + frappe.utils.escape_html(o.promise) + "</div>" +
 				"<div style='font-size:1.4rem;font-weight:800;color:#111827;'>" + fmt(o.prices.synth) + "<span style='font-size:.7rem;font-weight:400;color:#9ca3af;'>/mois*</span></div>" +
 				"<div style='font-size:.68rem;color:#9ca3af;margin-bottom:10px;'>*Impot synthetique</div>" +
@@ -230,5 +197,8 @@ frappe.pages["erp-offres-pme"].on_page_load = function (wrapper) {
 		});
 	}
 
-	render();
+	frappe.call({ method: "sitiame_core.subscription_api.get_offer_catalog" }).then(function (r) {
+		OFFERS = ((r.message || {}).offers || []).map(fromCatalog);
+		render();
+	});
 };

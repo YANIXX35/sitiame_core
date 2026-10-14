@@ -22,16 +22,16 @@ def world(monkeypatch):
 		assert filters == {"status": "En attente", "transaction_id": ["is", "set"]}
 		return [frappe._dict(r) for r in state["rows"]]
 
-	def live_status(provider, transaction_id):
+	def live_check(provider, transaction_id):
 		answer = state["jeko"][transaction_id]
 		if isinstance(answer, Exception):
 			raise answer
-		return answer
+		return answer, None
 
 	monkeypatch.setattr(frappe.utils, "now_datetime", lambda: NOW, raising=False)
 	monkeypatch.setattr(frappe, "get_all", get_all, raising=False)
-	monkeypatch.setattr(sa, "_live_status", live_status)
-	monkeypatch.setattr(sa, "_mark_paid", lambda name: state["paid"].append(name))
+	monkeypatch.setattr(sa, "_live_check", live_check)
+	monkeypatch.setattr(sa, "_mark_paid", lambda name, paid=None: state["paid"].append(name) or True)
 	monkeypatch.setattr(frappe.db, "set_value", lambda dt, name, field, value: state["status"].__setitem__(name, value), raising=False)
 	monkeypatch.setattr(frappe.db, "commit", lambda: None, raising=False)
 	monkeypatch.setattr(frappe.db, "rollback", lambda: None, raising=False)

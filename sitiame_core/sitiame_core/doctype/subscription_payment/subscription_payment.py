@@ -13,17 +13,28 @@ class SubscriptionPayment(Document):
 
 		generate_payment_link_on_insert(self)
 
+	def before_validate(self):
+		# created by hand in the desk: priced from the offer catalogue
+		if self.is_new() and self.company and not self.amount:
+			from sitiame_core import subscription_api
+
+			current, regime = subscription_api._company_offer_and_regime(self.company)
+			self.offer = subscription_api.check_offer(self.offer or current)
+			self.regime = subscription_api.billing_regime(regime)
+			self.amount = subscription_api.subscription_amount_for(self.company, self.offer)
+			self.currency = subscription_api.CURRENCY
+
 	def validate(self):
 		if self.is_new() or not self.transaction_id:
 			return
 
 		previous = frappe.db.get_value(
-			"Subscription Payment", self.name, ["company", "amount", "duration_months"], as_dict=True
+			"Subscription Payment", self.name, ["company", "offer", "amount", "duration_months"], as_dict=True
 		)
 		if not previous:
 			return
 
-		for field in ("company", "amount", "duration_months"):
+		for field in ("company", "offer", "amount", "duration_months"):
 			if self.get(field) != previous.get(field):
 				frappe.throw(
 					_("Impossible de modifier {0} : un lien de paiement a deja ete genere pour ce document.").format(
