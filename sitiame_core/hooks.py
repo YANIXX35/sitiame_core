@@ -103,10 +103,14 @@ doc_events = {
 		"validate": "sitiame_core.portfolio.guard_portfolio_field",
 		"on_update": [
 			"sitiame_core.company_chart.set_syscohada_defaults",
+			# document numbers of its own (naming.py)
+			"sitiame_core.naming.on_company_update",
 			# sync the PME's offer role when sitiame_offer changes on the Company
 			"sitiame_core.offer_roles.sync_offer_role_on_company_update",
 		],
 	},
+	# every company numbers the new year's documents on its own (naming.py)
+	"Fiscal Year": {"on_update": "sitiame_core.naming.on_fiscal_year_update"},
 	# a PME registered by a chargé d'affaires joins his portfolio once its
 	# company is provisioned (portfolio.py); the PME user's own Contact
 	# joins its company (party_isolation.py)

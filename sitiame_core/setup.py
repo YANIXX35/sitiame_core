@@ -29,6 +29,7 @@ def after_migrate():
 	_create_portfolio_field()
 	_create_tax_regime_field()
 	_create_asset_threshold_field()
+	_ensure_company_numbering()
 	_grant_crm_permissions()
 	_grant_pme_permissions()
 	ensure_charge_affaires_workspace()
@@ -82,6 +83,13 @@ def _create_portfolio_field():
 		},
 		update=True,
 	)
+
+
+def _ensure_company_numbering():
+	from sitiame_core.naming import ensure_rules
+
+	ensure_rules()
+	frappe.db.commit()
 
 
 def _create_asset_threshold_field():
