@@ -37,6 +37,7 @@ def after_migrate():
 	ensure_plateforme_utilisateurs_icon()
 	ensure_admin_dashboard_icon()
 	ensure_offres_pme_icon()
+	ensure_liasse_fiscale_icon()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -475,6 +476,38 @@ def ensure_offres_pme_icon():
 		"UPDATE `tabDesktop Icon` SET hidden=0 WHERE label=%s AND owner IS NOT NULL",
 		OFFRES_PME_SIDEBAR,
 	)
+
+	frappe.db.commit()
+	frappe.cache().delete_value("desktop_icons")
+	frappe.clear_cache()
+
+
+def ensure_liasse_fiscale_icon():
+	"""Tuile 'Liasse fiscale' du personnel Sitiame : les états financiers en
+	version SYSCOHADA (un rapport chacun), la balance, le grand livre et la
+	liasse Excel complète. Masquée aux PME (boot._PME_HIDDEN_LABELS)."""
+	from sitiame_core.liasse_fiscale import SIDEBAR_ITEMS, TILE
+
+	_ensure_sidebar(TILE, SIDEBAR_ITEMS)
+
+	values = {
+		"idx": 4,
+		"icon_type": "Link",
+		"link_type": "Workspace Sidebar",
+		"link_to": TILE,
+		"link": None,
+		"icon": "file-text",
+		"icon_image": None,
+		"bg_color": "blue",
+		"app": "sitiame_core",
+	}
+	existing = frappe.db.get_value("Desktop Icon", {"label": TILE}, "name")
+	if existing:
+		frappe.db.set_value("Desktop Icon", existing, values)
+	else:
+		frappe.get_doc({"doctype": "Desktop Icon", "label": TILE, **values}).insert(ignore_permissions=True)
+
+	frappe.db.sql("UPDATE `tabDesktop Icon` SET hidden=0 WHERE label=%s AND owner IS NOT NULL", TILE)
 
 	frappe.db.commit()
 	frappe.cache().delete_value("desktop_icons")
