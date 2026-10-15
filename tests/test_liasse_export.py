@@ -1,159 +1,185 @@
 # Copyright (c) 2026, Sitiame Capital
 # License: MIT
 
-"""Tests unitaires pour liasse_export.py — sans base de données ni réseau."""
+"""Export Liasse SYSCOHADA (liasse_export.py) : le modèle Excel est rempli
+par ses feuilles Journal / Journal_N1 et PARAMETRES -- sans base de données."""
 
+import datetime
 import io
-
 import sys
 
 import pytest
 
-# Ajouter get_site_path et log_error au stub frappe (absents du conftest) avant d'importer liasse_export
-if "frappe.utils" in sys.modules:
-    sys.modules["frappe.utils"].get_site_path = lambda *args: "/tmp/fake_site"
-if "frappe" in sys.modules:
-    sys.modules["frappe"].log_error = lambda *args, **kwargs: None
+# fonctions frappe.utils absentes du stub du conftest
+_utils = sys.modules["frappe.utils"]
+_utils.get_site_path = lambda *args: "/tmp/fake_site"
+_utils.date_diff = lambda a, b: (_utils.getdate(a) - _utils.getdate(b)).days
 
-from sitiame_core.liasse_export import (
-    _extract_account_code,
-    _normalize_to_7,
-    _fill_excel,
+
+def _add_months(date, months):
+	d = _utils.getdate(date)
+	month = d.month - 1 + months
+	return d.replace(year=d.year + month // 12, month=month % 12 + 1)
+
+
+_utils.add_months = _add_months
+
+from sitiame_core import liasse_export as le  # noqa: E402
+
+PLAN = ["10", "101", "1011000", "1301000", "1309000", "411", "4111000", "401", "4011000", "4431000", "4452000",
+	"52", "521", "5211000", "57", "571", "5711000", "552", "601", "6011000", "6047000", "633", "701", "7011000", "7061000"]  # fmt: skip
+GROUPS = ["10", "101", "411", "401", "52", "521", "57", "571", "601", "701"]
+
+
+@pytest.fixture
+def resolve():
+	return le.account_resolver(PLAN, GROUPS)
+
+
+# ── comptes ─────────────────────────────────────────────────────────────────
+
+def test_extract_and_normalize():
+	assert le._extract_account_code("4111 - Clients - S") == "4111"
+	assert le._extract_account_code("Debtors - KE") == ""
+	assert le._normalize_to_7("4111") == "4111000"
+	assert le._normalize_to_7("12345678") == "1234567"
+	assert le._normalize_to_7("") == ""
+
+
+@pytest.mark.parametrize(
+	"code, expected",
+	[
+		("4111", "4111000"),  # 4 chiffres -> 7
+		("633", "633"),  # compte imputable à 3 chiffres dans le modèle
+		("5521", "552"),  # sous-compte Mobile Money -> compte imputable le plus précis
+		("4111000", "4111000"),
+		("411", None),  # regroupement : jamais imputé
+		("999", None),
+	],
 )
+def test_account_resolver(resolve, code, expected):
+	assert resolve(code) == expected
 
 
-# ── _extract_account_code ────────────────────────────────────────────────────
+# ── journal ─────────────────────────────────────────────────────────────────
 
-def test_extract_strips_name():
-    assert _extract_account_code("6052 - Electricité - PME") == "6052"
-
-
-def test_extract_account_number_already_clean():
-    assert _extract_account_code("40110") == "40110"
+def gl(voucher_type, voucher_no, account_number, debit=0, credit=0, account_type="", **extra):
+	return {"posting_date": "2025-03-10", "voucher_type": voucher_type, "voucher_no": voucher_no,
+		"account": f"{account_number} - X - S", "account_number": account_number, "account_type": account_type,
+		"debit": debit, "credit": credit, **extra}  # fmt: skip
 
 
-def test_extract_empty():
-    assert _extract_account_code("") == ""
-    assert _extract_account_code(None) == ""
+def test_journal_codes_by_voucher(resolve):
+	rows, unknown = le.build_journal_rows(
+		[
+			gl("Sales Invoice", "SINV-1", "4111", debit=118000),
+			gl("Sales Invoice", "SINV-1", "7061", credit=100000),
+			gl("Sales Invoice", "SINV-1", "4431", credit=18000),
+			gl("Purchase Invoice", "PINV-1", "6047", debit=50000),
+			gl("Payment Entry", "PE-1", "5211", debit=118000, account_type="Bank"),
+			gl("Payment Entry", "PE-1", "4111", credit=118000, account_type="Receivable"),
+			gl("Payment Entry", "PE-2", "5711", credit=5000, account_type="Cash"),
+			gl("Journal Entry", "JV-1", "6011", debit=1000),
+			gl("Journal Entry", "JV-2", "1011", credit=1000000, is_opening="Yes"),
+		],
+		resolve,
+	)
+	journals = {(row["piece"], row["account"]): row["journal"] for row in rows}
+	assert journals[("SINV-1", "4111000")] == "VT" and journals[("PINV-1", "6047000")] == "AC"
+	assert journals[("PE-1", "5211000")] == "BQ" and journals[("PE-1", "4111000")] == "BQ"
+	assert journals[("PE-2", "5711000")] == "CS" and journals[("JV-1", "6011000")] == "OD"
+	assert journals[("JV-2", "1011000")] == "AN"
+	assert unknown == set()
 
 
-def test_extract_no_leading_digit():
-    assert _extract_account_code("Capital") == ""
+def test_amounts_are_net_per_line_and_dates_are_dates(resolve):
+	rows, _unknown = le.build_journal_rows(
+		[gl("Journal Entry", "JV-1", "6011", debit=700, credit=200), gl("Journal Entry", "JV-1", "5711", debit=0, credit=0)], resolve
+	)
+	assert len(rows) == 1 and (rows[0]["debit"], rows[0]["credit"]) == (500, 0)
+	assert rows[0]["date"] == datetime.date(2025, 3, 10)
 
 
-# ── _normalize_to_7 ─────────────────────────────────────────────────────────
-
-def test_normalize_4_digits():
-    assert _normalize_to_7("6052") == "6052000"
-
-
-def test_normalize_already_7():
-    assert _normalize_to_7("6052000") == "6052000"
+def test_unknown_accounts_are_reported(resolve):
+	_rows, unknown = le.build_journal_rows([gl("Journal Entry", "JV-1", "999", debit=10), gl("Journal Entry", "JV-1", "", debit=5)], resolve)
+	assert unknown == {"999 - X - S", " - X - S"}
 
 
-def test_normalize_longer_truncates():
-    assert _normalize_to_7("40110001") == "4011000"
+# ── reports d'ouverture ─────────────────────────────────────────────────────
+
+def test_opening_carries_balance_sheet_accounts_and_past_results(resolve):
+	"""Un compte de bilan sans mouvement dans l'exercice reste au bilan, et
+	les charges/produits des années passées ne gonflent pas le résultat N."""
+	rows, unknown = le.build_opening_rows(
+		[
+			{"account": "1011 - Capital", "account_number": "1011", "balance": -1000000},
+			{"account": "5211 - Banque", "account_number": "5211", "balance": 1150000},
+			{"account": "6047 - Fournitures", "account_number": "6047", "balance": 50000},
+			{"account": "7061 - Services", "account_number": "7061", "balance": -200000},
+		],
+		resolve,
+		"2026-01-01",
+	)
+	by_account = {row["account"]: (row["debit"], row["credit"]) for row in rows}
+	assert by_account == {"1011000": (0, 1000000), "5211000": (1150000, 0), le.PROFIT_ACCOUNT: (0, 150000)}
+	assert all(row["journal"] == "AN" and row["date"] == datetime.date(2026, 1, 1) for row in rows)
+	assert sum(row["debit"] for row in rows) == sum(row["credit"] for row in rows)
+	assert unknown == set()
 
 
-def test_normalize_empty():
-    assert _normalize_to_7("") == ""
+def test_past_loss_goes_to_1309(resolve):
+	rows, _unknown = le.build_opening_rows([{"account": "6047", "account_number": "6047", "balance": 30000}, {"account": "5711", "account_number": "5711", "balance": -30000}], resolve, "2026-01-01")
+	assert {row["account"]: row["debit"] for row in rows}[le.LOSS_ACCOUNT] == 30000
 
 
-def test_normalize_2_digits():
-    assert _normalize_to_7("60") == "6000000"
+def test_compact_over_capacity_keeps_the_totals(resolve):
+	rows = [
+		{"date": datetime.date(2025, 3, d), "journal": "VT", "piece": f"S{d}", "account": "7061000", "label": "", "debit": 0, "credit": 100, "party": "", "cost_center": ""}
+		for d in range(1, 21)
+	] + [{"date": datetime.date(2025, 1, 1), "journal": "AN", "piece": "AN", "account": "5211000", "label": "", "debit": 5, "credit": 0, "party": "", "cost_center": ""}]
+	out = le.compact(rows, capacity=10)
+	assert len(out) == 2
+	assert sum(r["credit"] for r in out if r["journal"] == "VT") == 2000
 
 
-# ── _fill_excel : le bug des formules Excel (bug #1) ────────────────────────
-# On crée un mini-classeur openpyxl avec :
-#   - Plan_Comptable col B row 2..4 : des codes numériques
-#   - Balance col B rows 4..6 : des formules (comme dans le vrai template)
-# et on vérifie que _fill_excel remplit quand même les colonnes D/E/F/G.
-
-def _make_workbook_with_formula_in_balance():
-    """Simule le template réel : Balance!B a des formules, Plan_Comptable!B a les vrais codes."""
-    import openpyxl
-    wb = openpyxl.Workbook()
-    wb.remove(wb.active)
-
-    # Plan_Comptable : B1=titre, B2=6052, B3=4011, B4=5211
-    pc = wb.create_sheet("Plan_Comptable")
-    pc["B1"] = "Code"
-    pc["B2"] = 6052
-    pc["B3"] = 4011
-    pc["B4"] = 5211
-
-    # Balance : ligne 3 = en-tête, lignes 4..6 = formules dans col B
-    bal = wb.create_sheet("Balance")
-    bal["B3"] = "Compte"
-    bal["D3"] = "Debit periode"
-    bal["E3"] = "Credit periode"
-    bal["F3"] = "Solde debit"
-    bal["G3"] = "Solde credit"
-    for row_i, plan_row in [(4, 2), (5, 3), (6, 4)]:
-        offset = row_i - 3
-        bal.cell(row_i, 2).value = f"=IFERROR(INDEX(Plan_Comptable!$B$2:$B$1456,ROW()-3),\"\")"
-
-    # PARAMETRES
-    p = wb.create_sheet("PARAMETRES")
-    p["C2"] = ""
-
-    # Sauvegarder en mémoire
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf.read()
+def test_previous_period():
+	assert le.previous_period("2026-01-01", "2026-12-31") == (datetime.date(2025, 1, 1), datetime.date(2025, 12, 31))
 
 
-def test_fill_excel_resolves_formulas_from_plan_comptable(tmp_path, monkeypatch):
-    """Le fichier généré doit contenir les montants même quand col B est une formule."""
-    import openpyxl
-    from sitiame_core import liasse_export
+# ── classeur ────────────────────────────────────────────────────────────────
 
-    template_bytes = _make_workbook_with_formula_in_balance()
-    template_path = tmp_path / "liasse_syscohada_template.xlsx"
-    template_path.write_bytes(template_bytes)
-
-    monkeypatch.setattr(liasse_export, "_get_template_path", lambda: str(template_path))
-
-    balance_data = {
-        "6052000": {"debit_period": 500000, "credit_period": 0,      "debit_balance": 500000, "credit_balance": 0},
-        "4011000": {"debit_period": 0,      "credit_period": 300000, "debit_balance": 0,      "credit_balance": 300000},
-    }
-
-    result = _fill_excel(balance_data, "TEST PME", "2026-01-01", "2026-12-31")
-
-    wb_out = openpyxl.load_workbook(io.BytesIO(result))
-    bal = wb_out["Balance"]
-
-    # Row 4 → Plan_Comptable!B2 → code 6052 → 6052000 → doit être rempli
-    assert bal.cell(4, 4).value == 500000, "D4 (débit période 6052) devrait être 500000"
-    assert bal.cell(4, 5).value == 0,      "E4 (crédit période 6052) devrait être 0"
-    assert bal.cell(4, 6).value == 500000, "F4 (solde débit 6052) devrait être 500000"
-    assert bal.cell(4, 7).value == 0,      "G4 (solde crédit 6052) devrait être 0"
-
-    # Row 5 → Plan_Comptable!B3 → code 4011 → 4011000 → doit être rempli
-    assert bal.cell(5, 4).value == 0,      "D5 (débit période 4011) devrait être 0"
-    assert bal.cell(5, 5).value == 300000, "E5 (crédit période 4011) devrait être 300000"
-    assert bal.cell(5, 6).value == 0,      "F5 (solde débit 4011) devrait être 0"
-    assert bal.cell(5, 7).value == 300000, "G5 (solde crédit 4011) devrait être 300000"
-
-    # Row 6 → Plan_Comptable!B4 → code 5211 → 5211000 → pas dans balance_data → vide
-    assert bal.cell(6, 4).value is None, "D6 (5211 absent de balance_data) devrait rester vide"
+def _template():
+	openpyxl = pytest.importorskip("openpyxl")
+	wb = openpyxl.Workbook()
+	wb.remove(wb.active)
+	for name in ("Journal", "Journal_N1"):
+		ws = wb.create_sheet(name)
+		ws["A1"], ws["D1"], ws["E1"] = "Date", "Compte", "Intitule compte"
+		# ligne d'exemple du modèle + formules
+		ws["A2"], ws["B2"], ws["C2"], ws["D2"], ws["G2"] = "01/01/2026", "VT", "FV-001", "411", 118000
+		for r in (2, 3, 4):
+			ws[f"E{r}"] = f"=IFERROR(VLOOKUP(D{r},Plan_Comptable!$B$2:$C$1456,2,FALSE()),\"\")"
+		ws["N2"] = "=SUM(G2:G20001)"
+	p = wb.create_sheet("PARAMETRES")
+	p["B3"], p["F3"], p["F4"] = "Dénomination sociale de l'entreprise", "Code", "AN"
+	return wb
 
 
-def test_fill_excel_without_plan_comptable_sheet_raises(tmp_path, monkeypatch):
-    """Si la feuille Plan_Comptable est absente du template, KeyError attendu."""
-    import openpyxl
-    from sitiame_core import liasse_export
-
-    wb = openpyxl.Workbook()
-    wb.active.title = "Balance"
-    buf = io.BytesIO()
-    wb.save(buf)
-    template_path = tmp_path / "liasse_syscohada_template.xlsx"
-    template_path.write_bytes(buf.getvalue())
-
-    monkeypatch.setattr(liasse_export, "_get_template_path", lambda: str(template_path))
-
-    with pytest.raises(KeyError):
-        _fill_excel({}, "TEST", "2026-01-01", "2026-12-31")
+def test_workbook_gets_journals_and_parameters():
+	openpyxl = pytest.importorskip("openpyxl")
+	row = {"date": datetime.date(2025, 6, 15), "journal": "VT", "piece": "SINV-9", "account": "7061000", "label": "Vente", "debit": 0, "credit": 50000, "party": "Client", "cost_center": ""}
+	content = le.fill_workbook(
+		_template(), [row], [],
+		{"company_name": "SITIAME", "abbr": "S", "address": "Abidjan", "tax_id": "CI123", "from_date": "2025-01-01", "to_date": "2025-12-31", "previous_to_date": "2024-12-31", "months": 12},
+	)  # fmt: skip
+	wb = openpyxl.load_workbook(io.BytesIO(content))
+	j, n1, p = wb["Journal"], wb["Journal_N1"], wb["PARAMETRES"]
+	assert [j[f"{c}2"].value for c in "BCDFGHI"] == ["VT", "SINV-9", "7061000", "Vente", 0, 50000, "Client"]
+	assert j["A2"].value.date() == datetime.date(2025, 6, 15) and j["D2"].number_format == "@"
+	assert j["E2"].value.startswith("=IFERROR") and j["N2"].value == "=SUM(G2:G20001)"  # formules intactes
+	assert n1["A2"].value is None and n1["G2"].value is None  # ligne d'exemple effacée
+	assert [p[c].value for c in ("D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11")] == [
+		"SITIAME", "S", "Abidjan", "CI123", "31/12/2025", 12, "01/01/2025", "31/12/2025", "31/12/2024"
+	]
+	assert p["F3"].value == "Code" and p["F4"].value == "AN"  # table des journaux intacte
+	assert wb.calculation.fullCalcOnLoad
