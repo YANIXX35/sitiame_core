@@ -348,6 +348,16 @@ def test_unknown_goods_line_keeps_the_flagged_default():
 	assert any("Compte par defaut" in w for w in result["warnings"])
 
 
+def test_default_warning_names_the_account_really_used():
+	"""2026-10-15: a line without keyword went to 6327 while the warning
+	named the company default (6011)."""
+	fields = {"invoice_date": "2025-11-15", "subtotal": 50000, "grand_total": 50000}
+	result = plan(fields, [{"item_name": "Article divers sans libelle connu", "qty": 1, "rate": 30000}, {"item_name": "Divers non identifie", "qty": 1, "rate": 20000}])
+	fallbacks = sorted({line["account"] for line in result["lines"] if line["source"] == "defaut"})
+	message = next(w for w in result["warnings"] if "Compte par defaut" in w)
+	assert all(account in message for account in fallbacks)
+
+
 def test_allocation_preserves_the_total():
 	assert ocr_plan.allocate(43875, [182499, 61250]) == [32850, 11025]
 	assert sum(ocr_plan.allocate(100, [1, 1, 1])) == 100

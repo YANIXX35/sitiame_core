@@ -26,6 +26,13 @@ from sitiame_core import ocr_accounts as oa
 		("Hébergement site internet", "6345"),
 		("Abonnement internet fibre", "6288"),
 		("Fournitures de bureau", "6047"),
+		# 2026-10-15 test import: these two went to 6327
+		("Ramettes papier A4 80g", "6047"),
+		("Classeurs à levier", "6047"),
+		("Cartouches toner HP 85A", "6047"),
+		("Enveloppes kraft A4", "6047"),
+		("Stylos à bille bleus", "6047"),
+		("Frais de registre du commerce", None),
 		("Billet d'avion Abidjan-Dakar", "6181"),
 		("Frais bancaires trimestriels", "6318"),
 		("Formation Excel du personnel", "633"),

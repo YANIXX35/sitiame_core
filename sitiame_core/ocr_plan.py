@@ -645,10 +645,14 @@ def build_plan(
 		warnings.append(gap)
 
 	choose_line_accounts(is_purchase, company, lines, default_account, remembered)
-	if any(line["source"] == "defaut" for line in lines):
+	# the accounts really used: lines without a keyword nor a goods signal
+	# go to 6327, not to the company default (the message named 6011 for
+	# lines booked on 6327, 2026-10-15)
+	fallback_accounts = sorted({line["account"] for line in lines if line["source"] == "defaut" and line.get("account")})
+	if fallback_accounts:
 		warnings.append(
 			_("Compte par defaut ({0}) utilise faute d'historique ou de mot-cle reconnu : verifiez-le avant de soumettre.").format(
-				default_account
+				", ".join(fallback_accounts)
 			)
 		)
 

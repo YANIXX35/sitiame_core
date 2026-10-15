@@ -18,7 +18,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate, today
+from frappe.utils import add_days, flt, getdate, today
 
 from sitiame_core import ocr_plan
 from sitiame_core.ocr_plan import franc
@@ -26,6 +26,24 @@ from sitiame_core.api import read_invoice_file
 from sitiame_core.ocr_accounts import _fold, remembered_account
 
 SUPPORTED_DOCTYPES = ("Purchase Invoice", "Sales Invoice")
+
+# Due date when the invoice prints none: its "paiement a 30 jours" when
+# written, else 30 days. Before 2026-10-15 ERPNext's default (the invoice
+# date) made every imported invoice "En retard" at once.
+DEFAULT_PAYMENT_DAYS = 30
+_PAYMENT_DAYS = re.compile(r"(?:paiement|payable|reglement|regler|echeance|delai)[^\n]{0,40}?\b(\d{1,3}) ?jours?")
+_CASH = re.compile(r"\bcomptant\b|a (?:la )?reception|des reception|payable immediatement")
+
+
+def payment_delay(text):
+	"""-> (days, "lu" | "defaut") from the invoice's own wording."""
+	folded = _fold(text)
+	match = _PAYMENT_DAYS.search(folded)
+	if match and 0 < int(match.group(1)) <= 180:
+		return int(match.group(1)), "lu"
+	if _CASH.search(folded):
+		return 0, "lu"
+	return DEFAULT_PAYMENT_DAYS, "defaut"
 
 # A HT + TVA vs TTC gap above this (XOF) is flagged for the accountant.
 AMOUNT_TOLERANCE = 1.0
@@ -307,6 +325,13 @@ def ocr_create_invoice_draft(file_url, doctype, company=None, corrections=None, 
 		invoice.customer = party
 	if fields.get("due_date") and getdate(fields["due_date"]) >= getdate(invoice.posting_date):
 		invoice.due_date = fields["due_date"]
+	elif not frappe.db.get_value("Supplier" if is_purchase else "Customer", party, "payment_terms"):
+		days, how = payment_delay(data.get("text"))
+		invoice.due_date = add_days(invoice.posting_date, days)
+		if how != "lu":
+			warnings.append(
+				_("Echeance non lue sur la facture : fixee a {0} jours ({1}), a verifier.").format(days, invoice.due_date)
+			)
 
 	plan = _build_plan(is_purchase, company, data, party, remembered_account(is_purchase, party, company))
 	warnings += plan["warnings"]

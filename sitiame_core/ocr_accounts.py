@@ -47,7 +47,13 @@ PURCHASE_KEYWORD_ACCOUNTS = [
 		r"main.?d.?oeuvre|entretien|reparations?|vidange|pneumatiques?|\bpneus?\b|carrosserie|depannage|\bgarage\b",
 		"6242",
 	),
-	(r"fournitures? de bureau|papeterie|\brames?\b|cartouches?|\btoners?\b", "6047"),
+	# "ramettes" and "classeurs" fell through to 6327 (2026-10-15 test import)
+	(
+		r"fournitures? de bureau|papeterie|\bram(?:e|ette)s?\b|\bpapiers?\b|cartouches?|\btoners?\b|\bencres?\b"
+		r"|classeurs?|enveloppes?|\bstylos?\b|agrafe|trombones?|chemises? cartonnees?|sous.?chemises?|cahiers?"
+		r"|\bblocs? notes?\b|post.?it|surligneurs?|intercalaires?",
+		"6047",
+	),
 	(r"petit materiel|outillage", "6056"),
 	(r"assurances? (?:auto|automobile|vehicules?|flotte|moto)", "6252"),
 	(r"assurances?", "6258"),
