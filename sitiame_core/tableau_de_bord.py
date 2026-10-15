@@ -10,7 +10,15 @@ from frappe.utils import flt, nowdate, add_months, get_first_day, get_last_day
 
 
 def _company():
-	"""Retourne la société par défaut de l'utilisateur connecté."""
+	"""Retourne la société par défaut de l'utilisateur connecté.
+	Pour une PME : lit la Company User Permission (source de vérité).
+	Pour le staff : lit le default utilisateur/global comme avant."""
+	# Faille 2026-10-12: get_user_default("company") is user-editable and does
+	# not filter GL queries; for PME accounts use the authoritative permission.
+	from sitiame_core.party_isolation import company_of
+	pme_company = company_of(frappe.session.user)
+	if pme_company:
+		return pme_company
 	return frappe.defaults.get_user_default("company") or frappe.defaults.get_global_default("company")
 
 

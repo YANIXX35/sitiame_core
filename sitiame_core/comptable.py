@@ -14,10 +14,14 @@ from sitiame_core.subscription_api import get_company_subscription
 def get_comptable_dashboard():
 	"""Retourne la liste de toutes les sociétés PME avec leur statut
 	d'abonnement et la date de leur dernière écriture comptable.
-	Réservé aux Accounts Manager et System Manager."""
+	Réservé aux comptables et administrateurs Sitiame (staff sans company propre)."""
 	roles = set(frappe.get_roles())
 	if not {"Accounts Manager", "System Manager"} & roles:
 		frappe.throw(_("Réservé aux comptables et administrateurs."), frappe.PermissionError)
+	# Faille 2026-10-12: PME accounts have Accounts Manager too — staff only.
+	from sitiame_core.party_isolation import company_of
+	if company_of(frappe.session.user):
+		frappe.throw(_("Réservé aux comptables Sitiame."), frappe.PermissionError)
 
 	companies = frappe.get_all(
 		"Company",

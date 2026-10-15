@@ -233,6 +233,8 @@ def export_liasse(company: str, from_date: str, to_date: str):
     roles = set(frappe.get_roles())
     if not {"Accounts Manager", "System Manager"} & roles:
         frappe.throw(_("Réservé aux comptables et administrateurs."), frappe.PermissionError)
+    # Faille 2026-10-12: any PME has Accounts Manager — verify it owns this company.
+    frappe.has_permission("Company", "read", company, throw=True)
 
     _check_balance_equilibre(company, from_date, to_date)
     balance = _get_balance_data(company, from_date, to_date)

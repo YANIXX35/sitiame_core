@@ -4,6 +4,8 @@
 """Staff accounts don't see each other's business documents; PME accounts
 and exempt users are untouched."""
 
+import types
+
 import frappe
 import pytest
 
@@ -14,7 +16,10 @@ STAFF = ["yanisse@x.com", "elie@x.com", "joseph@x.com"]
 
 @pytest.fixture(autouse=True)
 def staff(monkeypatch):
-	monkeypatch.setattr(frappe, "local", frappe._dict(), raising=False)
+	# like the real frappe.local, a missing attribute raises: a _dict
+	# answered None, which _pme_company's request cache read as "PME
+	# without a company" (every staff/PME case below then failed)
+	monkeypatch.setattr(frappe, "local", types.SimpleNamespace(), raising=False)
 	monkeypatch.setattr(frappe.db, "sql_list", lambda *a, **k: list(STAFF), raising=False)
 	monkeypatch.setattr(frappe.db, "escape", lambda value: f"'{value}'", raising=False)
 
