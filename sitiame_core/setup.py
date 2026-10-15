@@ -23,6 +23,7 @@ def after_migrate():
 	add_syscohada_report_to_sidebar()
 	add_journal_to_payment_sidebars()
 	_ensure_platform_admin_role()
+	_ensure_staff_role()
 	ensure_credit_analyst_role()
 	ensure_charge_affaires_role()
 	_create_portfolio_field()
@@ -43,6 +44,13 @@ PLATFORM_ADMIN_ROLE = "Administrateur Plateforme Sitiame"
 
 def _ensure_platform_admin_role():
 	_ensure_role(PLATFORM_ADMIN_ROLE)
+
+
+def _ensure_staff_role():
+	from sitiame_core.access_guard import STAFF_ROLE, backfill_staff_role
+
+	_ensure_role(STAFF_ROLE)
+	backfill_staff_role()
 
 
 def ensure_credit_analyst_role():

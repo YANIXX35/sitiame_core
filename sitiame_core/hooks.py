@@ -120,6 +120,9 @@ for _doctype in _PARTY_DOCTYPES:
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
 
+# a desk account tied to no company logs in only if it is Sitiame staff (access_guard.py)
+on_session_creation = "sitiame_core.access_guard.check_login"
+
 update_website_context = ["sitiame_core.website_branding.get_context"]
 
 after_migrate = "sitiame_core.setup.after_migrate"
