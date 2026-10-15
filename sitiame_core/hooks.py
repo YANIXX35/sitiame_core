@@ -32,6 +32,7 @@ app_include_js = [
 	"/assets/sitiame_core/js/syscohada_statements.js",
 	"/assets/sitiame_core/js/green_desktop_icons_enforce.js",
 	"/assets/sitiame_core/js/subscription_banner.js",
+	"/assets/sitiame_core/js/onboarding.js",
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",

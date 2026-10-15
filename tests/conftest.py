@@ -96,6 +96,7 @@ def _install_frappe_stub():
 	utils.cint = lambda value: int(flt(value))
 	utils.getdate = getdate
 	utils.today = lambda: datetime.date.today().isoformat()
+	utils.nowdate = utils.today
 	utils.now = lambda: datetime.datetime.now().isoformat()
 	utils.now_datetime = datetime.datetime.now
 	utils.add_days = lambda date, days: getdate(date) + datetime.timedelta(days=days)
