@@ -38,6 +38,7 @@ def after_migrate():
 	ensure_admin_dashboard_icon()
 	ensure_offres_pme_icon()
 	ensure_liasse_fiscale_icon()
+	_ensure_syscohada_templates()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -480,6 +481,12 @@ def ensure_offres_pme_icon():
 	frappe.db.commit()
 	frappe.cache().delete_value("desktop_icons")
 	frappe.clear_cache()
+
+
+def _ensure_syscohada_templates():
+	from sitiame_core.syscohada_templates import ensure_templates
+
+	ensure_templates()
 
 
 def ensure_liasse_fiscale_icon():
