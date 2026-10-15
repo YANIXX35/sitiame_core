@@ -48,9 +48,17 @@ def test_report_runs_its_statement(monkeypatch, name):
 
 
 def test_pme_account_is_refused_even_by_url(monkeypatch):
+	monkeypatch.setattr(frappe, "session", frappe._dict(user="pme@client.ci"), raising=False)
 	monkeypatch.setattr(frappe, "get_roles", lambda user=None: ["PME Client", "Accounts Manager"], raising=False)
 	with pytest.raises(Exception):
 		lf.run_statement("Bilan actif SYSCOHADA", {"company": "X", "fiscal_year": "2026"})
+
+
+def test_administrator_is_not_taken_for_a_pme(monkeypatch):
+	"""Administrator holds every role, PME Client included (prod 2026-10-15)."""
+	monkeypatch.setattr(frappe, "get_roles", lambda user=None: ["PME Client", "System Manager"], raising=False)
+	monkeypatch.setattr(frappe, "session", frappe._dict(user="Administrator"), raising=False)
+	lf.staff_only()
 
 
 def test_tile_lists_every_statement_and_is_hidden_from_pmes():

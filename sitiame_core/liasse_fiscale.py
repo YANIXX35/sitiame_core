@@ -38,8 +38,9 @@ SIDEBAR_ITEMS = (
 
 def staff_only():
 	"""The tile is Sitiame staff's: a PME account is refused even if it
-	reaches a report by its URL (PME accounts carry Accounts Manager too)."""
-	if "PME Client" in frappe.get_roles():
+	reaches a report by its URL (PME accounts carry Accounts Manager too).
+	Administrator holds every role, PME Client included."""
+	if frappe.session.user != "Administrator" and "PME Client" in frappe.get_roles():
 		frappe.throw(_("Réservé au personnel Sitiame."), frappe.PermissionError)
 
 
