@@ -240,10 +240,16 @@ def compute_statements(company, from_date, to_date):
 	unclassified = []
 	prior_result = 0.0
 
+	# earlier years' result never closed into 12/13: report a nouveau. Over
+	# every class 6-8 account that moved, not only those with a cumulative
+	# balance: a past charge reversed this year (cumulative 0, period -X)
+	# was skipped and the sheet came out unbalanced by X (2026-10-15).
+	for number in set(cumulative) | set(period):
+		if number[0] in "678":
+			prior_result -= cumulative.get(number, 0.0) - period.get(number, 0.0)
+
 	for number, balance in cumulative.items():
 		if number[0] in "678":
-			# earlier years' result never closed into 12/13: report a nouveau
-			prior_result -= balance - period.get(number, 0.0)
 			continue
 		rule = _match(number, ACTIF_RULES, balance)
 		if rule:

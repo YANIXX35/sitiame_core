@@ -96,6 +96,18 @@ def test_earlier_years_unclosed_result_goes_to_report_a_nouveau(monkeypatch):
 	assert r["total_actif"] == pytest.approx(r["total_passif"])
 
 
+def test_past_charge_reversed_this_year_keeps_the_sheet_balanced(monkeypatch):
+	"""SITIAME 2026-10-15: test invoices of 2024/2025 cancelled in 2026
+	(immutable ledger). 6047 nets to 0 overall, -168 000 this year: it was
+	skipped from the earlier years' result and the sheet was off by 168 000."""
+	cumulative = {"4452": 127_440, "4011": -417_720, "5521": -417_720, "6243": 208_000, "6327": 500_000}
+	period = {"6047": -168_000, "6243": 208_000, "6327": 500_000}
+	r = _run(monkeypatch, cumulative, period)
+	assert r["resultat"]["XZ"] == pytest.approx(-540_000)  # this year's loss
+	assert r["passif"]["CF"] == pytest.approx(-168_000)  # earlier years' loss, reversed this year
+	assert r["total_actif"] == pytest.approx(r["total_passif"])
+
+
 def test_provision_499_is_a_liability_not_an_asset_depreciation(monkeypatch):
 	r = _run(monkeypatch, {"4991": -8_000, "5211": 8_000})
 	assert r["passif"]["ED"] == 8_000
