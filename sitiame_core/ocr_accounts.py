@@ -107,9 +107,38 @@ VAT_EXCLUDED_PATTERN = re.compile(
 	r"|vehicules? de tourisme|voitures? particulieres?|vehicules? particuliers?"
 )
 VAT_EXCLUDED_ACCOUNTS = ("6383",)
-# A repair job: the parts fitted go with the labour (6242), not into goods
-# bought for resale.
-REPAIR_PATTERN = re.compile(r"main.?d.?oeuvre|reparations?|ordre de reparation|vidange|carrosserie|depannage")
+# A repair or maintenance job: the parts fitted go with it (6242), not into
+# goods bought for resale (filters billed with a generator's maintenance
+# went to 6011, 2026-10-15). Cleaning products are not a repair.
+REPAIR_PATTERN = re.compile(
+	r"main.?d.?oeuvre|reparations?|ordre de reparation|vidange|carrosserie|depannage|maintenance"
+	r"|(?<!produits d )(?<!produit d )\bentretien\b"
+)
+
+# Equipment and furniture (purchases): a fixed asset (24x) from the
+# company's threshold per unit (ASSET_THRESHOLD_FIELD), small equipment
+# (6056) below. Always flagged: the accountant confirms, and creates the
+# Asset (depreciation) himself -- the import never does.
+EQUIPMENT_ACCOUNTS = [
+	(
+		r"ordinateurs?|\blaptops?\b|\bpc\b|macbook|\bserveurs?\b|\becrans?\b|moniteurs?|tablettes?|disques? durs?"
+		r"|onduleurs?|routeurs?",
+		"2442",
+	),
+	(r"imprimantes?|photocopieu|scanners?|videoprojecteurs?|telecopieurs?|\bfax\b", "2443"),
+	(
+		r"^bureaux?\b|\bchaises?\b|fauteuils?|\btables?\b|armoires?|etageres?|rayonnages?|caissons?|canapes?"
+		r"|\bmeubles?\b|mobilier",
+		"2444",
+	),
+	(r"climatiseurs?|ventilateurs?|coffres?.?forts?|refrigerateurs?|destructeurs? de documents", "2441"),
+]
+_EQUIPMENT_PATTERNS = [(re.compile(pattern), number) for pattern, number in EQUIPMENT_ACCOUNTS]
+SMALL_EQUIPMENT_ACCOUNT = "6056"
+# Company field, set by the accountant; the default is provisional
+# (2026-10-15), to be confirmed by the expert-comptable.
+ASSET_THRESHOLD_FIELD = "sitiame_seuil_immobilisation"
+DEFAULT_ASSET_THRESHOLD = 500_000
 # Consultants and liberal professions: withholding tax when they are paid.
 WITHHOLDING_PATTERN = re.compile(
 	r"honoraires?|consultant|consulting|conseil|expert|\bavocats?\b|\bnotaires?\b|\bhuissiers?\b|\bmedecins?\b"
@@ -131,6 +160,21 @@ def keyword_account_number(label, is_purchase=True):
 		if pattern.search(folded):
 			return number
 	return None
+
+
+def equipment_account_number(label):
+	"""The fixed-asset account of an equipment or furniture label, or None."""
+	folded = _fold(label).strip()
+	for pattern, number in _EQUIPMENT_PATTERNS:
+		if pattern.search(folded):
+			return number
+	return None
+
+
+def asset_threshold(company):
+	"""Unit price (HT) from which equipment is a fixed asset."""
+	value = frappe.db.get_value("Company", company, ASSET_THRESHOLD_FIELD) if company else None
+	return float(value) if value else DEFAULT_ASSET_THRESHOLD
 
 
 def is_stamp(label):

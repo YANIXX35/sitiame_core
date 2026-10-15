@@ -56,7 +56,9 @@ _GOODS_LABEL_RE = re.compile(
 SOURCE_REASONS = {
 	"memoire": "derniere facture validee de ce tiers",
 	"mot-cle": "mot-cle du libelle",
-	"reparation": "piece posee lors d'une reparation, avec la main-d'oeuvre",
+	"reparation": "piece posee lors d'une reparation ou d'une maintenance",
+	"immobilisation": "materiel ou mobilier au-dessus du seuil d'immobilisation, a confirmer",
+	"petit-materiel": "materiel ou mobilier sous le seuil d'immobilisation",
 	"nature": "nature de la ligne lue sur la facture, a verifier",
 	"frais": "frais refactures au client",
 	"timbre": "droit de timbre, hors TVA",
@@ -355,9 +357,13 @@ def _finish(rows):
 def choose_line_accounts(is_purchase, company, lines, default_account, remembered):
 	"""Sets account / account_number / source / reason on every line: the
 	stamp on 6462 and the utility fees on the main line's account first
-	(they never follow the party's memory), then memory -> keyword -> repair
-	context -> nature read -> company default."""
+	(they never follow the party's memory), then keyword -> equipment ->
+	memory -> repair context -> nature read -> company default. A line the
+	keywords recognise keeps its account: the party's memory (the account of
+	the first line of its last invoice) only fills the others -- a mixed
+	invoice otherwise went entirely to one account (2026-10-15)."""
 	repair = is_purchase and any(oa.is_repair(line["item_name"]) for line in lines)
+	threshold = oa.asset_threshold(company) if is_purchase else None
 	for line in lines:
 		if line["kind"] != "taxable":
 			continue
@@ -365,10 +371,18 @@ def choose_line_accounts(is_purchase, company, lines, default_account, remembere
 		account, source = None, None
 		if not is_purchase and oa.keyword_account_number(label, False) == "7071":
 			account, source = oa.leaf_by_number(company, "7071"), "frais"
-		if not account and remembered:
-			account, source = remembered, "memoire"
 		if not account:
 			account, source = oa.keyword_account(company, label, is_purchase), "mot-cle"
+		if not account and is_purchase:
+			number = oa.equipment_account_number(label)
+			if number:
+				unit_price = flt(line["amount"]) / (flt(line.get("qty")) or 1)
+				if unit_price >= threshold:
+					account, source = oa.leaf_by_number(company, number), "immobilisation"
+				else:
+					account, source = oa.leaf_by_number(company, oa.SMALL_EQUIPMENT_ACCOUNT), "petit-materiel"
+		if not account and remembered:
+			account, source = remembered, "memoire"
 		if not account and repair:
 			account, source = oa.leaf_by_number(company, "6242"), "reparation"
 		if not account and line.get("line_type") in ("goods", "service"):
@@ -648,6 +662,13 @@ def build_plan(
 	# the accounts really used: lines without a keyword nor a goods signal
 	# go to 6327, not to the company default (the message named 6011 for
 	# lines booked on 6327, 2026-10-15)
+	assets = [line for line in lines if line["source"] == "immobilisation"]
+	if assets:
+		warnings.append(
+			_("Immobilisation probable ({0}) : prix unitaire au-dessus du seuil de {1} FCFA (fiche Societe). Confirmez le compte, puis creez la fiche d'immobilisation pour l'amortissement.").format(
+				", ".join(line["item_name"] for line in assets), f"{int(oa.asset_threshold(company)):,}".replace(",", " ")
+			)
+		)
 	fallback_accounts = sorted({line["account"] for line in lines if line["source"] == "defaut" and line.get("account")})
 	if fallback_accounts:
 		warnings.append(

@@ -28,6 +28,7 @@ def after_migrate():
 	ensure_charge_affaires_role()
 	_create_portfolio_field()
 	_create_tax_regime_field()
+	_create_asset_threshold_field()
 	_grant_crm_permissions()
 	_grant_pme_permissions()
 	ensure_charge_affaires_workspace()
@@ -76,6 +77,33 @@ def _create_portfolio_field():
 					"no_copy": 1,
 					"in_standard_filter": 1,
 					"description": "Membre de l'équipe Sitiame qui suit cette PME : lui seul (et les validateurs) la voit dans l'espace Chargé d'affaires.",
+				},
+			],
+		},
+		update=True,
+	)
+
+
+def _create_asset_threshold_field():
+	"""Company.sitiame_seuil_immobilisation: unit price (HT) from which the
+	scanned-invoice import books equipment and furniture as a fixed asset
+	(24x) rather than small equipment (6056) -- see ocr_accounts.py."""
+	from sitiame_core.ocr_accounts import ASSET_THRESHOLD_FIELD, DEFAULT_ASSET_THRESHOLD
+
+	create_custom_fields(
+		{
+			"Company": [
+				{
+					"fieldname": ASSET_THRESHOLD_FIELD,
+					"label": "Seuil d'immobilisation (FCFA HT par unité)",
+					"fieldtype": "Currency",
+					"insert_after": "sitiame_regime_fiscal",
+					"default": str(DEFAULT_ASSET_THRESHOLD),
+					"description": (
+						"Import des factures scannées : matériel et mobilier d'un prix unitaire HT supérieur ou égal "
+						"à ce seuil -> immobilisation (24x), en dessous -> petit matériel (6056). Valeur par défaut "
+						"provisoire : à fixer avec l'expert-comptable."
+					),
 				},
 			],
 		},
