@@ -86,6 +86,12 @@ permission_query_conditions.update(
 )
 has_permission.update({doctype: "sitiame_core.offer_access.has_permission" for doctype in _OFFER_RESTRICTED_DOCTYPES})
 
+# Shared lists (groups, territories, price lists, units...): read-only for
+# a PME, maintained by Sitiame staff (shared_masters.py)
+from sitiame_core.shared_masters import SHARED_MASTERS as _SHARED_MASTERS
+
+has_permission.update({doctype: "sitiame_core.shared_masters.has_permission" for doctype in _SHARED_MASTERS})
+
 doc_events = {
 	# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
 	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
