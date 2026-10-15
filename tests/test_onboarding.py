@@ -43,3 +43,12 @@ def test_item_code_never_takes_another_pme_item(monkeypatch):
 
 def test_desk_script_is_loaded():
 	assert "/assets/sitiame_core/js/onboarding.js" in hooks.app_include_js
+
+
+def test_preview_shows_a_demo_to_a_staff_account(monkeypatch):
+	monkeypatch.setattr(frappe, "session", frappe._dict(user="yanisse@sitiame.ci"), raising=False)
+	monkeypatch.setattr(frappe, "get_roles", lambda user=None: ["System Manager"], raising=False)
+	monkeypatch.setattr(frappe, "defaults", frappe._dict(get_user_default=lambda key: "1"), raising=False)
+	status = ob.get_status()
+	assert status["show"] and status["preview"]
+	assert [s["state"] for s in status["steps"]] == ["todo"] * 5

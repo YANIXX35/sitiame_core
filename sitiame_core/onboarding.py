@@ -15,6 +15,8 @@ from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
 SKIPPED_FIELD = "sitiame_onboarding_skipped"
+# user default: a staff account sees the window as a demo (nothing saved)
+PREVIEW_DEFAULT = "sitiame_onboarding_preview"
 
 STEPS = (
 	("produits", _("Créer les produits/services")),
@@ -79,6 +81,14 @@ def get_status():
 	staff, or once every step is done or declared empty."""
 	company = _company()
 	if not company:
+		if frappe.session.user != "Administrator" and frappe.defaults.get_user_default(PREVIEW_DEFAULT) == "1":
+			return {
+				"show": True,
+				"preview": True,
+				"company": _("Aperçu — rien n'est enregistré"),
+				"steps": [{"key": key, "label": label, "state": "todo"} for key, label in STEPS],
+				"date": nowdate(),
+			}
 		return {"show": False}
 	done = _done(company)
 	skipped = _skipped(company)
@@ -92,6 +102,15 @@ def get_status():
 		"steps": steps,
 		"date": nowdate(),
 	}
+
+
+def set_preview(user, enabled=True):
+	"""bench execute: show the window to a staff account as a demo."""
+	if enabled:
+		frappe.defaults.set_user_default(PREVIEW_DEFAULT, "1", user)
+	else:
+		frappe.defaults.clear_user_default(PREVIEW_DEFAULT, user)
+	frappe.db.commit()
 
 
 @frappe.whitelist(methods=["POST"])

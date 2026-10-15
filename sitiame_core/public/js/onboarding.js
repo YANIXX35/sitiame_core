@@ -61,7 +61,7 @@
 			},
 			secondary_action_label: __("Plus tard"),
 			secondary_action() {
-				later();
+				if (!status.preview) later();
 				d.hide();
 			},
 		});
@@ -82,6 +82,14 @@
 		d.show();
 	}
 
+	// Preview (staff demo): steps move on screen only, nothing is sent.
+	function previewDone(status, key, state) {
+		status.steps.forEach((s) => { if (s.key === key) s.state = state; });
+		status.show = status.steps.some((s) => s.state === "todo");
+		frappe.show_alert({ message: __("Aperçu : rien n'a été enregistré"), indicator: "blue" });
+		refresh(status);
+	}
+
 	function refresh(status) {
 		if (status && status.show) showMain(status);
 		else if (status) frappe.show_alert({ message: __("Configuration du compte terminée"), indicator: "green" });
@@ -97,11 +105,12 @@
 		});
 	}
 
-	function skipButton(d, key) {
+	function skipButton(d, key, status) {
 		d.set_secondary_action_label(__("Je n'en ai pas"));
 		d.set_secondary_action(() => {
 			frappe.confirm(__("Confirmer que vous n'avez rien à déclarer pour cette étape ?"), () => {
 				d.hide();
+				if (status.preview) return previewDone(status, key, "skipped");
 				call("skip_step", { step: key }, refresh);
 			});
 		});
@@ -217,6 +226,10 @@
 			fields: [{ fieldtype: "HTML", fieldname: "intro" }].concat(form.fields),
 			primary_action_label: __("Enregistrer"),
 			primary_action(values) {
+				if (status.preview) {
+					d.hide();
+					return previewDone(status, key, "done");
+				}
 				call(form.method, form.args(values), (r) => {
 					d.hide();
 					refresh(r.status);
@@ -224,7 +237,7 @@
 			},
 		});
 		d.fields_dict.intro.$wrapper.html(`<p style="color:var(--text-muted)">${form.intro}</p>`);
-		if (key !== "produits") skipButton(d, key);
+		if (key !== "produits") skipButton(d, key, status);
 		d.get_primary_btn().css({ background: GREEN, "border-color": GREEN });
 		d.show();
 	}
@@ -234,8 +247,12 @@
 	};
 
 	$(document).on("app_ready", function () {
-		if (!(frappe.user_roles || []).includes("PME Client") || frappe.session.user === "Administrator") return;
-		if (isLater()) return;
-		frappe.call({ method: API + "get_status", callback: (r) => showMain(r.message) });
+		if (frappe.session.user === "Administrator") return;
+		frappe.call({
+			method: API + "get_status",
+			callback: (r) => {
+				if (r.message && (r.message.preview || !isLater())) showMain(r.message);
+			},
+		});
 	});
 })();
