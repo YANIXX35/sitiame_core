@@ -28,6 +28,7 @@ def after_migrate():
 	_create_portfolio_field()
 	_create_tax_regime_field()
 	_grant_crm_permissions()
+	_grant_pme_permissions()
 	ensure_charge_affaires_workspace()
 	ensure_tableau_de_bord_icon()
 	ensure_plateforme_utilisateurs_icon()
@@ -129,6 +130,29 @@ def _grant_crm_permissions():
 			add_permission(doctype, CHARGE_AFFAIRES_ROLE, 0)
 		for right in rights:
 			update_permission_property(doctype, CHARGE_AFFAIRES_ROLE, 0, right, 1, validate=False)
+	frappe.db.commit()
+
+
+# A PME deletes its own customers and addresses (2026-10-15 CRUD audit: only
+# Sales Master Manager may in ERPNext, a role a PME must not get -- it edits
+# the Customer Groups and Territories every PME shares). Whose records it
+# reaches is narrowed by staff_isolation.py (Customer) and the strict Company
+# user permission (Address); a record still linked elsewhere stays undeletable.
+PME_CLIENT_ROLE = "PME Client"
+PME_GRANTS = {
+	"Customer": ("read", "delete"),
+	"Address": ("read", "delete"),
+}
+
+
+def _grant_pme_permissions():
+	from frappe.permissions import add_permission, update_permission_property
+
+	for doctype, rights in PME_GRANTS.items():
+		if not frappe.db.exists("Custom DocPerm", {"parent": doctype, "role": PME_CLIENT_ROLE, "permlevel": 0, "if_owner": 0}):
+			add_permission(doctype, PME_CLIENT_ROLE, 0)
+		for right in rights:
+			update_permission_property(doctype, PME_CLIENT_ROLE, 0, right, 1, validate=False)
 	frappe.db.commit()
 
 

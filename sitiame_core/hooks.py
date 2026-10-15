@@ -61,7 +61,11 @@ has_permission = {
 	doctype: "sitiame_core.staff_isolation.has_permission" for doctype in _ISOLATED_DOCTYPES
 }
 
-doctype_js = {"User": "public/js/user_charge_affaires.js"}
+doctype_js = {
+	"User": "public/js/user_charge_affaires.js",
+	# "Modifier le devis": cancel + amend in one step (quotation.py)
+	"Quotation": "public/js/quotation.js",
+}
 
 # A chargé d'affaires only sees his portfolio of PMEs (portfolio.py)
 from sitiame_core.portfolio import PORTFOLIO_DOCTYPES as _PORTFOLIO_DOCTYPES
