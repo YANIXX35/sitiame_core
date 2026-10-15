@@ -48,6 +48,11 @@ EXEMPT_USERS = ("Administrator", "api-pme360@sitiame-capital.com")
 # and a single item record can be on invoices of multiple PMEs.
 _PME_SHARED_DOCTYPES = frozenset(["Item"])
 
+# Customers and suppliers are private to the PME account that created them,
+# even from the other accounts of the same company (asked 2026-10-15).
+# Sitiame staff still see every PME's.
+OWNER_ONLY_DOCTYPES = frozenset(["Customer", "Supplier"])
+
 _UNSET = object()  # sentinel distinguishing "not yet computed" from None
 
 
@@ -122,7 +127,10 @@ def get_permission_query_conditions(user=None, doctype=None):
     if company is not _UNSET and doctype not in _PME_SHARED_DOCTYPES:
         if not company:
             return "0 = 1"  # orphan PME → empty list
-        return f"`tab{doctype}`.`company` = {frappe.db.escape(company)}"
+        condition = f"`tab{doctype}`.`company` = {frappe.db.escape(company)}"
+        if doctype in OWNER_ONLY_DOCTYPES:
+            condition += f" and `tab{doctype}`.`owner` = {frappe.db.escape(user)}"
+        return condition
 
     # ── Staff: hide other staff members' documents ───────────────────────────
     hidden = _hidden_owners(user)
@@ -143,6 +151,8 @@ def has_permission(doc, ptype=None, user=None, debug=False):
     if company is not _UNSET and doc.doctype not in _PME_SHARED_DOCTYPES:
         if not company:
             return False  # orphan PME → no access
+        if doc.doctype in OWNER_ONLY_DOCTYPES and doc.get("owner") != user:
+            return False
         return doc.get("company") == company
 
     # ── Staff ────────────────────────────────────────────────────────────────

@@ -151,6 +151,19 @@ def attach_user_contacts(doc, method=None):
 		frappe.db.set_value("Contact", name, COMPANY_FIELD, doc.for_value, update_modified=False)
 
 
+def unique_party_name(doctype, name):
+	"""`name`, or `name - N` when taken: parties are private (to a company,
+	to an account), so the one already holding the name is invisible to the
+	creator -- a second "CIE" failed with "Duplicate entry" (2026-10-15).
+	ERPNext already does this for customers (Customer.get_customer_name)."""
+	if not frappe.db.exists(doctype, name) or frappe.flags.in_import:
+		return name
+	number = 1
+	while frappe.db.exists(doctype, f"{name} - {number}"):
+		number += 1
+	return f"{name} - {number}"
+
+
 def own_party_filters(doctype=None):
 	"""For lookups that bypass permissions (OCR party matching): a PME only
 	matches its own parties. Staff lookups are unchanged.
@@ -159,10 +172,17 @@ def own_party_filters(doctype=None):
 	always probing Customer -- a partial migration (Customer field present,
 	Supplier not yet) would otherwise inject a filter on a missing column.
 	"""
+	from sitiame_core.staff_isolation import OWNER_ONLY_DOCTYPES
+
 	company = company_of(frappe.session.user)
 	check_doctype = doctype or "Customer"
 	if company and _has_field(check_doctype):
-		return {COMPANY_FIELD: company}
+		filters = {COMPANY_FIELD: company}
+		# customers and suppliers are private to the account that created
+		# them (staff_isolation.OWNER_ONLY_DOCTYPES)
+		if check_doctype in OWNER_ONLY_DOCTYPES and "PME Client" in frappe.get_roles(frappe.session.user):
+			filters["owner"] = frappe.session.user
+		return filters
 	return {}
 
 

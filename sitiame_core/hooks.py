@@ -61,6 +61,9 @@ has_permission = {
 	doctype: "sitiame_core.staff_isolation.has_permission" for doctype in _ISOLATED_DOCTYPES
 }
 
+# a supplier name already used by another PME gets " - N" (overrides.py)
+override_doctype_class = {"Supplier": "sitiame_core.overrides.SitiameSupplier"}
+
 doctype_js = {
 	"User": "public/js/user_charge_affaires.js",
 	# "Modifier le devis": cancel + amend in one step (quotation.py)
