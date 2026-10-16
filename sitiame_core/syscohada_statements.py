@@ -25,6 +25,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate
 
+from sitiame_core.liasse_scope import owner_condition
+
 # ---------------------------------------------------------------------------
 # Balance sheet mapping: (prefixes, side, line, component)
 #   side: "D" = only accounts with a debit balance, "C" = credit balance,
@@ -190,15 +192,16 @@ def get_account_balances(company, to_date, from_date=None):
 	conditions = ["gle.company = %(company)s", "gle.is_cancelled = 0", "gle.posting_date <= %(to_date)s"]
 	if from_date:
 		conditions.append("gle.posting_date >= %(from_date)s")
+	scope, scope_params = owner_condition(company)
 	rows = frappe.db.sql(
 		f"""
 		select acc.account_number, acc.name, sum(gle.debit) - sum(gle.credit) as balance
 		from `tabGL Entry` gle
 		inner join `tabAccount` acc on acc.name = gle.account
-		where {" and ".join(conditions)}
+		where {" and ".join(conditions)}{scope}
 		group by acc.name, acc.account_number
 		""",
-		{"company": company, "to_date": to_date, "from_date": from_date},
+		{"company": company, "to_date": to_date, "from_date": from_date, **scope_params},
 		as_dict=True,
 	)
 	balances = {}
@@ -326,8 +329,9 @@ def get_period_movements(company, from_date, to_date):
 	"""Returns {account_number: {"debit": d, "credit": c}} for non-opening
 	GL entries in the period.  Opening entries (is_opening = 'Yes') are
 	excluded so that Tableaux 1 and 2 only show real movements."""
+	scope, scope_params = owner_condition(company)
 	rows = frappe.db.sql(
-		"""
+		f"""
 		select acc.account_number,
 		       sum(gle.debit)  as debit,
 		       sum(gle.credit) as credit
@@ -337,10 +341,10 @@ def get_period_movements(company, from_date, to_date):
 		  and gle.is_cancelled = 0
 		  and gle.posting_date >= %(from_date)s
 		  and gle.posting_date <= %(to_date)s
-		  and (gle.is_opening is null or gle.is_opening = 'No')
+		  and (gle.is_opening is null or gle.is_opening = 'No'){scope}
 		group by acc.account_number
 		""",
-		{"company": company, "from_date": from_date, "to_date": to_date},
+		{"company": company, "from_date": from_date, "to_date": to_date, **scope_params},
 		as_dict=True,
 	)
 	result = {}

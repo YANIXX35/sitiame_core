@@ -26,6 +26,8 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, add_months, date_diff, get_site_path, getdate
 
+from sitiame_core.liasse_scope import owner_condition
+
 TEMPLATE_NAME = "liasse_syscohada_template.xlsx"
 
 # Feuilles Journal / Journal_N1 : A Date, B Journal, C Pièce, D Compte,
@@ -206,8 +208,9 @@ def compact(rows, capacity=LAST_ROW - FIRST_ROW + 1):
 def _gl_rows(company, from_date, to_date):
 	"""Écritures de la période, hors clôture d'exercice (le modèle calcule le
 	résultat lui-même)."""
+	scope, scope_params = owner_condition(company)
 	return frappe.db.sql(
-		"""
+		f"""
 		SELECT gle.posting_date, gle.voucher_type, gle.voucher_no, gle.account, a.account_number,
 			a.account_type, gle.party, gle.cost_center, MAX(gle.remarks) AS remarks, gle.is_opening,
 			SUM(gle.debit) AS debit, SUM(gle.credit) AS credit
@@ -215,25 +218,26 @@ def _gl_rows(company, from_date, to_date):
 		JOIN `tabAccount` a ON a.name = gle.account
 		WHERE gle.company = %(company)s AND gle.is_cancelled = 0
 			AND gle.posting_date BETWEEN %(from_date)s AND %(to_date)s
-			AND gle.voucher_type != 'Period Closing Voucher'
+			AND gle.voucher_type != 'Period Closing Voucher'{scope}
 		GROUP BY gle.posting_date, gle.voucher_type, gle.voucher_no, gle.account, gle.party, gle.cost_center, gle.is_opening
 		ORDER BY gle.posting_date, gle.voucher_no
 		""",
-		{"company": company, "from_date": from_date, "to_date": to_date},
+		{"company": company, "from_date": from_date, "to_date": to_date, **scope_params},
 		as_dict=True,
 	)
 
 
 def _balances_before(company, date):
+	scope, scope_params = owner_condition(company)
 	return frappe.db.sql(
-		"""
+		f"""
 		SELECT gle.account, a.account_number, SUM(gle.debit) - SUM(gle.credit) AS balance
 		FROM `tabGL Entry` gle
 		JOIN `tabAccount` a ON a.name = gle.account
-		WHERE gle.company = %(company)s AND gle.is_cancelled = 0 AND gle.posting_date < %(date)s
+		WHERE gle.company = %(company)s AND gle.is_cancelled = 0 AND gle.posting_date < %(date)s{scope}
 		GROUP BY gle.account
 		""",
-		{"company": company, "date": date},
+		{"company": company, "date": date, **scope_params},
 		as_dict=True,
 	)
 
@@ -331,8 +335,9 @@ def _company_params(company, from_date, to_date, previous_to):
 def _check_balance_equilibre(company: str, from_date: str, to_date: str):
 	"""Vérifie débit total = crédit total sur la période.
 	Affiche un avertissement orange si l'écart dépasse 1 XOF (arrondi)."""
+	scope, scope_params = owner_condition(company, alias="")
 	row = frappe.db.sql(
-		"""
+		f"""
 		SELECT
 			SUM(debit)            AS total_debit,
 			SUM(credit)           AS total_credit,
@@ -340,9 +345,9 @@ def _check_balance_equilibre(company: str, from_date: str, to_date: str):
 		FROM `tabGL Entry`
 		WHERE company = %(company)s
 		  AND posting_date BETWEEN %(from_date)s AND %(to_date)s
-		  AND is_cancelled = 0
+		  AND is_cancelled = 0{scope}
 		""",
-		{"company": company, "from_date": from_date, "to_date": to_date},
+		{"company": company, "from_date": from_date, "to_date": to_date, **scope_params},
 		as_dict=True,
 	)
 	if not row or not row[0].total_debit:

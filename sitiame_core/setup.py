@@ -29,7 +29,7 @@ def after_migrate():
 	_create_portfolio_field()
 	_create_tax_regime_field()
 	_create_asset_threshold_field()
-	_create_onboarding_field()
+	_drop_company_onboarding_field()
 	_ensure_company_numbering()
 	_grant_crm_permissions()
 	_grant_pme_permissions()
@@ -95,26 +95,11 @@ def _ensure_company_numbering():
 	frappe.db.commit()
 
 
-def _create_onboarding_field():
-	"""Company.sitiame_onboarding_skipped: account setup steps the PME
-	declared empty ("Je n'en ai pas") -- see onboarding.py."""
-	from sitiame_core.onboarding import SKIPPED_FIELD
-
-	create_custom_fields(
-		{
-			"Company": [
-				{
-					"fieldname": SKIPPED_FIELD,
-					"label": "Configuration du compte : étapes sans objet",
-					"fieldtype": "Small Text",
-					"insert_after": "sitiame_seuil_immobilisation",
-					"hidden": 1,
-					"read_only": 1,
-				},
-			],
-		},
-		update=True,
-	)
+def _drop_company_onboarding_field():
+	"""Account setup steps moved from the Company to each account (2026-10-16)."""
+	name = "Company-sitiame_onboarding_skipped"
+	if frappe.db.exists("Custom Field", name):
+		frappe.delete_doc("Custom Field", name, ignore_permissions=True)
 
 
 def _create_asset_threshold_field():

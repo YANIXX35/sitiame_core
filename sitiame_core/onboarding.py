@@ -5,8 +5,10 @@
 starting position is in the books: products and services, opening stock,
 receivables, payables and cash. Each opening is posted against the temporary
 opening account (4751 on the SYSCOHADA chart), as ERPNext's own opening
-tools do, so the liasse starts from real figures. A step the PME has nothing
-for ("Je n'en ai pas") is recorded on the Company and counts as done."""
+tools do, so the liasse starts from real figures. Each account runs its own
+activity and has its own liasse (liasse_scope.py), so the steps are tracked
+per account: what it created, and the steps it has nothing for ("Je n'en ai
+pas", a user default) which count as done."""
 
 import json
 
@@ -14,7 +16,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
-SKIPPED_FIELD = "sitiame_onboarding_skipped"
+SKIPPED_DEFAULT = "sitiame_onboarding_skipped"
 # user default: a staff account sees the window as a demo (nothing saved)
 PREVIEW_DEFAULT = "sitiame_onboarding_preview"
 
@@ -47,31 +49,21 @@ def _own_company():
 	return company
 
 
-def _company_users(company):
-	return frappe.get_all("User Permission", {"allow": "Company", "for_value": company}, pluck="user")
-
-
-def _skipped(company):
+def _skipped():
 	try:
-		return set(json.loads(frappe.db.get_value("Company", company, SKIPPED_FIELD) or "[]"))
+		return set(json.loads(frappe.defaults.get_user_default(SKIPPED_DEFAULT) or "[]"))
 	except ValueError:
 		return set()
 
 
 def _done(company):
-	users = _company_users(company) or [""]
+	mine = {"company": company, "owner": frappe.session.user, "docstatus": 1}
 	return {
-		"produits": bool(frappe.db.exists("Item", {"owner": ["in", users], "disabled": 0})),
-		"stocks": bool(
-			frappe.db.exists("Stock Reconciliation", {"company": company, "purpose": "Opening Stock", "docstatus": 1})
-		),
-		"creances": bool(frappe.db.exists("Sales Invoice", {"company": company, "is_opening": "Yes", "docstatus": 1})),
-		"dettes": bool(frappe.db.exists("Purchase Invoice", {"company": company, "is_opening": "Yes", "docstatus": 1})),
-		"tresorerie": bool(
-			frappe.db.exists(
-				"Journal Entry", {"company": company, "voucher_type": "Opening Entry", "docstatus": 1}
-			)
-		),
+		"produits": bool(frappe.db.exists("Item", {"owner": frappe.session.user, "disabled": 0})),
+		"stocks": bool(frappe.db.exists("Stock Reconciliation", {**mine, "purpose": "Opening Stock"})),
+		"creances": bool(frappe.db.exists("Sales Invoice", {**mine, "is_opening": "Yes"})),
+		"dettes": bool(frappe.db.exists("Purchase Invoice", {**mine, "is_opening": "Yes"})),
+		"tresorerie": bool(frappe.db.exists("Journal Entry", {**mine, "voucher_type": "Opening Entry"})),
 	}
 
 
@@ -91,7 +83,7 @@ def get_status():
 			}
 		return {"show": False}
 	done = _done(company)
-	skipped = _skipped(company)
+	skipped = _skipped()
 	steps = [
 		{"key": key, "label": label, "state": "done" if done[key] else "skipped" if key in skipped else "todo"}
 		for key, label in STEPS
@@ -118,9 +110,8 @@ def skip_step(step):
 	"""'Je n'en ai pas': the PME has nothing to declare for this step."""
 	if step not in SKIPPABLE:
 		frappe.throw(_("Étape inconnue."))
-	company = _own_company()
-	skipped = _skipped(company) | {step}
-	frappe.db.set_value("Company", company, SKIPPED_FIELD, json.dumps(sorted(skipped)), update_modified=False)
+	_own_company()
+	frappe.defaults.set_user_default(SKIPPED_DEFAULT, json.dumps(sorted(_skipped() | {step})))
 	return get_status()
 
 

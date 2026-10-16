@@ -129,9 +129,12 @@ def ensure_templates():
 
 
 def _cached(key, compute):
+	from sitiame_core.liasse_scope import liasse_owner
+
 	cache = getattr(frappe.local, "sitiame_syscohada_cache", None)
 	if cache is None:
 		cache = frappe.local.sitiame_syscohada_cache = {}
+	key = (liasse_owner(), *key)  # each PME account has its own liasse
 	if key not in cache:
 		cache[key] = compute()
 	return cache[key]

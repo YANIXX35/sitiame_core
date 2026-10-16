@@ -82,3 +82,12 @@ def test_company_permission_is_checked(monkeypatch, ledger):
 
 def test_report_page_script_is_loaded():
 	assert "/assets/sitiame_core/js/syscohada_statements.js" in hooks.app_include_js
+
+
+def test_each_pme_account_gets_its_own_computation(ledger, monkeypatch):
+	"""Two accounts of one company in a single process must not share the cache."""
+	monkeypatch.setattr(frappe, "get_roles", lambda user=None: ["PME Client"], raising=False)
+	for user in ("a@pme.ci", "b@pme.ci"):
+		monkeypatch.setattr(frappe, "session", frappe._dict(user=user), raising=False)
+		st.line({"company": "SITIAME"}, PERIODS[:1], {"reference_code": "A_BZ"})
+	assert len(ledger) == 2
