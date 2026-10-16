@@ -48,10 +48,11 @@ EXEMPT_USERS = ("Administrator", "api-pme360@sitiame-capital.com")
 # and a single item record can be on invoices of multiple PMEs.
 _PME_SHARED_DOCTYPES = frozenset(["Item"])
 
-# Customers and suppliers are private to the PME account that created them,
-# even from the other accounts of the same company (asked 2026-10-15).
-# Sitiame staff still see every PME's.
-OWNER_ONLY_DOCTYPES = frozenset(["Customer", "Supplier"])
+# A PME account's documents are private to it, even from the other accounts
+# of the same company: each account runs its own activity, with its own
+# books (customers and suppliers 2026-10-15, every document 2026-10-16, see
+# liasse_scope.py). Sitiame staff still see every PME's.
+OWNER_ONLY_DOCTYPES = frozenset(ISOLATED_DOCTYPES) - _PME_SHARED_DOCTYPES
 
 _UNSET = object()  # sentinel distinguishing "not yet computed" from None
 

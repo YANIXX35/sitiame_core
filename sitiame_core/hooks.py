@@ -88,6 +88,16 @@ permission_query_conditions.update(
 )
 has_permission.update({doctype: "sitiame_core.offer_access.has_permission" for doctype in _OFFER_RESTRICTED_DOCTYPES})
 
+# A PME account's ledger is the one of its own vouchers (liasse_scope.py)
+from sitiame_core.liasse_scope import LEDGER_DOCTYPES as _LEDGER_DOCTYPES
+
+permission_query_conditions.update(
+	{doctype: "sitiame_core.liasse_scope.get_permission_query_conditions" for doctype in _LEDGER_DOCTYPES}
+)
+has_permission.update({doctype: "sitiame_core.liasse_scope.has_permission" for doctype in _LEDGER_DOCTYPES})
+before_request = ["sitiame_core.liasse_scope.patch_unscoped_reports"]
+before_job = ["sitiame_core.liasse_scope.patch_unscoped_reports"]
+
 # Shared lists (groups, territories, price lists, units...): read-only for
 # a PME, maintained by Sitiame staff (shared_masters.py)
 from sitiame_core.shared_masters import SHARED_MASTERS as _SHARED_MASTERS

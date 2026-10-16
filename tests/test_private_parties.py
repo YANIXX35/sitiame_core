@@ -36,9 +36,15 @@ def test_pme_list_shows_only_its_own_parties(doctype):
 	assert condition == f"`tab{doctype}`.`company` = 'SYS' and `tab{doctype}`.`owner` = 'badiko@sys.ci'"
 
 
-def test_company_documents_stay_shared_inside_the_company():
-	"""Invoices, quotations... are still shared by the company's accounts."""
-	assert iso.get_permission_query_conditions("badiko@sys.ci", doctype="Purchase Invoice") == "`tabPurchase Invoice`.`company` = 'SYS'"
+def test_company_documents_are_private_to_each_account():
+	"""Each account runs its own activity (2026-10-16): its invoices too."""
+	assert iso.get_permission_query_conditions("badiko@sys.ci", doctype="Purchase Invoice") == (
+		"`tabPurchase Invoice`.`company` = 'SYS' and `tabPurchase Invoice`.`owner` = 'badiko@sys.ci'"
+	)
+
+
+def test_items_stay_shared():
+	assert iso.get_permission_query_conditions("badiko@sys.ci", doctype="Item") == ""
 
 
 @pytest.mark.parametrize(
@@ -55,9 +61,10 @@ def test_opening_a_party(doctype, user, owner, company, allowed):
 	assert iso.has_permission(party(doctype, owner, company), "read", user) is allowed
 
 
-def test_colleague_invoice_still_opens():
+def test_colleague_invoice_does_not_open():
 	invoice = frappe._dict(doctype="Purchase Invoice", owner="ekonan@sys.ci", company="SYS")
-	assert iso.has_permission(invoice, "read", "badiko@sys.ci") is True
+	assert iso.has_permission(invoice, "read", "badiko@sys.ci") is False
+	assert iso.has_permission(invoice, "read", "ekonan@sys.ci") is True
 
 
 def test_scanned_invoice_only_matches_the_account_s_own_parties(monkeypatch):
