@@ -253,4 +253,4 @@ def test_hooks_wire_every_party_doctype():
 		assert hooks.doc_events[doctype]["before_insert"] == "sitiame_core.party_isolation.set_company"
 		assert hooks.doc_events[doctype]["before_save"] == "sitiame_core.party_isolation.protect_company"
 	after = hooks.doc_events["User Permission"]["after_insert"]
-	assert after == ["sitiame_core.portfolio.assign_pending_pme", "sitiame_core.party_isolation.attach_user_contacts"]
+	assert after[:2] == ["sitiame_core.portfolio.assign_pending_pme", "sitiame_core.party_isolation.attach_user_contacts"]

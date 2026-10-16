@@ -181,8 +181,10 @@ def _warehouse(company):
 
 @frappe.whitelist(methods=["POST"])
 def save_stock(rows, posting_date=None):
+	from sitiame_core.account_warehouse import account_warehouse
+
 	company = _own_company()
-	warehouse = _warehouse(company)
+	warehouse = account_warehouse() or _warehouse(company)
 	items = [r for r in _rows(rows) if r.item_code and flt(r.qty) > 0]
 	if not items:
 		frappe.throw(_("Ajoutez au moins un article avec une quantité."))

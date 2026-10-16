@@ -40,6 +40,7 @@ def after_migrate():
 	ensure_offres_pme_icon()
 	ensure_liasse_fiscale_icon()
 	_ensure_syscohada_templates()
+	_ensure_account_warehouses()
 
 
 # Grants access to the "Utilisateurs de la plateforme" page (every PME and
@@ -489,6 +490,12 @@ def ensure_offres_pme_icon():
 	frappe.db.commit()
 	frappe.cache().delete_value("desktop_icons")
 	frappe.clear_cache()
+
+
+def _ensure_account_warehouses():
+	from sitiame_core.account_warehouse import backfill
+
+	backfill()
 
 
 def _ensure_syscohada_templates():

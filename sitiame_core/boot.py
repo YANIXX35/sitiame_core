@@ -63,6 +63,13 @@ def extend_bootinfo(bootinfo):
 	except Exception:
 		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: subscription status failed")
 
+	try:
+		from sitiame_core.account_warehouse import account_warehouse
+
+		bootinfo.sitiame_warehouse = account_warehouse()
+	except Exception:
+		frappe.log_error(title="sitiame_core.boot.extend_bootinfo: account warehouse failed")
+
 
 # Modules réservés aux offres supérieures.
 # Clé = name du Workspace ERPNext (anglais, tel que stocké en DB).

@@ -33,6 +33,7 @@ app_include_js = [
 	"/assets/sitiame_core/js/green_desktop_icons_enforce.js",
 	"/assets/sitiame_core/js/subscription_banner.js",
 	"/assets/sitiame_core/js/onboarding.js",
+	"/assets/sitiame_core/js/account_warehouse.js",
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
@@ -95,8 +96,12 @@ permission_query_conditions.update(
 	{doctype: "sitiame_core.liasse_scope.get_permission_query_conditions" for doctype in _LEDGER_DOCTYPES}
 )
 has_permission.update({doctype: "sitiame_core.liasse_scope.has_permission" for doctype in _LEDGER_DOCTYPES})
-before_request = ["sitiame_core.liasse_scope.patch_unscoped_reports"]
-before_job = ["sitiame_core.liasse_scope.patch_unscoped_reports"]
+# ... and its stock the one of its own warehouse (account_warehouse.py)
+before_request = [
+	"sitiame_core.liasse_scope.patch_unscoped_reports",
+	"sitiame_core.account_warehouse.patch_stock_reports",
+]
+before_job = before_request
 
 # Shared lists (groups, territories, price lists, units...): read-only for
 # a PME, maintained by Sitiame staff (shared_masters.py)
@@ -136,6 +141,8 @@ doc_events = {
 		"after_insert": [
 			"sitiame_core.portfolio.assign_pending_pme",
 			"sitiame_core.party_isolation.attach_user_contacts",
+			# each PME account has its own warehouse (account_warehouse.py)
+			"sitiame_core.account_warehouse.on_company_permission",
 		]
 	},
 }
@@ -147,6 +154,17 @@ from sitiame_core.party_isolation import PARTY_DOCTYPES as _PARTY_DOCTYPES
 for _doctype in _PARTY_DOCTYPES:
 	doc_events.setdefault(_doctype, {})["before_insert"] = "sitiame_core.party_isolation.set_company"
 	doc_events[_doctype]["before_save"] = "sitiame_core.party_isolation.protect_company"
+
+# a PME account's stock documents use its own warehouse (account_warehouse.py)
+from sitiame_core.account_warehouse import STOCK_DOCTYPES as _STOCK_DOCTYPES
+
+for _doctype in _STOCK_DOCTYPES:
+	_events = doc_events.setdefault(_doctype, {})
+	_existing = _events.get("before_validate")
+	_events["before_validate"] = [
+		*([] if not _existing else _existing if isinstance(_existing, list) else [_existing]),
+		"sitiame_core.account_warehouse.set_account_warehouse",
+	]
 
 extend_bootinfo = "sitiame_core.boot.extend_bootinfo"
 
