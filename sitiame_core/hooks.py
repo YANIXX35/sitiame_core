@@ -34,6 +34,8 @@ app_include_js = [
 	"/assets/sitiame_core/js/subscription_banner.js",
 	"/assets/sitiame_core/js/onboarding.js",
 	"/assets/sitiame_core/js/account_warehouse.js",
+	# Sélecteur d'exercice fiscal global (fiscal_year_switcher.js)
+	"/assets/sitiame_core/js/fiscal_year_switcher.js",
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
