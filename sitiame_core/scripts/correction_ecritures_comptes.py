@@ -308,12 +308,16 @@ def etape_tva(jrn, apply_mode, societe=None):
 
             jrn.action(f"{soc} : créer le modèle de taxes par article « {nom} » -> {numero}")
             if apply_mode:
+                # ERPNext exige account_type = "Tax" pour un Item Tax Template
+                acc_type = frappe.db.get_value("Account", cpt, "account_type")
+                if acc_type != "Tax":
+                    frappe.db.set_value("Account", cpt, "account_type", "Tax")
                 frappe.get_doc({
                     "doctype": "Item Tax Template",
                     "title": f"TVA {int(TAUX_TVA)}% {nature}",
                     "company": soc,
                     "taxes": [{"tax_type": cpt, "tax_rate": TAUX_TVA}],
-                }).insert(ignore_permissions=True)  # provisionnement : exception assumée
+                }).insert(ignore_permissions=True)
 
     jrn.info("Rappel : le paramètre « ajouter les taxes depuis le modèle de l'article » "
              "est déjà actif. Ces modèles seront donc pris en compte dès qu'ils seront "
