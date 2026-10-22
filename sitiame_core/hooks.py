@@ -130,9 +130,7 @@ doc_events = {
 		"before_submit": "sitiame_core.fne.assign_fne_number",
 		"on_submit": "sitiame_core.pay_on_submit.create_payment",
 	},
-	"Payment Entry": {
-		"on_submit": "sitiame_core.auto_reconcile.on_payment_submit",
-	},
+	"Payment Entry": {},
 	# a chargé d'affaires proposes, a validator decides (portfolio.py)
 	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
 	"Financing Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
@@ -202,8 +200,6 @@ after_migrate = "sitiame_core.setup.after_migrate"
 scheduler_events = {
 	"daily": [
 		"sitiame_core.tasks.block_expired_trials",
-		# lettre automatiquement paiements ↔ factures chaque nuit (auto_reconcile.py)
-		"sitiame_core.auto_reconcile.run_daily",
 	],
 	"hourly": [
 		# referme automatiquement les dérogations de période expirées (mise_en_oeuvre_exercices.py)
@@ -217,7 +213,5 @@ scheduler_events = {
 		"*/10 * * * *": ["sitiame_core.subscription_api.reconcile_pending_payments"],
 		# clôture mensuelle automatique le 10 à 02:00 (mise_en_oeuvre_exercices.py)
 		"0 2 10 * *": ["sitiame_core.scripts.mise_en_oeuvre_exercices.cloture_mensuelle_auto"],
-		# clôture mensuelle automatique le 1er de chaque mois à 06:00 (monthly_close.py)
-		"0 6 1 * *": ["sitiame_core.monthly_close.run_monthly_task"],
 	},
 }
