@@ -34,8 +34,6 @@ app_include_js = [
 	"/assets/sitiame_core/js/subscription_banner.js",
 	"/assets/sitiame_core/js/onboarding.js",
 	"/assets/sitiame_core/js/account_warehouse.js",
-	# Sélecteur d'exercice fiscal global (fiscal_year_switcher.js)
-	"/assets/sitiame_core/js/fiscal_year_switcher.js",
 ]
 app_include_css = [
 	"/assets/sitiame_core/css/green_desktop_icons.css",
@@ -102,6 +100,7 @@ has_permission.update({doctype: "sitiame_core.liasse_scope.has_permission" for d
 before_request = [
 	"sitiame_core.liasse_scope.patch_unscoped_reports",
 	"sitiame_core.account_warehouse.patch_stock_reports",
+	"sitiame_core.setup_guard.block_setup_wizard_for_pme",
 ]
 before_job = before_request
 
@@ -112,12 +111,27 @@ from sitiame_core.shared_masters import SHARED_MASTERS as _SHARED_MASTERS
 has_permission.update({doctype: "sitiame_core.shared_masters.has_permission" for doctype in _SHARED_MASTERS})
 
 doc_events = {
+	# Scan antivirus ClamAV sur chaque fichier uploadé (clamav_scanner.py)
+	"File": {
+		"after_insert": "sitiame_core.clamav_scanner.scan_uploaded_file",
+	},
+	# Email entrant avec pièce jointe → Incoming Document (pipeline.py)
+	"Communication": {
+		"after_insert": "sitiame_core.incoming_document_pipeline.create_from_email"
+	},
 	# An invoice marked paid gets its Payment Entry at validation (pay_on_submit.py)
-	"Purchase Invoice": {"on_submit": "sitiame_core.pay_on_submit.create_payment"},
+	"Purchase Invoice": {
+		# Corrige l'imputation 4081→6011 quand update_stock=0 (account_guard.py)
+		"before_submit": "sitiame_core.account_guard.validate_purchase_expense_account",
+		"on_submit": "sitiame_core.pay_on_submit.create_payment",
+	},
 	"Sales Invoice": {
 		# Assign FNE number (Facture Normalisée Électronique — DGI CI obligation)
 		"before_submit": "sitiame_core.fne.assign_fne_number",
 		"on_submit": "sitiame_core.pay_on_submit.create_payment",
+	},
+	"Payment Entry": {
+		"on_submit": "sitiame_core.auto_reconcile.on_payment_submit",
 	},
 	# a chargé d'affaires proposes, a validator decides (portfolio.py)
 	"Credit Scoring Dossier": {"validate": "sitiame_core.portfolio.check_decision"},
@@ -126,6 +140,7 @@ doc_events = {
 		# every new company on the SYSCOHADA chart with codes (company_chart.py)
 		"before_insert": "sitiame_core.company_chart.force_syscohada_chart",
 		"validate": "sitiame_core.portfolio.guard_portfolio_field",
+		"after_insert": "sitiame_core.scripts.mise_en_oeuvre_exercices.provisionner_societe",
 		"on_update": [
 			"sitiame_core.company_chart.set_syscohada_defaults",
 			# document numbers of its own (naming.py)
@@ -136,6 +151,13 @@ doc_events = {
 	},
 	# every company numbers the new year's documents on its own (naming.py)
 	"Fiscal Year": {"on_update": "sitiame_core.naming.on_fiscal_year_update"},
+	# Gel automatique des comptes à la création d'une société (mise_en_oeuvre_exercices.py)
+	# Note : Company already has before_insert/validate/on_update above; after_insert is new.
+	# Dérogation de période : accordée et révoquée via Ouverture Exceptionnelle de Periode
+	"Ouverture Exceptionnelle de Periode": {
+		"on_submit": "sitiame_core.scripts.mise_en_oeuvre_exercices.ouvrir_derogation",
+		"on_cancel": "sitiame_core.scripts.mise_en_oeuvre_exercices.fermer_derogation",
+	},
 	# a PME registered by a chargé d'affaires joins his portfolio once its
 	# company is provisioned (portfolio.py); the PME user's own Contact
 	# joins its company (party_isolation.py)
@@ -180,6 +202,12 @@ after_migrate = "sitiame_core.setup.after_migrate"
 scheduler_events = {
 	"daily": [
 		"sitiame_core.tasks.block_expired_trials",
+		# lettre automatiquement paiements ↔ factures chaque nuit (auto_reconcile.py)
+		"sitiame_core.auto_reconcile.run_daily",
+	],
+	"hourly": [
+		# referme automatiquement les dérogations de période expirées (mise_en_oeuvre_exercices.py)
+		"sitiame_core.scripts.mise_en_oeuvre_exercices.fermer_derogations_echues",
 	],
 	"cron": {
 		"0 */4 * * *": ["sitiame_core.tasks.run_scheduled_backup"],
@@ -187,5 +215,9 @@ scheduler_events = {
 		"30 2 * * *": ["sitiame_core.tasks.run_daily_files_backup"],
 		# settles Jèko payments whose webhook was lost (subscription_api)
 		"*/10 * * * *": ["sitiame_core.subscription_api.reconcile_pending_payments"],
+		# clôture mensuelle automatique le 10 à 02:00 (mise_en_oeuvre_exercices.py)
+		"0 2 10 * *": ["sitiame_core.scripts.mise_en_oeuvre_exercices.cloture_mensuelle_auto"],
+		# clôture mensuelle automatique le 1er de chaque mois à 06:00 (monthly_close.py)
+		"0 6 1 * *": ["sitiame_core.monthly_close.run_monthly_task"],
 	},
 }
